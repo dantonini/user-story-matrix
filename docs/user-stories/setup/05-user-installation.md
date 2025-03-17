@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/setup/05-user-installation.md
+created_at: 2025-03-17T08:21:54+01:00
+last_updated: 2025-03-17T08:21:54+01:00
+_content_hash: da50fa3ebd3afcdc4e4614a3de8d2d07
+---
+
 # Install USM-CLI Easily
 Users should be able to install the CLI with minimal effort.
 
