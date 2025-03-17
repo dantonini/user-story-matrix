@@ -1,4 +1,4 @@
-module github.com/user-story-matrix/usm-cli
+module github.com/user-story-matrix/usm
 
 go 1.21
 

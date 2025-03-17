@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/user-story-matrix/usm-cli/cmd"
+	"github.com/user-story-matrix/usm/cmd"
 )
 
 func main() {

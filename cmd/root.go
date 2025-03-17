@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/user-story-matrix/usm-cli/internal/logger"
+	"github.com/user-story-matrix/usm/internal/logger"
 )
 
 var (

@@ -19,4 +19,4 @@ func TestRootCommand(t *testing.T) {
 	if rootCmd.PersistentFlags().Lookup("debug") == nil {
 		t.Error("Debug flag is not defined")
 	}
-}
+} 
