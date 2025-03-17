@@ -1,0 +1,44 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Get dependencies
+        run: go mod tidy
+
+      - name: Test
+        run: go test -v ./...
+
+      - name: Build for Linux
+        run: GOOS=linux GOARCH=amd64 go build -o usm-linux-amd64 -v
+
+      - name: Build for macOS
+        run: GOOS=darwin GOARCH=amd64 go build -o usm-darwin-amd64 -v
+
+      - name: Build for Windows
+        run: GOOS=windows GOARCH=amd64 go build -o usm-windows-amd64.exe -v
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: |
+            usm-linux-amd64
+            usm-darwin-amd64
+            usm-windows-amd64.exe 

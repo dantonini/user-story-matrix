@@ -1,0 +1,91 @@
+# User Story Matrix CLI (USM-CLI)
+
+A command-line tool for managing user stories and organizing them in a matrix format for better visualization and planning.
+
+## Installation
+
+### Prerequisites
+
+- Go 1.21 or higher
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/user-story-matrix/usm-cli.git
+cd usm-cli
+
+# Build the binary
+make build
+
+# Run the binary
+./usm
+```
+
+### Binary Releases
+
+Download the latest binary for your platform from the [Releases](https://github.com/user-story-matrix/usm-cli/releases) page.
+
+#### Linux/macOS
+
+```bash
+# Download the latest release (replace X.Y.Z with the version)
+curl -L https://github.com/user-story-matrix/usm-cli/releases/download/vX.Y.Z/usm-linux-amd64-X.Y.Z -o usm
+chmod +x usm
+./usm
+```
+
+#### Windows
+
+Download the executable from the [Releases](https://github.com/user-story-matrix/usm-cli/releases) page and run it from the command prompt.
+
+## Usage
+
+```bash
+# Show help
+usm --help
+
+# Run the example command
+usm example
+
+# Enable debug mode
+usm --debug example
+```
+
+## Development
+
+### Setup
+
+```bash
+# Install dependencies
+make deps
+```
+
+### Testing
+
+```bash
+# Run tests
+make test
+```
+
+### Building
+
+```bash
+# Build for current platform
+make build
+
+# Build for all platforms
+make build-all
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 
