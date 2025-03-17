@@ -16,8 +16,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "usm",
 	Short: "User Story Matrix CLI",
-	Long: `User Story Matrix CLI (usm-cli) is a tool for managing user stories
-and organizing them in a matrix format for better visualization and planning.`,
+	Long: `User Story Matrix CLI (usm-cli) is a tool for managing user stories fully integrated with
+any AI-powered coding assistant.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Initialize logger based on debug flag
 		if err := logger.Initialize(debug); err != nil {
