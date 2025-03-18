@@ -39,6 +39,47 @@ chmod +x usm
 
 Download the executable from the [Releases](https://github.com/user-story-matrix/usm-cli/releases) page and run it from the command prompt.
 
+## Shell Completion
+
+The USM CLI provides shell completion support for Bash, Zsh, Fish, and PowerShell.
+
+### Zsh
+
+Add this to your `~/.zshrc` file:
+
+```bash
+# Add usm completion to your shell
+source <(usm completion zsh)
+
+# If you have compinit disabled, you can use the following instead:
+usm completion zsh > "${fpath[1]}/_usm"
+```
+
+### Bash
+
+```bash
+# Linux
+usm completion bash > /etc/bash_completion.d/usm
+
+# macOS (with homebrew)
+usm completion bash > $(brew --prefix)/etc/bash_completion.d/usm
+
+# Or directly to your ~/.bashrc
+echo 'source <(usm completion bash)' >> ~/.bashrc
+```
+
+### Fish
+
+```bash
+usm completion fish > ~/.config/fish/completions/usm.fish
+```
+
+### PowerShell
+
+```powershell
+usm completion powershell > usm.ps1
+```
+
 ## Usage
 
 ```bash
