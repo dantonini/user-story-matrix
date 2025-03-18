@@ -16,11 +16,14 @@ type FieldType int
 const (
 	TitleField FieldType = iota
 	DescriptionField
-	ImportanceField
-	UserStoryField
+	UserStoryAsField
+	UserStoryWantField
+	UserStorySoThatField
 	AcceptanceCriteria1Field
 	AcceptanceCriteria2Field
 	AcceptanceCriteria3Field
+	AcceptanceCriteria4Field
+	AcceptanceCriteria5Field
 	ReviewField
 )
 
@@ -29,8 +32,9 @@ type FeatureForm struct {
 	fr                  models.FeatureRequest
 	titleInput          textinput.Model
 	descInput           textinput.Model
-	importanceInput     textinput.Model
-	userStoryInput      textinput.Model
+	userStoryAsInput    textinput.Model
+	userStoryWantInput  textinput.Model
+	userStorySoThatInput textinput.Model
 	acInputs            []textinput.Model
 	activeField         FieldType
 	activeACIndex       int
@@ -59,21 +63,48 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	descInput.CharLimit = 200
 	descInput.SetValue(fr.Description)
 
-	importanceInput := textinput.New()
-	importanceInput.Placeholder = "Explain why this feature is important to you"
-	importanceInput.Width = 80
-	importanceInput.CharLimit = 200
-	importanceInput.SetValue(fr.Importance)
+	// Parse existing user story if available
+	userStoryAs := ""
+	userStoryWant := ""
+	userStorySoThat := ""
+	
+	if fr.UserStory != "" {
+		parts := strings.Split(fr.UserStory, " I want ")
+		if len(parts) > 1 {
+			userStoryAs = parts[0]
+			remainingParts := strings.Split(parts[1], " so that ")
+			if len(remainingParts) > 1 {
+				userStoryWant = remainingParts[0]
+				userStorySoThat = remainingParts[1]
+			} else {
+				userStoryWant = parts[1]
+			}
+		} else {
+			userStoryAs = fr.UserStory
+		}
+	}
 
-	userStoryInput := textinput.New()
-	userStoryInput.Placeholder = "Format: As a ... I want ... so that ..."
-	userStoryInput.Width = 80
-	userStoryInput.CharLimit = 200
-	userStoryInput.SetValue(fr.UserStory)
+	userStoryAsInput := textinput.New()
+	userStoryAsInput.Placeholder = "..."
+	userStoryAsInput.Width = 80
+	userStoryAsInput.CharLimit = 100
+	userStoryAsInput.SetValue(userStoryAs)
 
-	// Create 3 acceptance criteria inputs
-	acInputs := make([]textinput.Model, 3)
-	for i := 0; i < 3; i++ {
+	userStoryWantInput := textinput.New()
+	userStoryWantInput.Placeholder = "..."
+	userStoryWantInput.Width = 80
+	userStoryWantInput.CharLimit = 100
+	userStoryWantInput.SetValue(userStoryWant)
+
+	userStorySoThatInput := textinput.New()
+	userStorySoThatInput.Placeholder = "..."
+	userStorySoThatInput.Width = 80
+	userStorySoThatInput.CharLimit = 100
+	userStorySoThatInput.SetValue(userStorySoThat)
+
+	// Create 5 acceptance criteria inputs
+	acInputs := make([]textinput.Model, 5)
+	for i := 0; i < 5; i++ {
 		acInputs[i] = textinput.New()
 		acInputs[i].Placeholder = fmt.Sprintf("Acceptance criteria %d", i+1)
 		acInputs[i].Width = 80
@@ -86,21 +117,22 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	}
 
 	form := &FeatureForm{
-		fr:                fr,
-		titleInput:        titleInput,
-		descInput:         descInput,
-		importanceInput:   importanceInput,
-		userStoryInput:    userStoryInput,
-		acInputs:          acInputs,
-		activeField:       TitleField,
-		activeACIndex:     0,
-		reviewMode:        false,
-		ConfirmSubmission: false,
-		editMode:          false,
-		cancel:            false,
-		focused:           true,
-		width:             80,
-		height:            24,
+		fr:                  fr,
+		titleInput:          titleInput,
+		descInput:           descInput,
+		userStoryAsInput:    userStoryAsInput,
+		userStoryWantInput:  userStoryWantInput,
+		userStorySoThatInput: userStorySoThatInput,
+		acInputs:            acInputs,
+		activeField:         TitleField,
+		activeACIndex:       0,
+		reviewMode:          false,
+		ConfirmSubmission:   false,
+		editMode:            false,
+		cancel:              false,
+		focused:             true,
+		width:               80,
+		height:              24,
 	}
 
 	return form
@@ -164,11 +196,14 @@ func (f *FeatureForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case DescriptionField:
 					f.descInput, cmd = f.descInput.Update(msg)
 					cmds = append(cmds, cmd)
-				case ImportanceField:
-					f.importanceInput, cmd = f.importanceInput.Update(msg)
+				case UserStoryAsField:
+					f.userStoryAsInput, cmd = f.userStoryAsInput.Update(msg)
 					cmds = append(cmds, cmd)
-				case UserStoryField:
-					f.userStoryInput, cmd = f.userStoryInput.Update(msg)
+				case UserStoryWantField:
+					f.userStoryWantInput, cmd = f.userStoryWantInput.Update(msg)
+					cmds = append(cmds, cmd)
+				case UserStorySoThatField:
+					f.userStorySoThatInput, cmd = f.userStorySoThatInput.Update(msg)
 					cmds = append(cmds, cmd)
 				case AcceptanceCriteria1Field:
 					f.acInputs[0], cmd = f.acInputs[0].Update(msg)
@@ -178,6 +213,12 @@ func (f *FeatureForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmds = append(cmds, cmd)
 				case AcceptanceCriteria3Field:
 					f.acInputs[2], cmd = f.acInputs[2].Update(msg)
+					cmds = append(cmds, cmd)
+				case AcceptanceCriteria4Field:
+					f.acInputs[3], cmd = f.acInputs[3].Update(msg)
+					cmds = append(cmds, cmd)
+				case AcceptanceCriteria5Field:
+					f.acInputs[4], cmd = f.acInputs[4].Update(msg)
 					cmds = append(cmds, cmd)
 				}
 			} else {
@@ -235,56 +276,74 @@ func (f *FeatureForm) View() string {
 	// Highlight the active field with different styling
 	titleStyle := lipgloss.NewStyle()
 	descStyle := lipgloss.NewStyle()
-	importanceStyle := lipgloss.NewStyle()
-	userStoryStyle := lipgloss.NewStyle()
+	asStyle := lipgloss.NewStyle()
+	wantStyle := lipgloss.NewStyle()
+	soThatStyle := lipgloss.NewStyle()
 	ac1Style := lipgloss.NewStyle()
 	ac2Style := lipgloss.NewStyle()
 	ac3Style := lipgloss.NewStyle()
+	ac4Style := lipgloss.NewStyle()
+	ac5Style := lipgloss.NewStyle()
 	
 	switch f.activeField {
 	case TitleField:
 		titleStyle = titleStyle.Bold(true).Foreground(lipgloss.Color("12"))
 	case DescriptionField:
 		descStyle = descStyle.Bold(true).Foreground(lipgloss.Color("12"))
-	case ImportanceField:
-		importanceStyle = importanceStyle.Bold(true).Foreground(lipgloss.Color("12"))
-	case UserStoryField:
-		userStoryStyle = userStoryStyle.Bold(true).Foreground(lipgloss.Color("12"))
+	case UserStoryAsField:
+		asStyle = asStyle.Bold(true).Foreground(lipgloss.Color("12"))
+	case UserStoryWantField:
+		wantStyle = wantStyle.Bold(true).Foreground(lipgloss.Color("12"))
+	case UserStorySoThatField:
+		soThatStyle = soThatStyle.Bold(true).Foreground(lipgloss.Color("12"))
 	case AcceptanceCriteria1Field:
 		ac1Style = ac1Style.Bold(true).Foreground(lipgloss.Color("12"))
 	case AcceptanceCriteria2Field:
 		ac2Style = ac2Style.Bold(true).Foreground(lipgloss.Color("12"))
 	case AcceptanceCriteria3Field:
 		ac3Style = ac3Style.Bold(true).Foreground(lipgloss.Color("12"))
+	case AcceptanceCriteria4Field:
+		ac4Style = ac4Style.Bold(true).Foreground(lipgloss.Color("12"))
+	case AcceptanceCriteria5Field:
+		ac5Style = ac5Style.Bold(true).Foreground(lipgloss.Color("12"))
 	}
 	
 	// Title field
-	b.WriteString(titleStyle.Render("Title") + " (required):\n")
-	b.WriteString(f.titleInput.View() + "\n\n")
+	b.WriteString(titleStyle.Render("Title") + ": ")
+	b.WriteString(f.titleInput.View() + "\n")
 	
 	// Description field
-	b.WriteString(descStyle.Render("Description") + " (required):\n")
-	b.WriteString(f.descInput.View() + "\n\n")
+	b.WriteString(descStyle.Render("Description") + ": ")
+	b.WriteString(f.descInput.View() + "\n")
 	
-	// Importance field
-	b.WriteString(importanceStyle.Render("Why it is important") + " (required):\n")
-	b.WriteString(f.importanceInput.View() + "\n\n")
+	// User Story fields
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("User Story") + "\n")
+	b.WriteString(asStyle.Render("As a") + ": ")
+	b.WriteString(f.userStoryAsInput.View() + "\n")
 	
-	// User Story field
-	b.WriteString(userStoryStyle.Render("User Story") + " (required):\n")
-	b.WriteString("Format: As a ... I want ... so that ...\n")
-	b.WriteString(f.userStoryInput.View() + "\n\n")
+	b.WriteString(wantStyle.Render("I want") + ": ")
+	b.WriteString(f.userStoryWantInput.View() + "\n")
+	
+	b.WriteString(soThatStyle.Render("So that") + ": ")
+	b.WriteString(f.userStorySoThatInput.View() + "\n")
 	
 	// Acceptance Criteria fields
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria") + " (at least one required):\n")
-	b.WriteString(ac1Style.Render("Acceptance criteria 1") + ":\n")
-	b.WriteString(f.acInputs[0].View() + "\n\n")
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria") + "\n")
 	
-	b.WriteString(ac2Style.Render("Acceptance criteria 2") + ":\n")
-	b.WriteString(f.acInputs[1].View() + "\n\n")
+	b.WriteString(ac1Style.Render("1.") + ": ")
+	b.WriteString(f.acInputs[0].View() + "\n")
 	
-	b.WriteString(ac3Style.Render("Acceptance criteria 3") + ":\n")
-	b.WriteString(f.acInputs[2].View() + "\n\n")
+	b.WriteString(ac2Style.Render("2.") + ": ")
+	b.WriteString(f.acInputs[1].View() + "\n")
+	
+	b.WriteString(ac3Style.Render("3.") + ": ")
+	b.WriteString(f.acInputs[2].View() + "\n")
+	
+	b.WriteString(ac4Style.Render("4.") + ": ")
+	b.WriteString(f.acInputs[3].View() + "\n")
+	
+	b.WriteString(ac5Style.Render("5.") + ": ")
+	b.WriteString(f.acInputs[4].View() + "\n\n")
 
 	// Navigation help
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(
@@ -299,7 +358,7 @@ func (f *FeatureForm) View() string {
 func (f *FeatureForm) renderConfirmationOnly() string {
 	var b strings.Builder
 	
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Submit Feature Request?\n\n"))
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Submit Feature Request?\n"))
 	b.WriteString("Press Enter to confirm (Y) or N to go back to editing\n")
 	
 	return b.String()
@@ -309,19 +368,16 @@ func (f *FeatureForm) renderConfirmationOnly() string {
 func (f *FeatureForm) renderReviewMode() string {
 	var b strings.Builder
 
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Review Feature Request\n\n"))
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Review Feature Request\n"))
 
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Title: "))
-	b.WriteString(f.fr.Title + "\n\n")
+	b.WriteString(f.fr.Title + "\n")
 
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Description:\n"))
-	b.WriteString(f.fr.Description + "\n\n")
-
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Why it is important:\n"))
-	b.WriteString(f.fr.Importance + "\n\n")
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Description: "))
+	b.WriteString(f.fr.Description + "\n")
 
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render("User Story:\n"))
-	b.WriteString(f.fr.UserStory + "\n\n")
+	b.WriteString(f.fr.UserStory + "\n")
 
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria:\n"))
 	for i, criteria := range f.fr.AcceptanceCriteria {
@@ -347,16 +403,22 @@ func (f *FeatureForm) nextField() {
 		f.titleInput.Blur()
 	case DescriptionField:
 		f.descInput.Blur()
-	case ImportanceField:
-		f.importanceInput.Blur()
-	case UserStoryField:
-		f.userStoryInput.Blur()
+	case UserStoryAsField:
+		f.userStoryAsInput.Blur()
+	case UserStoryWantField:
+		f.userStoryWantInput.Blur()
+	case UserStorySoThatField:
+		f.userStorySoThatInput.Blur()
 	case AcceptanceCriteria1Field:
 		f.acInputs[0].Blur()
 	case AcceptanceCriteria2Field:
 		f.acInputs[1].Blur()
 	case AcceptanceCriteria3Field:
 		f.acInputs[2].Blur()
+	case AcceptanceCriteria4Field:
+		f.acInputs[3].Blur()
+	case AcceptanceCriteria5Field:
+		f.acInputs[4].Blur()
 	}
 
 	// Move to next field
@@ -365,12 +427,15 @@ func (f *FeatureForm) nextField() {
 		f.activeField = DescriptionField
 		f.descInput.Focus()
 	case DescriptionField:
-		f.activeField = ImportanceField
-		f.importanceInput.Focus()
-	case ImportanceField:
-		f.activeField = UserStoryField
-		f.userStoryInput.Focus()
-	case UserStoryField:
+		f.activeField = UserStoryAsField
+		f.userStoryAsInput.Focus()
+	case UserStoryAsField:
+		f.activeField = UserStoryWantField
+		f.userStoryWantInput.Focus()
+	case UserStoryWantField:
+		f.activeField = UserStorySoThatField
+		f.userStorySoThatInput.Focus()
+	case UserStorySoThatField:
 		f.activeField = AcceptanceCriteria1Field
 		f.acInputs[0].Focus()
 	case AcceptanceCriteria1Field:
@@ -380,6 +445,12 @@ func (f *FeatureForm) nextField() {
 		f.activeField = AcceptanceCriteria3Field
 		f.acInputs[2].Focus()
 	case AcceptanceCriteria3Field:
+		f.activeField = AcceptanceCriteria4Field
+		f.acInputs[3].Focus()
+	case AcceptanceCriteria4Field:
+		f.activeField = AcceptanceCriteria5Field
+		f.acInputs[4].Focus()
+	case AcceptanceCriteria5Field:
 		// Move to review mode when all fields are complete
 		f.activeField = ReviewField
 		f.reviewMode = true
@@ -397,16 +468,22 @@ func (f *FeatureForm) prevField() {
 		f.titleInput.Blur()
 	case DescriptionField:
 		f.descInput.Blur()
-	case ImportanceField:
-		f.importanceInput.Blur()
-	case UserStoryField:
-		f.userStoryInput.Blur()
+	case UserStoryAsField:
+		f.userStoryAsInput.Blur()
+	case UserStoryWantField:
+		f.userStoryWantInput.Blur()
+	case UserStorySoThatField:
+		f.userStorySoThatInput.Blur()
 	case AcceptanceCriteria1Field:
 		f.acInputs[0].Blur()
 	case AcceptanceCriteria2Field:
 		f.acInputs[1].Blur()
 	case AcceptanceCriteria3Field:
 		f.acInputs[2].Blur()
+	case AcceptanceCriteria4Field:
+		f.acInputs[3].Blur()
+	case AcceptanceCriteria5Field:
+		f.acInputs[4].Blur()
 	}
 
 	// Move to previous field
@@ -414,24 +491,33 @@ func (f *FeatureForm) prevField() {
 	case DescriptionField:
 		f.activeField = TitleField
 		f.titleInput.Focus()
-	case ImportanceField:
+	case UserStoryAsField:
 		f.activeField = DescriptionField
 		f.descInput.Focus()
-	case UserStoryField:
-		f.activeField = ImportanceField
-		f.importanceInput.Focus()
+	case UserStoryWantField:
+		f.activeField = UserStoryAsField
+		f.userStoryAsInput.Focus()
+	case UserStorySoThatField:
+		f.activeField = UserStoryWantField
+		f.userStoryWantInput.Focus()
 	case AcceptanceCriteria1Field:
-		f.activeField = UserStoryField
-		f.userStoryInput.Focus()
+		f.activeField = UserStorySoThatField
+		f.userStorySoThatInput.Focus()
 	case AcceptanceCriteria2Field:
 		f.activeField = AcceptanceCriteria1Field
 		f.acInputs[0].Focus()
 	case AcceptanceCriteria3Field:
 		f.activeField = AcceptanceCriteria2Field
 		f.acInputs[1].Focus()
-	case ReviewField:
+	case AcceptanceCriteria4Field:
 		f.activeField = AcceptanceCriteria3Field
 		f.acInputs[2].Focus()
+	case AcceptanceCriteria5Field:
+		f.activeField = AcceptanceCriteria4Field
+		f.acInputs[3].Focus()
+	case ReviewField:
+		f.activeField = AcceptanceCriteria5Field
+		f.acInputs[4].Focus()
 		f.reviewMode = false
 	}
 }
@@ -440,8 +526,27 @@ func (f *FeatureForm) prevField() {
 func (f *FeatureForm) updateFeatureRequest() {
 	f.fr.Title = f.titleInput.Value()
 	f.fr.Description = f.descInput.Value()
-	f.fr.Importance = f.importanceInput.Value()
-	f.fr.UserStory = f.userStoryInput.Value()
+	
+	// Combine user story parts
+	asValue := strings.TrimSpace(f.userStoryAsInput.Value())
+	wantValue := strings.TrimSpace(f.userStoryWantInput.Value())
+	soThatValue := strings.TrimSpace(f.userStorySoThatInput.Value())
+	
+	userStory := ""
+	if asValue != "" {
+		userStory = asValue
+		if wantValue != "" {
+			userStory += " I want " + wantValue
+			if soThatValue != "" {
+				userStory += " so that " + soThatValue
+			}
+		}
+	}
+	
+	f.fr.UserStory = userStory
+	
+	// For backwards compatibility, store the combined user story in the importance field
+	f.fr.Importance = userStory
 
 	// Collect non-empty acceptance criteria
 	var criteria []string
