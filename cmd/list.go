@@ -20,8 +20,8 @@ var (
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List resources",
-	Long:  `List resources like user stories or change requests.`,
+	Short: "List user stories",
+	Long:  `List all user stories.`,
 }
 
 // listUserStoriesCmd represents the list user-stories command
