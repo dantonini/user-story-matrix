@@ -321,6 +321,21 @@ func TestEndToEndUpdateProcess(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 	
+	// Save the current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	
+	// Change to the temporary directory
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+	
+	// Make sure to change back when we're done
+	defer os.Chdir(currentDir)
+	
 	// Create a user stories directory structure
 	userStoriesDir := filepath.Join(tempDir, "docs", "user-stories")
 	err = os.MkdirAll(userStoriesDir, 0755)
@@ -451,15 +466,16 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	// Make sure to change back when we're done
 	defer os.Chdir(currentDir)
 	
-	// Create docs/user-stories directory
-	userStoriesDir := filepath.Join(tempDir, "docs", "user-stories")
-	err = os.MkdirAll(userStoriesDir, 0755)
+	// Create a mock user-stories directory structure rather than using the real one
+	mockDocsDir := filepath.Join(tempDir, "docs")
+	mockUserStoriesDir := filepath.Join(mockDocsDir, "user-stories")
+	err = os.MkdirAll(mockUserStoriesDir, 0755)
 	if err != nil {
 		t.Fatalf("Failed to create user stories directory: %v", err)
 	}
 	
 	// Create a test user story file
-	testFile := filepath.Join(userStoriesDir, "test.md")
+	testFile := filepath.Join(mockUserStoriesDir, "test.md")
 	err = os.WriteFile(testFile, []byte("# Test User Story\n\nThis is a test user story.\n"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
@@ -474,8 +490,13 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	
+	// Create a command with test-root flag
+	cmd := &cobra.Command{}
+	cmd.Flags().String("test-root", tempDir, "")
+	cmd.Flag("test-root").Value.Set(tempDir)
+	
 	// Execute the command
-	updateUserStoriesCmd.Run(nil, nil)
+	updateUserStoriesCmd.Run(cmd, nil)
 	
 	// Close the write end of the pipe to read all output
 	w.Close()
@@ -530,8 +551,8 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	r, w, _ = os.Pipe()
 	os.Stdout = w
 	
-	// Execute the command again
-	updateUserStoriesCmd.Run(nil, nil)
+	// Execute the command again with the same test-root
+	updateUserStoriesCmd.Run(cmd, nil)
 	
 	// Close the write end of the pipe
 	w.Close()
@@ -591,28 +612,29 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	// Make sure to change back when we're done
 	defer os.Chdir(currentDir)
 	
-	// Create docs/user-stories directory
-	userStoriesDir := filepath.Join(tempDir, "docs", "user-stories")
-	err = os.MkdirAll(userStoriesDir, 0755)
+	// Create a mock user-stories directory structure rather than using the real one
+	mockDocsDir := filepath.Join(tempDir, "docs")
+	mockUserStoriesDir := filepath.Join(mockDocsDir, "user-stories")
+	err = os.MkdirAll(mockUserStoriesDir, 0755)
 	if err != nil {
 		t.Fatalf("Failed to create user stories directory: %v", err)
 	}
 	
 	// Create a test user story file
-	testFile := filepath.Join(userStoriesDir, "debug-test.md")
+	testFile := filepath.Join(mockUserStoriesDir, "debug-test.md")
 	err = os.WriteFile(testFile, []byte("# Debug Test User Story\n\nThis is a debug test user story.\n"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 	
-	// Since we can't reliably capture debug output in tests (because it's sent to 
-	// a logger that may go to stderr or to a file), we'll just run the test and
-	// verify that it completes successfully and updates the file as expected
-	
 	// Create a cobra command with debug flag
 	cmd := &cobra.Command{}
 	cmd.Flags().Bool("debug", true, "")
 	cmd.Flag("debug").Value.Set("true")
+	
+	// Add test-root flag
+	cmd.Flags().String("test-root", tempDir, "")
+	cmd.Flag("test-root").Value.Set(tempDir)
 	
 	// Execute the command with debug flag
 	updateUserStoriesCmd.Run(cmd, nil)
@@ -642,7 +664,7 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	}
 	modTime1 := fileInfo.ModTime()
 	
-	// Run the command again
+	// Run the command again with the same flags
 	updateUserStoriesCmd.Run(cmd, nil)
 	
 	// Get the new last modified time

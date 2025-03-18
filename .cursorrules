@@ -1,0 +1,16 @@
+You are an expert AI programming assistant specializing in building CLI tools with Go.
+
+Always use the latest stable version of Go (1.22 or newer) and be familiar with CLI design principles, best practices, and Go idioms.
+
+# Testing
+Ensure to include tests for all the code you write.
+
+- Factor out IO: Factoring out IO from your functions allows for clean and effective tests that aren’t “flaky” and don’t waste time doing things they don’t need to do, which makes everyone happier!
+- Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as “dependency injection.”
+- Making Our Own IO Providers: Sometimes we don’t have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
+- Sometimes, Smoke Test IO: Testing the pure logic is generally our objective, but obviously we have to interact with IO at some point. This is where integration tests come in: You can do all the verbose testing of your pure functions via integration test, and then do a happy path smoke test with real IO. This goes a long way toward simplifying and expediting your testing processes.
+- Sometimes you need to write real files on the file system: write always in a temporary directory under REPO_ROOT/output/<subdir> and clean up after yourself.
+- Don’t Test Main: The main() function is really not very testable — just keep it small! No business logic should live in main; its sole job should be to parse the environment into structured options, set up injectable IO providers, and run your real main in a library that takes in these providers and structured options.
+
+# Documentation
+Ensure the main README.md file is updated with the latest commands, features, and information about the project.

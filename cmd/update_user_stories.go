@@ -44,9 +44,20 @@ and ensures each has an up-to-date metadata section containing:
 			return
 		}
 		
-		// Set the docs directory path
-		docsDir := filepath.Join(root, "docs")
-		userStoriesDir := filepath.Join(docsDir, "user-stories")
+		// Check for the --test-root flag (only used in tests)
+		var userStoriesDir string
+		testRoot, _ := cmd.Flags().GetString("test-root")
+		if testRoot != "" {
+			// For testing, use the specified directory
+			userStoriesDir = filepath.Join(testRoot, "docs", "user-stories")
+			logger.Debug("Using test root directory",
+				zap.String("test_root", testRoot),
+				zap.String("user_stories_dir", userStoriesDir))
+		} else {
+			// Normal operation: use current directory
+			docsDir := filepath.Join(root, "docs")
+			userStoriesDir = filepath.Join(docsDir, "user-stories")
+		}
 		
 		logger.Debug("Scanning for user stories", 
 			zap.String("dir", userStoriesDir),
@@ -256,5 +267,8 @@ func updateFileMetadata(filePath, root string) (bool, string, error) {
 
 func init() {
 	rootCmd.AddCommand(updateUserStoriesCmd)
+	// Add a hidden flag for testing
+	updateUserStoriesCmd.Flags().String("test-root", "", "Root directory for testing (hidden)")
+	updateUserStoriesCmd.Flags().MarkHidden("test-root")
 	logger.Debug("Update user-stories command added to root command")
 } 
