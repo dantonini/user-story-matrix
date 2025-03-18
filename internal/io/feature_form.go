@@ -51,14 +51,14 @@ type FeatureForm struct {
 // NewFeatureForm creates a new feature request form
 func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	titleInput := textinput.New()
-	titleInput.Placeholder = "Enter the title of the feature"
+	titleInput.Placeholder = "Enter title"
 	titleInput.Focus()
 	titleInput.Width = 80
 	titleInput.CharLimit = 100
 	titleInput.SetValue(fr.Title)
 
 	descInput := textinput.New()
-	descInput.Placeholder = "Enter a detailed description of the feature"
+	descInput.Placeholder = "Enter description"
 	descInput.Width = 80
 	descInput.CharLimit = 200
 	descInput.SetValue(fr.Description)
@@ -85,19 +85,19 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	}
 
 	userStoryAsInput := textinput.New()
-	userStoryAsInput.Placeholder = "..."
+	userStoryAsInput.Placeholder = " Enter user type"
 	userStoryAsInput.Width = 80
 	userStoryAsInput.CharLimit = 100
 	userStoryAsInput.SetValue(userStoryAs)
 
 	userStoryWantInput := textinput.New()
-	userStoryWantInput.Placeholder = "..."
+	userStoryWantInput.Placeholder = "Enter desired capability"
 	userStoryWantInput.Width = 80
 	userStoryWantInput.CharLimit = 100
 	userStoryWantInput.SetValue(userStoryWant)
 
 	userStorySoThatInput := textinput.New()
-	userStorySoThatInput.Placeholder = "..."
+	userStorySoThatInput.Placeholder = "Enter benefit"
 	userStorySoThatInput.Width = 80
 	userStorySoThatInput.CharLimit = 100
 	userStorySoThatInput.SetValue(userStorySoThat)
@@ -106,7 +106,7 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	acInputs := make([]textinput.Model, 5)
 	for i := 0; i < 5; i++ {
 		acInputs[i] = textinput.New()
-		acInputs[i].Placeholder = fmt.Sprintf("Acceptance criteria %d", i+1)
+		acInputs[i].Placeholder = fmt.Sprintf("Enter acceptance criteria %d", i+1)
 		acInputs[i].Width = 80
 		acInputs[i].CharLimit = 200
 		
@@ -269,8 +269,9 @@ func (f *FeatureForm) View() string {
 		return f.renderReviewMode()
 	}
 
-	// Title
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Feature Request Form\n\n"))
+	// Form title - aligned to the left with no extra spaces
+	formTitleStyle := lipgloss.NewStyle().Bold(true).AlignHorizontal(lipgloss.Left)
+	b.WriteString(formTitleStyle.Render("Feature Request Form") + "\n\n")
 
 	// Show all fields
 	// Highlight the active field with different styling
@@ -308,45 +309,50 @@ func (f *FeatureForm) View() string {
 		ac5Style = ac5Style.Bold(true).Foreground(lipgloss.Color("12"))
 	}
 	
+	// Define label settings
+	labelWidth := 12
+	
 	// Title field
-	b.WriteString(titleStyle.Render("Title") + ": ")
-	b.WriteString(f.titleInput.View() + "\n")
+	b.WriteString(titleStyle.Width(labelWidth).Render("Title:"))
+	b.WriteString(" " + f.titleInput.View() + "\n")
 	
 	// Description field
-	b.WriteString(descStyle.Render("Description") + ": ")
-	b.WriteString(f.descInput.View() + "\n")
+	b.WriteString(descStyle.Width(labelWidth).Render("Description:"))
+	b.WriteString(" " + f.descInput.View() + "\n")
 	
 	// User Story fields
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("User Story") + "\n")
-	b.WriteString(asStyle.Render("As a") + ": ")
-	b.WriteString(f.userStoryAsInput.View() + "\n")
+	headerStyle := lipgloss.NewStyle().Bold(true).AlignHorizontal(lipgloss.Left)
+	b.WriteString(headerStyle.Render("User Story") + "\n")
+	b.WriteString(asStyle.Width(labelWidth).Render("As a:"))
+	b.WriteString(" " + f.userStoryAsInput.View() + "\n")
 	
-	b.WriteString(wantStyle.Render("I want") + ": ")
-	b.WriteString(f.userStoryWantInput.View() + "\n")
+	b.WriteString(wantStyle.Width(labelWidth).Render("I want:"))
+	b.WriteString(" " + f.userStoryWantInput.View() + "\n")
 	
-	b.WriteString(soThatStyle.Render("So that") + ": ")
-	b.WriteString(f.userStorySoThatInput.View() + "\n")
+	b.WriteString(soThatStyle.Width(labelWidth).Render("So that:"))
+	b.WriteString(" " + f.userStorySoThatInput.View() + "\n")
 	
 	// Acceptance Criteria fields
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria") + "\n")
+	b.WriteString(headerStyle.Render("Acceptance Criteria") + "\n")
 	
-	b.WriteString(ac1Style.Render("1.") + ": ")
-	b.WriteString(f.acInputs[0].View() + "\n")
+	b.WriteString(ac1Style.Width(labelWidth).Render("1:"))
+	b.WriteString(" " + f.acInputs[0].View() + "\n")
 	
-	b.WriteString(ac2Style.Render("2.") + ": ")
-	b.WriteString(f.acInputs[1].View() + "\n")
+	b.WriteString(ac2Style.Width(labelWidth).Render("2:"))
+	b.WriteString(" " + f.acInputs[1].View() + "\n")
 	
-	b.WriteString(ac3Style.Render("3.") + ": ")
-	b.WriteString(f.acInputs[2].View() + "\n")
+	b.WriteString(ac3Style.Width(labelWidth).Render("3:"))
+	b.WriteString(" " + f.acInputs[2].View() + "\n")
 	
-	b.WriteString(ac4Style.Render("4.") + ": ")
-	b.WriteString(f.acInputs[3].View() + "\n")
+	b.WriteString(ac4Style.Width(labelWidth).Render("4:"))
+	b.WriteString(" " + f.acInputs[3].View() + "\n")
 	
-	b.WriteString(ac5Style.Render("5.") + ": ")
-	b.WriteString(f.acInputs[4].View() + "\n\n")
+	b.WriteString(ac5Style.Width(labelWidth).Render("5:"))
+	b.WriteString(" " + f.acInputs[4].View() + "\n\n")
 
 	// Navigation help
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8")).AlignHorizontal(lipgloss.Left)
+	b.WriteString(helpStyle.Render(
 		"Tab: next field, Shift+Tab: previous field, Enter: confirm field\n" +
 		"Press Tab after filling all fields to submit\n" +
 		"Press Ctrl+C to cancel and save as draft\n"))
