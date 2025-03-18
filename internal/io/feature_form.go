@@ -398,6 +398,38 @@ func (f *FeatureForm) renderReviewMode() string {
 	return b.String()
 }
 
+// RenderThankYouMessage returns a warm thank you message after submission
+func (f *FeatureForm) RenderThankYouMessage() string {
+	var b strings.Builder
+	
+	// Add a decorative element
+	thanksStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("10")). // Green color
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("10")).
+		Padding(1, 2).
+		Align(lipgloss.Center)
+	
+	messageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // White color
+		Width(60).
+		Align(lipgloss.Center)
+	
+	b.WriteString("\n\n")
+	b.WriteString(thanksStyle.Render("Feature Request Submitted!"))
+	b.WriteString("\n\n")
+	
+	message := "Thank you for taking the time to submit a feature request! " +
+		"Your feedback is incredibly valuable and helps make this tool better for everyone. " +
+		"I'll review your request carefully and do my best to implement it soon."
+	
+	b.WriteString(messageStyle.Render(message))
+	b.WriteString("\n\n")
+	
+	return b.String()
+}
+
 // nextField advances to the next field
 func (f *FeatureForm) nextField() {
 	// Update feature request from current field

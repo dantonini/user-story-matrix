@@ -96,7 +96,8 @@ Example:
 				logger.Debug("Failed to delete draft: " + err.Error())
 			}
 			
-			terminal.PrintSuccess("Feature request submitted successfully!")
+			// Display thank you message
+			terminal.Print(ptrForm.RenderThankYouMessage())
 		} else {
 			// Save the draft for later
 			if err := draftManager.SaveDraft(finalRequest); err != nil {
