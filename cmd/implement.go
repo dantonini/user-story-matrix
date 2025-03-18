@@ -80,18 +80,22 @@ You can create a new change request using the 'usm create change-request' comman
 // displayImplementationMessage displays the implementation message for the selected change request
 func displayImplementationMessage(term io.UserOutput, cr models.ChangeRequest) {
 	// Get the absolute path to the blueprint file
+	filePath := cr.FilePath
 	absPath, err := filepath.Abs(cr.FilePath)
 	if err != nil {
 		logger.Debug(fmt.Sprintf("Failed to get absolute path for %s: %s", cr.FilePath, err))
-		absPath = cr.FilePath // Use the relative path as fallback
+	} else {
+		filePath = absPath // Use the absolute path if available
 	}
 	
 	// Create the message
 	message := fmt.Sprintf(
-		"Read the blueprint file in %s and read all the mentioned user stories too, validate the blueprint against the code base and proceed with the implementation.",
-		filepath.Base(cr.FilePath),
+		"Read the blueprint file in [%s](%s)\nRead all the mentioned user stories, validate the blueprint against the code base and proceed with the implementation.\n",
+		cr.FilePath,
+		filePath,
 	)
 	
+	// Display the message
 	term.Print(message)
 }
 
