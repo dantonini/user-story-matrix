@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/user-story-matrix/usm/internal/changerequest"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/models"
@@ -31,7 +32,7 @@ Example:
 		terminal := io.NewTerminalIO()
 
 		// Find incomplete change requests
-		incompleteChangeRequests, err := findIncompleteChangeRequests(fs)
+		incompleteChangeRequests, err := changerequest.FindIncomplete(fs)
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("Failed to find incomplete change requests: %s", err))
 			return
@@ -49,7 +50,7 @@ Example:
 			// Multiple incomplete change requests found, let the user select one
 			options := make([]string, len(incompleteChangeRequests))
 			for i, cr := range incompleteChangeRequests {
-				options[i] = formatChangeRequestDescription(cr)
+				options[i] = changerequest.FormatDescription(cr)
 			}
 
 			// Prompt the user to select a change request
