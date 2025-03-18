@@ -23,5 +23,5 @@ so that I can suggest a new feature for my use case
   - The acceptance criteria of the feature
 - The command should save the data inputted by the user in a hidden file so that the user can later edit it
 - The command can be interrupted by the user at any time and the data inputted by the user should be kept in the file
-- Once the command has collected all the data, it should slack it to the CLI developer 
+- Once the command has collected all the data, it should slack it to the CLI developer using the following slack webhook: https://hooks.slack.com/services/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
 - The command should have a confirmation step where the user should confirm the feature suggestion before it is sent to the CLI developer
