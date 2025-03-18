@@ -45,12 +45,50 @@ Download the executable from the [Releases](https://github.com/user-story-matrix
 # Show help
 usm --help
 
-# Run the example command
-usm example
-
 # Enable debug mode
-usm --debug example
+usm --debug <command>
 ```
+
+### Managing User Stories
+
+#### Adding a User Story
+
+```bash
+# Add a new user story (will be saved in docs/user-stories)
+usm add user-story
+
+# Add a user story to a specific directory
+usm add user-story --into docs/user-stories/my-feature
+```
+
+#### Listing User Stories
+
+```bash
+# List all user stories in the default directory
+usm list user-stories
+
+# List user stories from a specific directory
+usm list user-stories --from docs/user-stories/my-feature
+```
+
+### Managing Change Requests
+
+#### Creating a Change Request
+
+```bash
+# Create a change request (interactively select user stories)
+usm create change-request
+
+# Create a change request from user stories in a specific directory
+usm create change-request --from docs/user-stories/my-feature
+```
+
+## Project Structure
+
+- `docs/user-stories/`: Default directory for user stories
+- `docs/changes-request/`: Directory for change request files
+- `cmd/`: Command-line interface commands
+- `internal/`: Internal packages
 
 ## Development
 
