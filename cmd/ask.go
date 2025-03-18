@@ -72,16 +72,17 @@ Example:
 			return
 		}
 		
-		finalForm, ok := result.(*io.FeatureForm)
+		// Get final form state
+		ptrForm, ok := result.(*io.FeatureForm)
 		if !ok {
 			terminal.PrintError("Error: could not get form result")
 			return
 		}
 		
-		finalRequest := finalForm.GetFeatureRequest()
+		finalRequest := ptrForm.GetFeatureRequest()
 		
 		// If the form was completed and confirmed, submit the request
-		if finalRequest.IsComplete() {
+		if finalRequest.IsComplete() && ptrForm.ConfirmSubmission {
 			terminal.Print("Submitting feature request...")
 			
 			slackClient := io.NewSlackClient(slackWebhookURL)
