@@ -1,5 +1,9 @@
 package io
 
+import (
+	"github.com/stretchr/testify/mock"
+)
+
 // MockIO implements both UserInput and UserOutput interfaces for testing
 type MockIO struct {
 	// For testing input responses
@@ -84,4 +88,49 @@ func (m *MockIO) PrintTable(headers []string, rows [][]string) {
 		Headers: headers,
 		Rows:    rows,
 	})
+}
+
+// The following is for testify/mock style testing
+
+// MockUserIO is a mock implementation of UserInput and UserOutput using testify/mock
+type MockUserIO struct {
+	mock.Mock
+}
+
+// Prompt mocks the Prompt method
+func (m *MockUserIO) Prompt(message string) (string, error) {
+	args := m.Called(message)
+	return args.String(0), args.Error(1)
+}
+
+// Select mocks the Select method
+func (m *MockUserIO) Select(message string, options []string) (int, error) {
+	args := m.Called(message, options)
+	return args.Int(0), args.Error(1)
+}
+
+// MultiSelect mocks the MultiSelect method
+func (m *MockUserIO) MultiSelect(message string, options []string) ([]int, error) {
+	args := m.Called(message, options)
+	return args.Get(0).([]int), args.Error(1)
+}
+
+// Print mocks the Print method
+func (m *MockUserIO) Print(message string) {
+	m.Called(message)
+}
+
+// PrintSuccess mocks the PrintSuccess method
+func (m *MockUserIO) PrintSuccess(message string) {
+	m.Called(message)
+}
+
+// PrintError mocks the PrintError method
+func (m *MockUserIO) PrintError(message string) {
+	m.Called(message)
+}
+
+// PrintTable mocks the PrintTable method
+func (m *MockUserIO) PrintTable(headers []string, rows [][]string) {
+	m.Called(headers, rows)
 } 
