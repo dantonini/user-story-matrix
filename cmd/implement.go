@@ -88,9 +88,8 @@ func displayImplementationMessage(term io.UserOutput, cr models.ChangeRequest) {
 	
 	// Create the message
 	message := fmt.Sprintf(
-		"Read the blueprint file in [%s](mdc:%s)\nRead all the mentioned user stories, validate the blueprint against the code base and proceed with the implementation.",
+		"Read the blueprint file in %s and read all the mentioned user stories too, validate the blueprint against the code base and proceed with the implementation.",
 		filepath.Base(cr.FilePath),
-		absPath,
 	)
 	
 	term.Print(message)

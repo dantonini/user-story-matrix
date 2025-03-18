@@ -128,7 +128,7 @@ func LoadChangeRequestFromContent(filePath string, content []byte) (ChangeReques
 // GetPromptInstruction generates a prompt instruction for the change request
 func GetPromptInstruction(changeRequestPath string, userStoryCount int) string {
 	return fmt.Sprintf(
-		"Read all the %d user stories files in the change request %s, validate them against the codebase, and define a detailed plan for the change. Store the plan in the change request file %s in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.",
+		"Read all the %d user stories files in the change request %s, validate them against the codebase, and define a detailed plan for the change. Don't do any implementation, just describe what needs to be done. You can describe data structures, algorithm in pseudo code, refactoring steps, etc. Store the plan in the change request file %s in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.",
 		userStoryCount,
 		changeRequestPath,
 		changeRequestPath,
