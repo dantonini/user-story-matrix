@@ -1,19 +1,54 @@
-# User Story Matrix CLI (USM-CLI)
+# USM – User Story Matrix
+*A developer-first CLI to manage, generate and orchestrate AI-powered user stories.*
 
-A command-line tool for managing user stories and organizing them in a matrix format for better visualization and planning.
+USM (User Story Matrix) is a command-line tool designed to bring structure, repeatability, and control to your AI-assisted development workflow.
 
-## Installation
+If you're using AI tools like Cursor or Windsurf to write code, you’ve probably hit some limits: unclear prompts, inconsistent results, or code that kind of works... but not really.  
+USM helps you **break down development into manageable, testable units** – user stories – and build a consistent flow around them:
 
-### Prerequisites
+- Define and organize user stories.
+- Generate implementation blueprints.
+- Apply structured prompts to AI tools.
+- Track and review change requests.
+
+You can think of USM as a lightweight orchestration layer between you and your AI assistant.  
+It doesn’t do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
+
+Whether you're working solo or in a team, USM gives you a repeatable process to make AI coding less chaotic and more productive.
+
+## Why the name?
+The name User Story Matrix reflects the idea of organizing and navigating multiple user stories thematically — like rows and columns of a matrix — to give structure and clarity to AI-assisted development.
+
+# Installation
+
+## Binary Releases
+
+Download the latest binary for your platform from the [Releases](https://github.com/dantonini/usm/releases) page.
+
+### Linux/macOS
+
+```bash
+# Download the latest release (replace X.Y.Z with the version)
+curl -L https://github.com/dantonini/usm/releases/download/vX.Y.Z/usm-linux-amd64-X.Y.Z -o usm
+chmod +x usm
+./usm
+```
+
+### Windows
+
+Download the executable from the [Releases](https://github.com/dantonini/usm/releases) page and run it from the command prompt.
+
+
+## From Source
+
+Prerequisites:
 
 - Go 1.21 or higher
 
-### From Source
-
 ```bash
 # Clone the repository
-git clone https://github.com/user-story-matrix/usm-cli.git
-cd usm-cli
+git clone https://github.com/dantonini/usm.git
+cd usm
 
 # Build the binary
 make build
@@ -22,28 +57,11 @@ make build
 ./usm
 ```
 
-### Binary Releases
+# Shell Completion
 
-Download the latest binary for your platform from the [Releases](https://github.com/user-story-matrix/usm-cli/releases) page.
+The USM provides shell completion support for Bash, Zsh, Fish, and PowerShell.
 
-#### Linux/macOS
-
-```bash
-# Download the latest release (replace X.Y.Z with the version)
-curl -L https://github.com/user-story-matrix/usm-cli/releases/download/vX.Y.Z/usm-linux-amd64-X.Y.Z -o usm
-chmod +x usm
-./usm
-```
-
-#### Windows
-
-Download the executable from the [Releases](https://github.com/user-story-matrix/usm-cli/releases) page and run it from the command prompt.
-
-## Shell Completion
-
-The USM CLI provides shell completion support for Bash, Zsh, Fish, and PowerShell.
-
-### Zsh
+## Zsh
 
 Add this to your `~/.zshrc` file:
 
@@ -55,7 +73,7 @@ source <(usm completion zsh)
 usm completion zsh > "${fpath[1]}/_usm"
 ```
 
-### Bash
+## Bash
 
 ```bash
 # Linux
@@ -68,31 +86,29 @@ usm completion bash > $(brew --prefix)/etc/bash_completion.d/usm
 echo 'source <(usm completion bash)' >> ~/.bashrc
 ```
 
-### Fish
+## Fish
 
 ```bash
 usm completion fish > ~/.config/fish/completions/usm.fish
 ```
 
-### PowerShell
+## PowerShell
 
 ```powershell
 usm completion powershell > usm.ps1
 ```
 
-## Usage
+# Usage
 
 ```bash
 # Show help
 usm --help
 
-# Enable debug mode
-usm --debug <command>
 ```
 
-### Managing User Stories
+## Managing User Stories
 
-#### Adding a User Story
+### Adding a User Story
 
 ```bash
 # Add a new user story (will be saved in docs/user-stories)
@@ -102,7 +118,7 @@ usm add user-story
 usm add user-story --into docs/user-stories/my-feature
 ```
 
-#### Listing User Stories
+### Listing User Stories
 
 ```bash
 # List all user stories in the default directory
@@ -112,9 +128,9 @@ usm list user-stories
 usm list user-stories --from docs/user-stories/my-feature
 ```
 
-### Managing Change Requests
+## Managing Change Requests
 
-#### Creating a Change Request
+### Creating a Change Request
 
 ```bash
 # Create a change request (interactively select user stories)
@@ -124,30 +140,31 @@ usm create change-request
 usm create change-request --from docs/user-stories/my-feature
 ```
 
-## Project Structure
+# Project Structure
 
-- `docs/user-stories/`: Default directory for user stories
-- `docs/changes-request/`: Directory for change request files
-- `cmd/`: Command-line interface commands
-- `internal/`: Internal packages
+- `docs/user-stories/`: Contains the user stories used to develop USM itself. This folder showcases how USM structures and manages its own development flow.
+- `docs/changes-requests/`: Stores change request files generated from one or more user stories. These represent scoped implementation plans and the context for AI-assisted coding.
+- `cmd/`: Entrypoint commands for the CLI. Each subcommand (e.g. add, list, create) is defined here.
+- `internal/`: Internal packages and logic used by the CLI. This includes core functionalities such as user story parsing, change request generation, file handling, and prompt orchestration.
 
-## Development
 
-### Setup
+# Development
+
+## Setup
 
 ```bash
 # Install dependencies
 make deps
 ```
 
-### Testing
+## Testing
 
 ```bash
 # Run tests
 make test
 ```
 
-### Building
+## Building
 
 ```bash
 # Build for current platform
@@ -157,10 +174,24 @@ make build
 make build-all
 ```
 
-## Contributing
+# Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+# Feature request
+
+Have an idea, suggestion or found something confusing?
+
+You can contribute feedback the same way you interact with the tool: by submitting a user story 😄
+
+```bash
+usm ask feature
+```
+
+This will guide you in writing a feature request as a user story and send it to me directly.
+
+Alternatively, feel free to open an issue or start a discussion here on GitHub.
