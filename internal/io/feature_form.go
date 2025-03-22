@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
@@ -71,7 +77,7 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	if fr.UserStory != "" {
 		parts := strings.Split(fr.UserStory, " I want ")
 		if len(parts) > 1 {
-			userStoryAs = parts[0]
+			userStoryAs = strings.TrimPrefix(parts[0], "As a ")
 			remainingParts := strings.Split(parts[1], " so that ")
 			if len(remainingParts) > 1 {
 				userStoryWant = remainingParts[0]
@@ -80,7 +86,7 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 				userStoryWant = parts[1]
 			}
 		} else {
-			userStoryAs = fr.UserStory
+			userStoryAs = strings.TrimPrefix(fr.UserStory, "As a ")
 		}
 	}
 
@@ -572,7 +578,7 @@ func (f *FeatureForm) updateFeatureRequest() {
 	
 	userStory := ""
 	if asValue != "" {
-		userStory = asValue
+		userStory = "As a " + asValue
 		if wantValue != "" {
 			userStory += " I want " + wantValue
 			if soThatValue != "" {

@@ -1,10 +1,18 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
@@ -65,20 +73,35 @@ Example:
 		// Get the next sequential number
 		sequentialNumber := models.GetNextSequentialNumber(entries)
 		
-		// Prompt the user for the title
-		title, err := terminal.Prompt("Enter the user story title:")
+		// Create an empty user story with current time
+		us := models.UserStory{
+			CreatedAt: time.Now(),
+			LastUpdated: time.Now(),
+		}
+		
+		// Create and run the form
+		form := io.NewUserStoryForm(us)
+		p := tea.NewProgram(form)
+		result, err := p.Run()
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Failed to read input: %s", err))
+			terminal.PrintError(fmt.Sprintf("Error running form: %s", err))
 			return
 		}
 		
-		if title == "" {
-			terminal.PrintError("Title cannot be empty")
+		// Get final form state
+		ptrForm, ok := result.(*io.UserStoryForm)
+		if !ok {
+			terminal.PrintError("Error: could not get form result")
+			return
+		}
+		
+		if !ptrForm.ConfirmSubmission {
+			terminal.Print("User story empty, creation cancelled")
 			return
 		}
 		
 		// Generate the filename
-		filename := models.GenerateFilename(sequentialNumber, title)
+		filename := models.GenerateFilename(sequentialNumber, ptrForm.GetTitle())
 		
 		// Generate the file path
 		filePath := filepath.Join(targetDir, filename)
@@ -89,19 +112,19 @@ Example:
 			return
 		}
 		
-		// Generate the template
-		template := models.GenerateUserStoryTemplate(title)
-		
-		// Fill in the remaining template fields
+		// Set the file path in the user story
 		relativePath, err := filepath.Rel(filepath.Dir(os.Args[0]), filePath)
 		if err != nil {
 			// If we can't get the relative path, use the absolute path
 			relativePath = filePath
 		}
-		finalTemplate := models.FinalizeUserStoryTemplate(template, relativePath)
+		ptrForm.SetFilePath(relativePath)
+		
+		// Get the final user story
+		us = ptrForm.GetUserStory()
 		
 		// Save the file
-		if err := fs.WriteFile(filePath, []byte(finalTemplate), 0644); err != nil {
+		if err := fs.WriteFile(filePath, []byte(us.Content), 0644); err != nil {
 			terminal.PrintError(fmt.Sprintf("Failed to write file: %s", err))
 			return
 		}
