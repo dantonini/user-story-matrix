@@ -33,4 +33,5 @@ Thumbs.db
 usm-*-amd64*
 
 # Log files
-*.log 
+*.log output
+output/

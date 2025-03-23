@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -5,16 +11,45 @@ import (
 	"os"
 	"path/filepath"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/models"
-	"github.com/user-story-matrix/usm/internal/utils"
+	"github.com/user-story-matrix/usm/internal/ui"
 )
+
+// Program interface for testing
+type program interface {
+	Run() (tea.Model, error)
+}
+
+// Default tea.Program wrapper
+type teaProgram struct {
+	*tea.Program
+}
+
+func (p *teaProgram) Run() (tea.Model, error) {
+	return p.Program.Run()
+}
+
+// Program creator type
+type programCreator func(m tea.Model, opts ...tea.ProgramOption) program
 
 var (
 	// Directory to read user stories from
 	fromUserStoriesDir string
+	// Show all user stories, including implemented ones
+	showAll bool
+	// Terminal interface for testing
+	terminal interface {
+		io.UserInput
+		io.UserOutput
+	}
+	// Program creator for testing
+	newProgram programCreator = func(m tea.Model, opts ...tea.ProgramOption) program {
+		return &teaProgram{tea.NewProgram(m, opts...)}
+	}
 )
 
 // createCmd represents the create command
@@ -104,18 +139,21 @@ Example:
 		// Print available user stories
 		terminal.Print("Available user stories:")
 		
-		// Create options for selection
-		options := make([]string, len(userStories))
-		for i, story := range userStories {
-			options[i] = utils.FormatUserStoryListItem(story, i)
-		}
+		// Create a selection UI with the showAll flag
+		selectionUI := ui.CurrentNewSelectionUI(userStories, showAll)
 		
-		// Ask the user to select one or more user stories
-		selected, err := terminal.MultiSelect("Select user stories for the change request:", options)
+		// Create a program
+		p := newProgram(selectionUI)
+		
+		// Run the program
+		model, err := p.Run()
 		if err != nil {
-			terminal.PrintError(fmt.Sprintf("Failed to select user stories: %s", err))
+			terminal.PrintError(fmt.Sprintf("Failed to run selection UI: %s", err))
 			return
 		}
+		
+		// Get the selected stories
+		selected := model.(*ui.SelectionUI).GetSelected()
 		
 		// Check if any user stories were selected
 		if len(selected) == 0 {
@@ -195,4 +233,8 @@ func init() {
 	
 	// Add flags
 	createChangeRequestCmd.Flags().StringVar(&fromUserStoriesDir, "from", "", "Directory to read user stories from (default is docs/user-stories)")
+	createChangeRequestCmd.Flags().BoolVar(&showAll, "show-all", false, "Show all user stories, including implemented ones")
+
+	// Initialize terminal
+	terminal = io.NewTerminalIO()
 } 

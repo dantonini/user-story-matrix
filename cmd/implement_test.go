@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -23,7 +29,7 @@ func TestDisplayImplementationMessage(t *testing.T) {
 	// Assert expectations
 	assert.Len(t, mockTerminal.Messages, 1)
 	assert.Contains(t, mockTerminal.Messages[0], "Read the blueprint file in")
-	assert.Contains(t, mockTerminal.Messages[0], "validate the blueprint against the code base")
+	assert.Contains(t, mockTerminal.Messages[0], "Validate the blueprint against the code base")
 }
 
 func TestDisplayNoChangeRequestsMessage(t *testing.T) {

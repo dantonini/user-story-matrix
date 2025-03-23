@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package models
 
 import (
@@ -13,13 +19,17 @@ import (
 
 // UserStory represents a user story document
 type UserStory struct {
-	Title           string    `json:"title"`
-	FilePath        string    `json:"file_path"`
-	ContentHash     string    `json:"content_hash"`
-	SequentialNumber string   `json:"sequential_number"`
-	CreatedAt       time.Time `json:"created_at"`
-	LastUpdated     time.Time `json:"last_updated"`
-	Content         string    `json:"content"`
+	Title            string    `json:"title"`
+	FilePath         string    `json:"file_path"`
+	ContentHash      string    `json:"content_hash"`
+	SequentialNumber string    `json:"sequential_number"`
+	CreatedAt        time.Time `json:"created_at"`
+	LastUpdated      time.Time `json:"last_updated"`
+	Content          string    `json:"content"`
+	Description      string    `json:"description"`
+	Criteria         []string  `json:"criteria"`
+	IsImplemented    bool      `json:"is_implemented"`
+	MatchScore      float64   `json:"match_score"`
 }
 
 // ExtractTitleFromContent extracts the title from the markdown content
@@ -132,7 +142,7 @@ func GetNextSequentialNumber(dirEntries []os.DirEntry) string {
 }
 
 // GenerateUserStoryTemplate generates a template for a new user story
-func GenerateUserStoryTemplate(title string) string {
+func GenerateUserStoryTemplate(title, filePath string) string {
 	template := `---
 file_path: {{file_path}}
 created_at: {{created_at}}
@@ -141,81 +151,112 @@ _content_hash: {{content_hash}}
 ---
 
 # {{title}}
-Add here a description of the user story
 
-As a ... 
-I want ... 
-so that ...
+As a <type of user>,  
+I want <some goal>,  
+so that <some reason>.
 
 ## Acceptance criteria
-- Add here your acceptance criteria
-- As many as needed
-`
-	
-	// Fill in only the title for now, other fields will be filled later
-	template = strings.ReplaceAll(template, "{{title}}", title)
-	
-	return template
-}
 
-// FinalizeUserStoryTemplate finalizes the template by filling in the metadata
-func FinalizeUserStoryTemplate(template, filePath string) string {
-	now := time.Now().Format(time.RFC3339)
-	
+- First criteria
+- Second criteria
+- Third criteria
+`
+
+	// Fill in the file path
 	template = strings.ReplaceAll(template, "{{file_path}}", filePath)
+
+	// Fill in the title
+	template = strings.ReplaceAll(template, "{{title}}", title)
+
+	// Fill in the dates
+	now := time.Now().Format(time.RFC3339)
 	template = strings.ReplaceAll(template, "{{created_at}}", now)
 	template = strings.ReplaceAll(template, "{{last_updated}}", now)
-	
-	// Calculate content hash after removing the placeholder
-	templateWithoutHash := strings.ReplaceAll(template, "_content_hash: {{content_hash}}", "_content_hash: ")
-	contentHash := GenerateContentHash(templateWithoutHash)
-	
-	template = strings.ReplaceAll(template, "{{content_hash}}", contentHash)
-	
+
+	// Generate a placeholder content hash
+	template = strings.ReplaceAll(template, "{{content_hash}}", "placeholder")
+
 	return template
 }
 
-// LoadUserStoryFromFile loads a user story from a file
+// GenerateUserStoryFilename generates a filename for a user story
+func GenerateUserStoryFilename(sequentialNumber, title string) string {
+	// Format: <sequential-number>-<slugified-title>.md
+	slug := SlugifyTitle(title)
+	return fmt.Sprintf("%s-%s.md", sequentialNumber, slug)
+}
+
+// LoadUserStoryFromFile loads a user story from file content
 func LoadUserStoryFromFile(filePath string, content []byte) (UserStory, error) {
-	us := UserStory{}
-	
-	// Extract basic information from the file path
-	us.FilePath = filePath
-	fileName := filepath.Base(filePath)
-	us.SequentialNumber = ExtractSequentialNumberFromFilename(fileName)
-	
-	// Extract information from content
+	us := UserStory{
+		FilePath: filePath,
+	}
+
 	contentStr := string(content)
-	us.Content = contentStr
-	us.Title = ExtractTitleFromContent(contentStr)
-	
+
 	// Extract metadata
 	metadata, err := ExtractMetadataFromContent(contentStr)
 	if err != nil {
 		return us, err
 	}
-	
-	// Parse timestamps
+
+	// Get file path
+	if filePath, ok := metadata["file_path"]; ok {
+		us.FilePath = filePath
+	}
+
+	// Get content hash
+	if contentHash, ok := metadata["_content_hash"]; ok {
+		us.ContentHash = contentHash
+	}
+
+	// Parse creation date
 	if createdAt, ok := metadata["created_at"]; ok {
 		t, err := time.Parse(time.RFC3339, createdAt)
 		if err == nil {
 			us.CreatedAt = t
 		}
 	}
-	
+
+	// Parse last updated date
 	if lastUpdated, ok := metadata["last_updated"]; ok {
 		t, err := time.Parse(time.RFC3339, lastUpdated)
 		if err == nil {
 			us.LastUpdated = t
 		}
 	}
-	
-	// Get content hash
-	if contentHash, ok := metadata["_content_hash"]; ok {
-		us.ContentHash = contentHash
-	} else {
-		us.ContentHash = GenerateContentHash(contentStr)
+
+	// Extract sequential number from filename
+	base := filepath.Base(filePath)
+	seqRegex := regexp.MustCompile(`^(\d+)-`)
+	if match := seqRegex.FindStringSubmatch(base); len(match) > 1 {
+		us.SequentialNumber = match[1]
 	}
-	
+
+	// Extract title from content
+	titleRegex := regexp.MustCompile(`(?m)^# (.+)$`)
+	if match := titleRegex.FindStringSubmatch(contentStr); len(match) > 1 {
+		us.Title = match[1]
+	}
+
+	// Store full content
+	us.Content = contentStr
+
+	// Extract description (everything between title and first ## heading)
+	descRegex := regexp.MustCompile(`(?ms)^# .+\n\n(.*?)\n\n##`)
+	if match := descRegex.FindStringSubmatch(contentStr); len(match) > 1 {
+		us.Description = strings.TrimSpace(match[1])
+	}
+
+	// Extract acceptance criteria
+	criteriaRegex := regexp.MustCompile(`(?m)^- (.+)$`)
+	matches := criteriaRegex.FindAllStringSubmatch(contentStr, -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			us.Criteria = append(us.Criteria, match[1])
+		}
+	}
+
 	return us, nil
-} 
+}
