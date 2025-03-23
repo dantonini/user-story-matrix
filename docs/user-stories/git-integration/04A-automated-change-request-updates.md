@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/04A-automated-change-request-updates.md
 created_at: 2025-03-23T12:55:02+01:00
-last_updated: 2025-03-23T21:29:02+01:00
-_content_hash: dbd7b87dd8bbc9537bd8fdac526bfdbd
+last_updated: 2025-03-23T22:01:02+01:00
+_content_hash: 4975f531bf700b7af587d455a09ef4d5
 ---
 
 # Automated Change Request Updates
@@ -11,11 +11,26 @@ When a user confirms that the modified US should replace the old version in an a
 
 **As a** developer  
 **I want** USM to streamline the process of updating CR references  
-**so that** I don’t have to manually edit every CR that points to the old US hash
+**so that** I don't have to manually edit every CR that points to the old US hash
 
 ## Acceptance Criteria
-- **AC1:** USM lists all CRs referencing the old US version when a new version is created.
-- **AC2:** A single confirmation action updates all CR references to the new US version.
+- **AC1:** When a user story is modified, USM automatically detects and displays a list containing:
+  - The hash of the old version
+  - The hash of the new version
+  - All change requests that reference the old version
+  - The status of each affected change request
+
+- **AC2:** When the user confirms the update:
+  - USM updates all references in the affected change requests from old hash to new hash
+  - USM records the update action in the change request history with timestamp and user info
+  - USM generates a summary report showing successful and failed updates
+  - USM maintains the original creation date of the change request
+
+- **AC3:** The update process provides clear feedback:
+  - Success/failure status for each change request update
+  - Detailed error messages for any failed updates
+  - Option to retry failed updates
+  - Confirmation when all updates are complete
 
 ## Metrics
 - Number of CRs successfully updated automatically.

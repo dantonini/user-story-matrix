@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/04B-automated-copy-on-write.md
 created_at: 2025-03-23T12:55:02+01:00
-last_updated: 2025-03-23T21:33:34+01:00
-_content_hash: 74e301876fb8aaf27cad8bd8c1ea0b4e
+last_updated: 2025-03-23T22:02:29+01:00
+_content_hash: a7282cad108920def8b74fcc03cffacc
 ---
 
 # Automated Copy On Write
@@ -14,12 +14,18 @@ When a user confirms that the modified US should NOT replace the old version in 
 **so that** I don't have to manually create a new file for the US and restore the one mentioned in the CR
 
 ## Acceptance Criteria
-- **AC1:** When a user modifies a user story referenced by existing change requests and chooses not to update the references, USM creates a new user story file with the modified content.
-- **AC2:** The new user story file uses the next available sequential number in the directory and a slugified version of the same title.
-- **AC3:** USM restores the original user story file exactly as it was referenced in the change request, including the original content hash.
-- **AC4:** The user receives clear feedback about the action taken, including the path of the newly created file.
-- **AC5:** The operation either completes successfully by creating the new file and restoring the original, or fails completely without partial modifications.
-- **AC6:** The process takes no more than 2 seconds to complete on a standard development machine.
+- **AC1:** Given a user story referenced by existing change requests, when the user modifies it and chooses not to update references, then USM creates a new user story file with the modified content.
+- **AC2:** Given a directory containing user stories, when creating a new user story file, then USM assigns the next available sequential number and uses a slugified version of the original title (e.g., "01-my-story.md" -> "02-my-story.md").
+- **AC3:** Given a modified user story referenced by a CR, when the user chooses to preserve the CR reference, then USM restores the original file with its exact content and hash as referenced in the CR.
+- **AC4:** Given a successful copy-on-write operation, when the process completes, then USM displays a confirmation message showing:
+  - Path to the newly created file
+  - Path to the restored original file
+  - Status of the operation
+- **AC5:** Given a copy-on-write operation, when any step fails (file creation, restoration, or validation), then USM:
+  - Rolls back any partial changes
+  - Restores the initial state
+  - Reports the specific error and failure point
+- **AC6:** Given a standard development machine (>= 16GB RAM, SSD), when performing a copy-on-write operation, then USM completes the entire process in less than 0.5 seconds.
 
 ## Metrics
 - Reduction in time spent manually creating new user story files and restoring the original ones.
