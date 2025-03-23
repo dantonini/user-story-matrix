@@ -1,8 +1,13 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/changerequest"
@@ -79,20 +84,12 @@ You can create a new change request using the 'usm create change-request' comman
 
 // displayImplementationMessage displays the implementation message for the selected change request
 func displayImplementationMessage(term io.UserOutput, cr models.ChangeRequest) {
-	// Get the absolute path to the blueprint file
-	filePath := cr.FilePath
-	absPath, err := filepath.Abs(cr.FilePath)
-	if err != nil {
-		logger.Debug(fmt.Sprintf("Failed to get absolute path for %s: %s", cr.FilePath, err))
-	} else {
-		filePath = absPath // Use the absolute path if available
-	}
+
 	
 	// Create the message
 	message := fmt.Sprintf(
-		"Read the blueprint file in [%s](%s)\nRead all the mentioned user stories, validate the blueprint against the code base and proceed with the implementation.\n",
+		"Read the blueprint file in %s:\n- Read all the mentioned user stories.\n- Validate the blueprint against the code base.\n- Proceed with the implementation.\n",
 		cr.FilePath,
-		filePath,
 	)
 	
 	// Display the message
