@@ -1,11 +1,11 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/13-show-selection-count-while-typing.md
 created_at: 2025-03-24T19:39:23+01:00
-last_updated: 2025-03-24T19:39:23+01:00
-_content_hash: c75391fb6281850ffdf83c554f51731e
+last_updated: 2025-03-24T20:06:18+01:00
+_content_hash: 3f7cc9177ed7d67382dacacb0c829dc6
 ---
 
-## 13. Show Selection Count While Typing
+## Show Selection Count While Typing
 
 **User Story**  
 As a CLI user,  

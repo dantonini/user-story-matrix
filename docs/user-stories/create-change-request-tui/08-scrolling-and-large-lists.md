@@ -1,11 +1,11 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/08-scrolling-and-large-lists.md
 created_at: 2025-03-24T07:26:27+01:00
-last_updated: 2025-03-24T07:26:27+01:00
-_content_hash: c09b6144acfdd6b6ab600d76bbab4469
+last_updated: 2025-03-24T20:05:59+01:00
+_content_hash: 0c1469362d303759ba5fc87f137aca75
 ---
 
-## 8. Scrolling and Large Lists
+## Scrolling and Large Lists
 
 **User Story**  
 As a CLI user,  

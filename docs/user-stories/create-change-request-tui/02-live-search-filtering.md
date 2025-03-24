@@ -1,11 +1,11 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/02-live-search-filtering.md
 created_at: 2025-03-24T07:21:59+01:00
-last_updated: 2025-03-24T07:21:59+01:00
-_content_hash: cab84d112716971eed823a3f90b000d0
+last_updated: 2025-03-24T20:05:31+01:00
+_content_hash: 4dfac4c7967c2e6cbefb86dece9b040c
 ---
 
-## 2. Live Search Filtering
+## Live Search Filtering
 
 **User Story**  
 As a CLI user,  
