@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/create-change-request-tui/07-exiting-the-ui-gracefully.md
+created_at: 2025-03-24T07:25:38+01:00
+last_updated: 2025-03-24T07:25:38+01:00
+_content_hash: 14dc62c151c0eb3a454fb012077122ef
+---
+
 ## 7. Exiting the UI Gracefully
 
 **User Story**  

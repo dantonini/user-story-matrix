@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/create-change-request-tui/11-auto-focus-first-result-after-search.md
+created_at: 2025-03-24T19:37:54+01:00
+last_updated: 2025-03-24T19:37:54+01:00
+_content_hash: d0789efbe40f91692f2003cc399a98c6
+---
+
 ## 11. Auto-Focus First Result After Search
 
 **User Story**  

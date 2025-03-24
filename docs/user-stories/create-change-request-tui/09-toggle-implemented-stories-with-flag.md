@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/create-change-request-tui/09-toggle-implemented-stories-with-flag.md
+created_at: 2025-03-24T19:47:07+01:00
+last_updated: 2025-03-24T19:47:07+01:00
+_content_hash: 7d00b9fd714d39102af837438780d83c
+---
+
 ## Toggle Between All and Only Unimplemented User Stories
 
 **User Story**  
