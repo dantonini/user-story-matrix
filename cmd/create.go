@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -13,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	"github.com/user-story-matrix/usm/internal/implementation"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/models"
@@ -121,6 +121,11 @@ Example:
 				return nil
 			}
 			
+			// Check if the user story is implemented
+			if err := implementation.UpdateImplementationStatus(&userStory, fs); err != nil {
+				logger.Debug("Failed to check implementation status: " + err.Error())
+			}
+			
 			userStories = append(userStories, userStory)
 			return nil
 		})
@@ -142,8 +147,13 @@ Example:
 		// Create a selection UI with the showAll flag
 		selectionUI := ui.CurrentNewSelectionUI(userStories, showAll)
 		
-		// Create a program
-		p := newProgram(selectionUI)
+		// Create a program with more options
+		p := newProgram(selectionUI, 
+			// Add option to capture the terminal window size on startup
+			tea.WithAltScreen(),
+			// Send an initial window size event to ensure the UI is properly sized
+			tea.WithMouseCellMotion(),
+		)
 		
 		// Run the program
 		model, err := p.Run()

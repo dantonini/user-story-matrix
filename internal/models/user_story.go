@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package models
 
 import (
@@ -29,7 +28,7 @@ type UserStory struct {
 	Description      string    `json:"description"`
 	Criteria         []string  `json:"criteria"`
 	IsImplemented    bool      `json:"is_implemented"`
-	MatchScore      float64   `json:"match_score"`
+	MatchScore       float64   `json:"match_score"`
 }
 
 // ExtractTitleFromContent extracts the title from the markdown content
@@ -188,6 +187,8 @@ func GenerateUserStoryFilename(sequentialNumber, title string) string {
 }
 
 // LoadUserStoryFromFile loads a user story from file content
+// Note: The IsImplemented flag must be set separately using implementation.UpdateImplementationStatus
+// as it requires scanning all change requests to determine if the story is implemented
 func LoadUserStoryFromFile(filePath string, content []byte) (UserStory, error) {
 	us := UserStory{
 		FilePath: filePath,
