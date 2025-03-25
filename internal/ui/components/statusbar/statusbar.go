@@ -49,36 +49,22 @@ func (s StatusBar) ToggleHelp() StatusBar {
 func (s StatusBar) View(state *models.UIState) string {
 	var sb strings.Builder
 	
-	// Mode indicator
-	var modeInfo string
-	if state.SearchFocused {
-		modeInfo = "MODE: SEARCH"
-	} else {
-		modeInfo = "MODE: LIST"
-	}
+	// Selection status
+	selectionStatus := fmt.Sprintf("✔ %d selected", state.SelectedCount())
+	
+	// Visible status
+	visibleStatus := fmt.Sprintf("%d visible / %d total", state.FilteredStories, state.TotalStories)
 	
 	// Filter status
 	var filterStatus string
 	if state.ShowImplemented {
-		filterStatus = "FILTER: ALL STORIES"
+		filterStatus = "Filter: All"
 	} else {
-		filterStatus = "FILTER: UNIMPLEMENTED ONLY"
+		filterStatus = "Filter: Unimplemented"
 	}
-	
-	// If there's a search query, include it
-	if state.FilterText != "" {
-		filterStatus = fmt.Sprintf("SEARCH: '%s' | %s", state.FilterText, filterStatus)
-	}
-	
-	// Store the filter status for height calculations
-	s.lastFilterStatus = filterStatus
-	
-	// Selection status
-	selectionStatus := fmt.Sprintf("✔ %d selected | %d visible / %d total", 
-		state.SelectedCount(), state.FilteredStories, state.TotalStories)
 	
 	// Combine the status elements
-	status := fmt.Sprintf("%s | %s | %s", modeInfo, filterStatus, selectionStatus)
+	status := fmt.Sprintf("%s | %s | %s", selectionStatus, visibleStatus, filterStatus)
 	
 	// Render the status bar
 	statusBar := s.styles.StatusBar.Copy().Width(s.width).Render(status)
@@ -92,7 +78,7 @@ func (s StatusBar) View(state *models.UIState) string {
 		} else {
 			helpText = s.keyMap.ListModeHelpView()
 		}
-		sb.WriteString(helpText + "\n")
+		sb.WriteString(helpText)
 	}
 	
 	return sb.String()

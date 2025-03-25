@@ -83,7 +83,7 @@ func (s SearchBox) Focused() bool {
 // SetWidth sets the width of the search box
 func (s SearchBox) SetWidth(width int) SearchBox {
 	s.width = width
-	s.textInput.Width = width
+	s.textInput.Width = width - 20 // Adjust for prompt and styling
 	return s
 }
 
@@ -111,8 +111,20 @@ func (s SearchBox) View() string {
 	}
 	
 	// Create search input with styled border
-	searchView := s.styles.SearchBox.Copy().Width(s.width).Render(s.textInput.View())
+	var searchStyle = s.styles.SearchBox
+	if s.focused {
+		// Highlight the search box when focused
+		searchStyle = searchStyle.Copy().BorderForeground(s.styles.Selected.GetForeground())
+	}
+	
+	searchView := searchStyle.Copy().Width(s.width).Render(s.textInput.View())
+	
+	// Add filter toggle hint
+	filterHint := ""
+	if s.focused {
+		filterHint = s.styles.Normal.Render("   (CTRL+a to toggle all/unimplemented)")
+	}
 	
 	// Combine the label and input
-	return label + "\n" + searchView
+	return label + filterHint + "\n" + searchView
 } 

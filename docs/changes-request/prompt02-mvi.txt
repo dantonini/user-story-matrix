@@ -1,0 +1,10 @@
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
+
+Read the implementation plan docs/changes-request/2025-03-24-200355-full-tui.code.md
+Read the "laying the foundation" accomplished summary docs/changes-request/2025-03-24-200355-full-tui.code.md.accomplished.md
+ 
+Now Your task is implementing an MVI
+
+At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-24-200355-full-tui.mvi.md.accomplished.md
+
+ADD THE RULE: @blueprint-code-02-mvi.mdc

@@ -1,0 +1,70 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🧩 Minimum Viable Implementation (MVI) Guide
+
+The goal is to build a **minimum viable implementation** for each user story based on the blueprint, ensuring correctness and testability at every step.
+
+---
+
+## ✅ Scope
+
+- You already have:
+  - A structured blueprint with user stories, acceptance criteria, and a plan of action.
+  - A scaffolded codebase that makes room for upcoming changes.
+  
+Now you will build the **simplest working implementation** for each user story that satisfies its requirements and passes all associated tests.
+
+---
+
+## 🔁 Process: One User Story at a Time
+
+### 1. Review the User Story
+
+- Read the user story and its acceptance criteria from the blueprint.
+
+### 2. Write Verification Code
+
+- For each acceptance criterion, write a corresponding automated test (unit or integration).
+- Ensure the test clearly reflects the criterion, is easy to run, and produces a reliable outcome.
+- The absence of implementation should cause these tests to fail initially.
+
+### 3. Implement the Minimum Logic
+
+- Write the **simplest code** needed to satisfy the user story and make the tests pass.
+- Avoid unnecessary generalizations, optimizations, or edge case handling at this stage.
+- Stick closely to the logic suggested by the blueprint.
+
+### 4. Run the Full Test Suite
+
+- After implementing each user story, run the **entire test suite**.
+- All tests—existing and newly added—must pass.
+- Fix any issues immediately before proceeding to the next user story.
+
+### 5. Document and Leave TODOs
+
+- If the blueprint suggests future improvements (e.g. refactoring, edge case handling, performance tuning), add clear TODOs or comments in the code.
+- These will be handled in later phases, not during MVI.
+
+---
+
+## 📌 Principles
+
+- Keep the implementation minimal but correct.
+- Build confidence through verification.
+- Avoid building more than what’s needed to pass the tests and meet the blueprint requirements.
+- Defer enhancements and broader handling to future iterations.
+
+---
+
+## ✅ Final Check
+
+After completing MVI for all user stories:
+
+- Run the test suite again to confirm full functionality.
+- Ensure each feature is backed by at least one clear, reliable test.
+- Write a summary of what you've accomplished.
+
+---

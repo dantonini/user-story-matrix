@@ -245,10 +245,22 @@ func (l StoryList) Update(msg tea.Msg) (StoryList, tea.Cmd) {
 		return l, nil
 	}
 	
-	// Handle window resize
-	if msg, ok := msg.(tea.WindowSizeMsg); ok {
-		l = l.SetSize(msg.Width, msg.Height-6) // Adjust for header/footer
-		return l, nil
+	// Handle key presses
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			return l.MoveUp(), nil
+		case "down", "j":
+			return l.MoveDown(), nil
+		case "pgup":
+			return l.PageUp(), nil
+		case "pgdown":
+			return l.PageDown(), nil
+		case " ":
+			newList, _ := l.ToggleSelection()
+			return newList, nil
+		}
 	}
 	
 	return l, nil
@@ -257,53 +269,57 @@ func (l StoryList) Update(msg tea.Msg) (StoryList, tea.Cmd) {
 // View renders the story list
 func (l StoryList) View() string {
 	if len(l.items) == 0 {
-		return l.styles.Error.Render("⚠️  No matching user stories found.")
+		return "No stories to display."
 	}
 	
-	// Create a string builder for the list
 	var sb strings.Builder
 	
-	// Draw a separator line
-	sb.WriteString(strings.Repeat("─", l.width) + "\n")
-	
-	// Draw visible items
-	for i := l.visibleStart; i < l.visibleEnd; i++ {
+	// Display only visible items
+	for i := l.visibleStart; i < l.visibleEnd && i < len(l.items); i++ {
 		item := l.items[i]
 		
-		// Get styled checkbox
+		// Create the checkbox
 		checkbox := l.styles.GetCheckbox(item.IsSelected)
 		
-		// Get implementation status
-		implStatus := l.styles.GetImplementationStatus(item.Story.IsImplemented)
+		// Create the implementation status
+		impStatus := l.styles.GetImplementationStatus(item.Story.IsImplemented)
 		
-		// Get the path display
-		path := strings.TrimPrefix(item.Story.FilePath, "docs/user-stories/")
-		pathInfo := " (" + path + ")"
+		// Create the title (truncate if too long)
+		title := item.Story.Title
+		if len(title) > l.width - 30 {
+			title = title[:l.width-33] + "..."
+		}
 		
-		// Prepare the line
-		line := fmt.Sprintf("%s %s %s%s", checkbox, implStatus, item.Story.Title, pathInfo)
+		// Create the file path (truncate and show only relevant parts)
+		filePath := item.Story.FilePath
+		if len(filePath) > 30 {
+			parts := strings.Split(filePath, "/")
+			if len(parts) > 2 {
+				// Show last two parts only
+				filePath = ".../" + strings.Join(parts[len(parts)-2:], "/")
+			}
+		}
 		
-		// Apply the appropriate style based on item state
-		isCurrent := i == l.cursor
-		styledLine := l.styles.ItemStyles(
-			item.IsSelected, 
-			item.Story.IsImplemented, 
-			isCurrent && l.focused,
-		).Render(line)
+		// Determine style based on selection and cursor
+		var style = l.styles.ItemStyles(
+			item.IsSelected,
+			item.Story.IsImplemented,
+			l.focused && i == l.cursor,
+		)
 		
-		// Add the line to the view
-		sb.WriteString(styledLine + "\n")
+		// Create the full line
+		line := fmt.Sprintf("%s %s %s (%s)", checkbox, impStatus, title, filePath)
+		
+		// Apply style to line
+		sb.WriteString(style.Width(l.width).Render(line))
+		sb.WriteString("\n")
 	}
 	
-	// Draw a separator line
-	sb.WriteString(strings.Repeat("─", l.width) + "\n")
-	
-	// Draw paginator
+	// Add scrolling indicator if needed
 	if len(l.items) > l.height {
-		// Show current range and total
-		paginator := fmt.Sprintf("Stories %d-%d / %d | ↑↓ scroll | PgUp/PgDn fast scroll", 
+		indicator := fmt.Sprintf("Showing %d-%d of %d", 
 			l.visibleStart+1, l.visibleEnd, len(l.items))
-		sb.WriteString(paginator + "\n")
+		sb.WriteString(l.styles.Normal.Render(indicator))
 	}
 	
 	return sb.String()

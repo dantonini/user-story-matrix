@@ -84,7 +84,7 @@ func New(stories []models.UserStory, showAll bool) *SelectionPage {
 		width:     80,
 		height:    24,
 		quitting:  false,
-		ready:     false,
+		ready:     true,
 	}
 }
 
@@ -145,9 +145,15 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Handle search mode key bindings
 			switch {
 			case key.Matches(msg, p.keyMap.Quit):
-				// Quit the application
-				p.quitting = true
-				return p, tea.Quit
+				// In search mode, Esc clears the search or exits if already empty
+				if p.searchBox.Value() != "" {
+					p.searchBox = p.searchBox.SetValue("")
+					cmds = append(cmds, p.updateResults())
+				} else {
+					// Quit the application
+					p.quitting = true
+					return p, tea.Quit
+				}
 			
 			case key.Matches(msg, p.keyMap.Tab):
 				// Switch to list mode
@@ -203,12 +209,8 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.searchBox = p.searchBox.Focus()
 				p.storyList = p.storyList.Blur()
 				
-			case key.Matches(msg, p.keyMap.Done):
-				// Confirm selection and quit
-				return p, tea.Quit
-				
 			case key.Matches(msg, p.keyMap.Select):
-				// Toggle selection of the current item
+				// Toggle selection of current item
 				var id string
 				p.storyList, id = p.storyList.ToggleSelection()
 				if id != "" {
@@ -236,64 +238,60 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.state.ToggleImplementationFilter()
 				cmds = append(cmds, p.updateResults())
 				
-			case key.Matches(msg, p.keyMap.Clear):
-				// Clear search text
-				p.searchBox = p.searchBox.SetValue("")
-				cmds = append(cmds, p.updateResults())
-				
 			case key.Matches(msg, p.keyMap.Help):
 				// Toggle help display
 				p.statusBar = p.statusBar.ToggleHelp()
 				
-			default:
-				// Update story list
-				var cmd tea.Cmd
-				p.storyList, cmd = p.storyList.Update(msg)
-				if cmd != nil {
-					cmds = append(cmds, cmd)
-				}
-			}
-		}
-		
-	default:
-		// Pass message to focused component
-		if p.state.SearchFocused {
-			var cmd tea.Cmd
-			p.searchBox, cmd = p.searchBox.Update(msg)
-			if cmd != nil {
-				cmds = append(cmds, cmd)
-			}
-		} else {
-			var cmd tea.Cmd
-			p.storyList, cmd = p.storyList.Update(msg)
-			if cmd != nil {
-				cmds = append(cmds, cmd)
+			case key.Matches(msg, p.keyMap.Done):
+				// Complete selection
+				p.quitting = true
+				return p, tea.Quit
 			}
 		}
 	}
 	
+	// Return the updated model
 	return p, tea.Batch(cmds...)
 }
 
 // View renders the page
 func (p *SelectionPage) View() string {
 	if !p.ready {
-		return "Initializing..."
+		return "Loading..."
 	}
 	
-	// Build the view
+	if p.quitting {
+		return "Change request creation canceled by user."
+	}
+	
 	var sb strings.Builder
 	
-	// Draw the status bar at the top
-	sb.WriteString(p.statusBar.View(p.state))
-	sb.WriteString("\n")
-	
-	// Draw the search box
+	// Render search box
 	sb.WriteString(p.searchBox.View())
 	sb.WriteString("\n")
 	
-	// Draw the story list
-	sb.WriteString(p.storyList.View())
+	// Render divider
+	divider := strings.Repeat("─", p.width)
+	sb.WriteString(divider)
+	sb.WriteString("\n")
+	
+	// Render story list
+	listView := p.storyList.View()
+	if len(p.state.VisibleStories) == 0 {
+		// Show no results message
+		noResults := p.styles.Error.Render("⚠️  No matching user stories found.")
+		sb.WriteString(noResults)
+	} else {
+		sb.WriteString(listView)
+	}
+	sb.WriteString("\n")
+	
+	// Render divider
+	sb.WriteString(divider)
+	sb.WriteString("\n")
+	
+	// Render status bar
+	sb.WriteString(p.statusBar.View(p.state))
 	
 	return sb.String()
 } 

@@ -7,152 +7,143 @@ package pages
 
 import (
 	"testing"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
 	"github.com/user-story-matrix/usm/internal/models"
 )
 
-func TestSelectionPage(t *testing.T) {
-	// Create test stories
-	stories := []models.UserStory{
+// Test data
+func getTestStories() []models.UserStory {
+	return []models.UserStory{
 		{
-			Title:         "User Story 1",
-			FilePath:      "docs/user-stories/user-story-1.md",
+			Title:         "Add login functionality",
+			FilePath:      "docs/user-stories/auth/01-add-login-functionality.md",
+			Description:   "Users should be able to log in with their credentials",
 			IsImplemented: false,
+			CreatedAt:     time.Now(),
+			LastUpdated:   time.Now(),
 		},
 		{
-			Title:         "User Story 2",
-			FilePath:      "docs/user-stories/user-story-2.md",
+			Title:         "Integrate payment provider",
+			FilePath:      "docs/user-stories/payment/01-integrate-payment-provider.md",
+			Description:   "Users should be able to pay for services",
+			IsImplemented: false,
+			CreatedAt:     time.Now(),
+			LastUpdated:   time.Now(),
+		},
+		{
+			Title:         "Export user data to CSV",
+			FilePath:      "docs/user-stories/export/01-export-user-data-to-csv.md",
+			Description:   "Users should be able to export their data",
 			IsImplemented: true,
-		},
-		{
-			Title:         "User Story 3",
-			FilePath:      "docs/user-stories/user-story-3.md",
-			IsImplemented: false,
+			CreatedAt:     time.Now(),
+			LastUpdated:   time.Now(),
 		},
 	}
+}
 
-	// Test showing only unimplemented stories
-	t.Run("ShowUnimplementedOnly", func(t *testing.T) {
-		page := New(stories, false)
-		page.Init()
+// Test initial view
+func TestInitialView(t *testing.T) {
+	page := New(getTestStories(), false)
 
-		// Check that only unimplemented stories are shown
-		if len(page.state.VisibleStories) != 2 {
-			t.Errorf("Expected 2 visible stories, got %d", len(page.state.VisibleStories))
-		}
-	})
+	// Initialize the page
+	page.Init()
 
-	// Test showing all stories
-	t.Run("ShowAll", func(t *testing.T) {
-		page := New(stories, true)
-		page.Init()
+	// Get the view
+	view := page.View()
 
-		// Check that all stories are shown
-		if len(page.state.VisibleStories) != 3 {
-			t.Errorf("Expected 3 visible stories, got %d", len(page.state.VisibleStories))
-		}
-	})
+	// Check if key elements are present
+	assert.Contains(t, view, "Search")
+	assert.Contains(t, view, "Add login functionality")
+	assert.Contains(t, view, "Integrate payment provider")
+	assert.NotContains(t, view, "Export user data to CSV") // Implemented stories should not be shown by default
+}
 
-	// Test toggling implementation filter
-	t.Run("ToggleImplementationFilter", func(t *testing.T) {
-		page := New(stories, false)
-		page.Init()
+// Test implementation filter toggle
+func TestToggleImplementationFilter(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
 
-		// Initially only unimplemented stories are shown
-		if len(page.state.VisibleStories) != 2 {
-			t.Errorf("Expected 2 visible stories, got %d", len(page.state.VisibleStories))
-		}
+	// Toggle the filter to show all stories
+	page.state.ToggleImplementationFilter()
+	page.updateResults()
 
-		// Toggle to show all stories
-		page.state.ToggleImplementationFilter()
-		page.updateResults()
+	// Get the view
+	view := page.View()
 
-		// Now all stories should be shown
-		if len(page.state.VisibleStories) != 3 {
-			t.Errorf("Expected 3 visible stories, got %d", len(page.state.VisibleStories))
-		}
-	})
+	// Check if implemented story is now shown
+	assert.Contains(t, view, "Export user data to CSV")
+}
 
-	// Test selection
-	t.Run("Selection", func(t *testing.T) {
-		page := New(stories, true)
-		page.Init()
+// Test search filtering
+func TestSearchFiltering(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
 
-		// Initially no stories are selected
-		if page.state.SelectedCount() != 0 {
-			t.Errorf("Expected 0 selected stories, got %d", page.state.SelectedCount())
-		}
+	// Set search text
+	page.searchBox = page.searchBox.SetValue("login")
+	page.updateResults()
 
-		// Select a story
-		page.state.ToggleSelection(stories[0].FilePath)
+	// Get the view
+	view := page.View()
 
-		// Now one story should be selected
-		if page.state.SelectedCount() != 1 {
-			t.Errorf("Expected 1 selected story, got %d", page.state.SelectedCount())
-		}
+	// Check if only login story is shown
+	assert.Contains(t, view, "Add login functionality")
+	assert.NotContains(t, view, "Integrate payment provider")
+}
 
-		// Toggle the same story to deselect it
-		page.state.ToggleSelection(stories[0].FilePath)
+// Test focus switching
+func TestFocusSwitching(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
 
-		// Now no stories should be selected
-		if page.state.SelectedCount() != 0 {
-			t.Errorf("Expected 0 selected stories, got %d", page.state.SelectedCount())
-		}
-	})
+	// Check initial focus
+	assert.True(t, page.state.SearchFocused)
 
-	// Test search
-	t.Run("Search", func(t *testing.T) {
-		page := New(stories, true)
-		page.Init()
+	// Simulate tab key press
+	model, _ := page.Update(tea.KeyMsg{Type: tea.KeyTab})
+	page = model.(*SelectionPage)
 
-		// Initially all stories are shown
-		if len(page.state.VisibleStories) != 3 {
-			t.Errorf("Expected 3 visible stories, got %d", len(page.state.VisibleStories))
-		}
+	// Check focus switched to list
+	assert.False(t, page.state.SearchFocused)
 
-		// Set search text
-		page.searchBox = page.searchBox.SetValue("User Story 1")
-		page.updateResults()
+	// Simulate tab key press again
+	model, _ = page.Update(tea.KeyMsg{Type: tea.KeyTab})
+	page = model.(*SelectionPage)
 
-		// Now only one story should be shown
-		if len(page.state.VisibleStories) != 1 {
-			t.Errorf("Expected 1 visible story, got %d", len(page.state.VisibleStories))
-		}
+	// Check focus switched back to search
+	assert.True(t, page.state.SearchFocused)
+}
 
-		// Clear search text
-		page.searchBox = page.searchBox.SetValue("")
-		page.updateResults()
+// Test selection
+func TestSelection(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
 
-		// Now all stories should be shown again
-		if len(page.state.VisibleStories) != 3 {
-			t.Errorf("Expected 3 visible stories, got %d", len(page.state.VisibleStories))
-		}
-	})
+	// Switch focus to list
+	model, _ := page.Update(tea.KeyMsg{Type: tea.KeyTab})
+	page = model.(*SelectionPage)
 
-	// Test focus switching
-	t.Run("FocusSwitching", func(t *testing.T) {
-		page := New(stories, true)
-		page.Init()
+	// Select an item with space
+	model, _ = page.Update(tea.KeyMsg{Type: tea.KeySpace})
+	page = model.(*SelectionPage)
 
-		// Initially search box is focused
-		if !page.state.SearchFocused {
-			t.Errorf("Expected search box to be focused")
-		}
+	// Check if item is selected
+	selected := page.GetSelected()
+	assert.Equal(t, 1, len(selected))
+}
 
-		// Switch focus to list
-		page.state.FocusList()
+// Test exiting
+func TestExiting(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
 
-		// Now list should be focused
-		if page.state.SearchFocused {
-			t.Errorf("Expected list to be focused")
-		}
+	// Simulate escape key press
+	model, _ := page.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	page = model.(*SelectionPage)
 
-		// Switch focus back to search
-		page.state.FocusSearch()
-
-		// Now search box should be focused
-		if !page.state.SearchFocused {
-			t.Errorf("Expected search box to be focused")
-		}
-	})
+	// Check if we're quitting
+	assert.True(t, page.quitting)
 } 
