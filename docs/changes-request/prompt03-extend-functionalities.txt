@@ -1,0 +1,19 @@
+Your task is **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+
+- Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
+- Read the implementation plan docs/changes-request/2025-03-24-200355-full-tui.code.md
+- Read the "laying the foundation" accomplished summary using cat docs/changes-request/2025-03-24-200355-full-tui.code.md.accomplished.md
+- Read the "MVI" accomplished summary using cat: docs/changes-request/2025-03-24-200355-full-tui.mvi.md.accomplished.md 
+
+1. For each user story:
+   - Review the acceptance criteria not yet implemented.
+   - Identify edge cases and secondary scenarios.
+   - Extend the implementation accordingly.
+
+2. For each new case:
+   - Add or update tests.
+   - Ensure the verification logic (e.g., test assertions) remains aligned with the blueprint.
+
+3. Run the full test suite and validate all tests pass.
+
+At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-24-200355-full-tui.extend-functionalities.md.accomplished.md

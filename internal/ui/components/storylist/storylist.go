@@ -323,4 +323,26 @@ func (l StoryList) View() string {
 	}
 	
 	return sb.String()
+}
+
+// SetCursor sets the cursor position
+func (l StoryList) SetCursor(position int) StoryList {
+	if len(l.items) == 0 {
+		return l
+	}
+	
+	// Set the cursor to the specified position
+	l.cursor = position
+	
+	// Ensure the cursor is within bounds
+	if l.cursor < 0 {
+		l.cursor = 0
+	} else if l.cursor >= len(l.items) {
+		l.cursor = len(l.items) - 1
+	}
+	
+	// Update visible range
+	l.updateVisibleRange()
+	
+	return l
 } 

@@ -49,8 +49,13 @@ func (s StatusBar) ToggleHelp() StatusBar {
 func (s StatusBar) View(state *models.UIState) string {
 	var sb strings.Builder
 	
-	// Selection status
+	// Selection status with hidden selections if any
 	selectionStatus := fmt.Sprintf("✔ %d selected", state.SelectedCount())
+	
+	// Add hidden selection count if there are any
+	if hiddenCount := state.HiddenSelectedCount(); hiddenCount > 0 {
+		selectionStatus += fmt.Sprintf(" (%d hidden)", hiddenCount)
+	}
 	
 	// Visible status
 	visibleStatus := fmt.Sprintf("%d visible / %d total", state.FilteredStories, state.TotalStories)

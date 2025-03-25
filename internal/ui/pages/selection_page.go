@@ -114,6 +114,12 @@ func (p *SelectionPage) updateResults() tea.Cmd {
 	// Update story list
 	p.storyList = p.storyList.SetItems(filtered, p.state.SelectedIDs)
 	
+	// Ensure the first item is focused if there are any results
+	if len(filtered) > 0 {
+		// Set cursor to the first item
+		p.storyList = p.storyList.SetCursor(0)
+	}
+	
 	return nil
 }
 
@@ -147,10 +153,16 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, p.keyMap.Quit):
 				// In search mode, Esc clears the search or exits if already empty
 				if p.searchBox.Value() != "" {
+					// Clear the search text
 					p.searchBox = p.searchBox.SetValue("")
+					
+					// Update the results with empty filter
 					cmds = append(cmds, p.updateResults())
+					
+					// Keep focus in search box
+					return p, tea.Batch(cmds...)
 				} else {
-					// Quit the application
+					// If search is already empty, quit the application
 					p.quitting = true
 					return p, tea.Quit
 				}

@@ -105,4 +105,25 @@ func (s *UIState) GetSelectedStoryIndices(allStories []models.UserStory) []int {
 	}
 	
 	return selected
+}
+
+// HiddenSelectedCount returns the number of selected stories that are not currently visible
+func (s *UIState) HiddenSelectedCount() int {
+	// Count selected stories that are not in the visible stories
+	visibleIDs := make(map[string]bool)
+	
+	// Add all visible story IDs to the map
+	for _, story := range s.VisibleStories {
+		visibleIDs[story.FilePath] = true
+	}
+	
+	// Count selected stories that are not in the visible stories
+	hiddenCount := 0
+	for id := range s.SelectedIDs {
+		if !visibleIDs[id] {
+			hiddenCount++
+		}
+	}
+	
+	return hiddenCount
 } 
