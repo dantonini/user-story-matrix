@@ -60,6 +60,10 @@ func (s *UIState) SetFilterText(text string) {
 
 // ToggleSelection toggles whether the specified story is selected
 func (s *UIState) ToggleSelection(id string) {
+	if id == "" {
+		return // Safety check for empty ID
+	}
+	
 	if _, exists := s.SelectedIDs[id]; exists {
 		delete(s.SelectedIDs, id)
 	} else {
@@ -69,6 +73,9 @@ func (s *UIState) ToggleSelection(id string) {
 
 // IsSelected returns whether the specified story is selected
 func (s *UIState) IsSelected(id string) bool {
+	if id == "" {
+		return false // Safety check for empty ID
+	}
 	_, exists := s.SelectedIDs[id]
 	return exists
 }
@@ -80,26 +87,32 @@ func (s *UIState) SelectedCount() int {
 
 // SetVisibleStories updates the visible stories
 func (s *UIState) SetVisibleStories(stories []models.UserStory, totalStories int) {
+	if stories == nil {
+		stories = []models.UserStory{} // Convert nil to empty slice for safety
+	}
+	
 	s.VisibleStories = stories
 	s.FilteredStories = len(stories)
 	s.TotalStories = totalStories
 	
 	// Reset cursor position if it's out of bounds
-	if s.CursorPosition >= len(stories) {
-		if len(stories) > 0 {
-			s.CursorPosition = 0
-		} else {
-			s.CursorPosition = -1
-		}
+	if len(stories) == 0 {
+		s.CursorPosition = -1 // No items to select
+	} else if s.CursorPosition >= len(stories) || s.CursorPosition < 0 {
+		s.CursorPosition = 0 // Reset to first item
 	}
 }
 
 // GetSelectedStoryIndices returns the indices of all selected stories
 func (s *UIState) GetSelectedStoryIndices(allStories []models.UserStory) []int {
+	if allStories == nil {
+		return []int{} // Return empty slice if no stories
+	}
+	
 	var selected []int
 	
 	for i, story := range allStories {
-		if s.IsSelected(story.FilePath) {
+		if story.FilePath != "" && s.IsSelected(story.FilePath) {
 			selected = append(selected, i)
 		}
 	}
@@ -109,12 +122,18 @@ func (s *UIState) GetSelectedStoryIndices(allStories []models.UserStory) []int {
 
 // HiddenSelectedCount returns the number of selected stories that are not currently visible
 func (s *UIState) HiddenSelectedCount() int {
+	if len(s.SelectedIDs) == 0 {
+		return 0 // Quick return if nothing is selected
+	}
+	
 	// Count selected stories that are not in the visible stories
-	visibleIDs := make(map[string]bool)
+	visibleIDs := make(map[string]bool, len(s.VisibleStories))
 	
 	// Add all visible story IDs to the map
 	for _, story := range s.VisibleStories {
-		visibleIDs[story.FilePath] = true
+		if story.FilePath != "" {
+			visibleIDs[story.FilePath] = true
+		}
 	}
 	
 	// Count selected stories that are not in the visible stories

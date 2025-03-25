@@ -40,10 +40,19 @@ type SelectionPage struct {
 	height     int
 	quitting   bool
 	ready      bool
+	
+	// Cache fields for performance
+	lastView   string
+	needsRender bool
+	lastSearchValue string
 }
 
 // New creates a new selection page
 func New(stories []models.UserStory, showAll bool) *SelectionPage {
+	if stories == nil {
+		stories = []models.UserStory{} // Convert nil to empty slice for safety
+	}
+	
 	// Create state
 	state := uimodels.NewUIState()
 	state.ShowImplemented = showAll
@@ -85,6 +94,7 @@ func New(stories []models.UserStory, showAll bool) *SelectionPage {
 		height:    24,
 		quitting:  false,
 		ready:     true,
+		needsRender: true,
 	}
 }
 
@@ -98,6 +108,13 @@ func (p *SelectionPage) Init() tea.Cmd {
 func (p *SelectionPage) updateResults() tea.Cmd {
 	// Get the current search text
 	searchText := p.searchBox.Value()
+	
+	// Skip updating if search text hasn't changed and filter hasn't changed
+	if searchText == p.lastSearchValue && !p.needsRender {
+		return nil
+	}
+	
+	p.lastSearchValue = searchText
 	
 	// Update the state
 	p.state.SetFilterText(searchText)
@@ -115,10 +132,12 @@ func (p *SelectionPage) updateResults() tea.Cmd {
 	p.storyList = p.storyList.SetItems(filtered, p.state.SelectedIDs)
 	
 	// Ensure the first item is focused if there are any results
-	if len(filtered) > 0 {
+	if len(filtered) > 0 && p.state.CursorPosition != 0 {
 		// Set cursor to the first item
 		p.storyList = p.storyList.SetCursor(0)
 	}
+	
+	p.needsRender = true
 	
 	return nil
 }
@@ -138,6 +157,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p.width = msg.Width
 		p.height = msg.Height
 		p.ready = true
+		p.needsRender = true
 		
 		// Update component sizes
 		p.searchBox = p.searchBox.SetWidth(msg.Width - 4)
@@ -155,6 +175,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if p.searchBox.Value() != "" {
 					// Clear the search text
 					p.searchBox = p.searchBox.SetValue("")
+					p.needsRender = true
 					
 					// Update the results with empty filter
 					cmds = append(cmds, p.updateResults())
@@ -164,6 +185,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					// If search is already empty, quit the application
 					p.quitting = true
+					p.needsRender = true
 					return p, tea.Quit
 				}
 			
@@ -172,26 +194,31 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.state.FocusList()
 				p.searchBox = p.searchBox.Blur()
 				p.storyList = p.storyList.Focus()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.Done):
 				// Apply search and switch to list mode
 				p.state.FocusList()
 				p.searchBox = p.searchBox.Blur()
 				p.storyList = p.storyList.Focus()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.ToggleFilter):
 				// Toggle implementation filter
 				p.state.ToggleImplementationFilter()
+				p.needsRender = true
 				cmds = append(cmds, p.updateResults())
 				
 			case key.Matches(msg, p.keyMap.Clear):
 				// Clear search text
 				p.searchBox = p.searchBox.SetValue("")
+				p.needsRender = true
 				cmds = append(cmds, p.updateResults())
 				
 			case key.Matches(msg, p.keyMap.Help):
 				// Toggle help display
 				p.statusBar = p.statusBar.ToggleHelp()
+				p.needsRender = true
 				
 			default:
 				// Update search box
@@ -204,6 +231,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Update results if search text changed
 				if p.state.FilterText != p.searchBox.Value() {
 					cmds = append(cmds, p.updateResults())
+					p.needsRender = true
 				}
 			}
 		
@@ -213,6 +241,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, p.keyMap.Quit):
 				// Quit the application
 				p.quitting = true
+				p.needsRender = true
 				return p, tea.Quit
 				
 			case key.Matches(msg, p.keyMap.Tab), key.Matches(msg, p.keyMap.Search):
@@ -220,6 +249,7 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.state.FocusSearch()
 				p.searchBox = p.searchBox.Focus()
 				p.storyList = p.storyList.Blur()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.Select):
 				// Toggle selection of current item
@@ -227,36 +257,44 @@ func (p *SelectionPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.storyList, id = p.storyList.ToggleSelection()
 				if id != "" {
 					p.state.ToggleSelection(id)
+					p.needsRender = true
 				}
 				
 			case key.Matches(msg, p.keyMap.Up):
 				// Move cursor up
 				p.storyList = p.storyList.MoveUp()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.Down):
 				// Move cursor down
 				p.storyList = p.storyList.MoveDown()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.PageUp):
 				// Page up
 				p.storyList = p.storyList.PageUp()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.PageDown):
 				// Page down
 				p.storyList = p.storyList.PageDown()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.ToggleFilter):
 				// Toggle implementation filter
 				p.state.ToggleImplementationFilter()
+				p.needsRender = true
 				cmds = append(cmds, p.updateResults())
 				
 			case key.Matches(msg, p.keyMap.Help):
 				// Toggle help display
 				p.statusBar = p.statusBar.ToggleHelp()
+				p.needsRender = true
 				
 			case key.Matches(msg, p.keyMap.Done):
 				// Complete selection
 				p.quitting = true
+				p.needsRender = true
 				return p, tea.Quit
 			}
 		}
@@ -274,6 +312,11 @@ func (p *SelectionPage) View() string {
 	
 	if p.quitting {
 		return "Change request creation canceled by user."
+	}
+	
+	// If nothing has changed, return the cached view
+	if !p.needsRender && p.lastView != "" {
+		return p.lastView
 	}
 	
 	var sb strings.Builder
@@ -305,5 +348,9 @@ func (p *SelectionPage) View() string {
 	// Render status bar
 	sb.WriteString(p.statusBar.View(p.state))
 	
-	return sb.String()
+	// Cache the view
+	p.lastView = sb.String()
+	p.needsRender = false
+	
+	return p.lastView
 } 

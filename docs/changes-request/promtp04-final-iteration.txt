@@ -1,0 +1,70 @@
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
+
+## 🔄 Final Iteration Phase: Refinement & Stabilization
+
+You have already:
+- ✅ Laid the foundation (project structure, placeholders, key abstractions)
+- ✅ Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- ✅ Extended the implementation to support more scenarios and edge cases
+
+Now, execute the **Refinement & Stabilization** phase to complete the iteration.
+
+### 🎯 Objectives:
+- Refine the codebase for clarity, maintainability, and performance
+- Enhance test coverage to simulate real-world usage
+- Ensure robustness through thorough validation
+- Finalize the iteration by producing production-quality code and test suites
+
+---
+
+### 🧩 Tasks to Perform:
+
+1. **Refactor for Maintainability:**
+   - Improve naming, structure, and modularity
+   - Remove duplication, unused code, and reduce complexity
+   - Ensure clear separation of concerns and adherence to clean code principles
+
+2. **Optimize for Performance (if applicable):**
+   - Profile critical paths
+   - Optimize data structures and algorithms for efficiency
+   - Avoid premature optimization — focus on known bottlenecks or risky parts
+
+3. **Enhance Test Coverage:**
+   - Add tests that simulate real-world edge cases and usage patterns
+   - Ensure each user story and its acceptance criteria are covered
+   - Include tests for:
+     - Error handling and invalid inputs
+     - Performance-sensitive areas
+     - Integration between components
+
+4. **Stabilize the Codebase:**
+   - Resolve any known issues or inconsistencies
+   - Finalize API boundaries and expected behaviors
+   - Ensure the implementation is resilient and ready for review or release
+
+---
+
+### ✅ Mandatory Before Completion:
+
+- [ ] **Run the full formal test suite** – All tests must pass
+- [ ] **Ensure 100% coverage** of acceptance criteria from the blueprint
+- [ ] **Perform a final code review** (self or pair-based) with an eye on polish and stability
+- [ ] **Document any deviations** from the blueprint and rationale for changes
+
+---
+
+### 📝 Output Requirements:
+
+- Final version of the code with inline comments
+- Updated and complete test suite
+- Brief changelog summarizing:
+  - Key refinements made
+  - Test improvements
+  - Any changes to original design decisions
+
+---
+
+### ⚠️ Reminder:
+Do not introduce new features at this stage. Focus only on refining and stabilizing the existing work to make it reliable and production-ready.
+
+Proceed with the **Refinement & Stabilization** phase now.

@@ -15,38 +15,77 @@ import (
 
 // StatusBar represents a status bar component
 type StatusBar struct {
-	styles       *styles.Styles
-	width        int
-	keyMap       models.KeyMap
-	showHelp     bool
+	styles          *styles.Styles
+	width           int
+	keyMap          models.KeyMap
+	showHelp        bool
 	lastFilterStatus string
+	
+	// Cache fields for performance
+	lastState       *models.UIState
+	cachedStatusBar string
+	cachedHelpText  string
+	stateChanged    bool
 }
 
 // New creates a new StatusBar component
 func New(styles *styles.Styles, keyMap models.KeyMap) StatusBar {
 	return StatusBar{
-		styles:       styles,
-		width:        80,
-		keyMap:       keyMap,
-		showHelp:     true,
+		styles:          styles,
+		width:           80,
+		keyMap:          keyMap,
+		showHelp:        true,
 		lastFilterStatus: "",
+		stateChanged:    true, // Force initial render
 	}
 }
 
 // SetWidth sets the width of the status bar
 func (s StatusBar) SetWidth(width int) StatusBar {
-	s.width = width
+	if s.width != width {
+		s.width = width
+		s.stateChanged = true // Width changed, need to re-render
+	}
 	return s
 }
 
 // ToggleHelp toggles whether to show help
 func (s StatusBar) ToggleHelp() StatusBar {
 	s.showHelp = !s.showHelp
+	s.stateChanged = true // Help visibility changed, need to re-render
 	return s
+}
+
+// shouldUpdate checks if the status bar needs to be re-rendered
+func (s *StatusBar) shouldUpdate(state *models.UIState) bool {
+	if s.stateChanged {
+		return true
+	}
+	
+	if s.lastState == nil {
+		return true
+	}
+	
+	// Check if any relevant state changed
+	return s.lastState.SearchFocused != state.SearchFocused ||
+		s.lastState.SelectedCount() != state.SelectedCount() ||
+		s.lastState.HiddenSelectedCount() != state.HiddenSelectedCount() ||
+		s.lastState.FilteredStories != state.FilteredStories ||
+		s.lastState.TotalStories != state.TotalStories ||
+		s.lastState.ShowImplemented != state.ShowImplemented
 }
 
 // View renders the status bar
 func (s StatusBar) View(state *models.UIState) string {
+	// Check if we can use the cached view
+	if !s.shouldUpdate(state) {
+		// Build final output from cache
+		if !s.showHelp {
+			return s.cachedStatusBar
+		}
+		return s.cachedStatusBar + "\n" + s.cachedHelpText
+	}
+	
 	var sb strings.Builder
 	
 	// Selection status with hidden selections if any
@@ -73,17 +112,27 @@ func (s StatusBar) View(state *models.UIState) string {
 	
 	// Render the status bar
 	statusBar := s.styles.StatusBar.Copy().Width(s.width).Render(status)
-	sb.WriteString(statusBar + "\n")
+	sb.WriteString(statusBar)
+	
+	// Update cache and state tracking
+	s.cachedStatusBar = statusBar
+	s.lastFilterStatus = filterStatus
+	
+	// Cache the help text separately
+	if state.SearchFocused {
+		s.cachedHelpText = s.keyMap.SearchModeHelpView()
+	} else {
+		s.cachedHelpText = s.keyMap.ListModeHelpView()
+	}
+	
+	// Create a copy of the state for comparison
+	stateCopy := *state
+	s.lastState = &stateCopy
+	s.stateChanged = false
 	
 	// Add help text if enabled
 	if s.showHelp {
-		var helpText string
-		if state.SearchFocused {
-			helpText = s.keyMap.SearchModeHelpView()
-		} else {
-			helpText = s.keyMap.ListModeHelpView()
-		}
-		sb.WriteString(helpText)
+		sb.WriteString("\n" + s.cachedHelpText)
 	}
 	
 	return sb.String()

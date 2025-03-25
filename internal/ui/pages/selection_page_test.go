@@ -6,6 +6,7 @@
 package pages
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,23 @@ func getTestStories() []models.UserStory {
 			LastUpdated:   time.Now(),
 		},
 	}
+}
+
+// Test creating with nil stories
+func TestCreateWithNilStories(t *testing.T) {
+	// Create with nil stories (should not panic)
+	page := New(nil, false)
+	assert.NotNil(t, page, "Page should be created even with nil stories")
+	assert.Equal(t, 0, len(page.stories), "Stories should be initialized to empty slice")
+	
+	// Initialize the page
+	page.Init()
+	
+	// Get the view
+	view := page.View()
+	
+	// Check if no stories message is shown
+	assert.Contains(t, view, "No matching user stories found")
 }
 
 // Test initial view
@@ -299,4 +317,152 @@ func TestShowSelectionCountWhileTyping(t *testing.T) {
 	// Verify the selection count shows hidden items
 	view = page.View()
 	assert.Contains(t, view, "1 selected (1 hidden)", "Should show hidden selection count")
+}
+
+// Test all keys available in the keymap
+func TestAllKeybindings(t *testing.T) {
+	page := New(getTestStories(), true) // Show all stories
+	page.Init()
+	
+	// Test each key binding in search mode
+	keys := []tea.KeyType{
+		tea.KeyTab,       // Switch to list
+		tea.KeyEnter,     // Confirm
+		tea.KeyCtrlA,     // Toggle filter
+		tea.KeyCtrlL,     // Clear search
+		tea.KeyRunes,     // Type in search
+		tea.KeyEscape,    // Clear search or quit
+	}
+	
+	// Test each key in search mode
+	for _, k := range keys {
+		var msg tea.Msg
+		if k == tea.KeyRunes {
+			msg = tea.KeyMsg{Type: k, Runes: []rune("test")}
+		} else {
+			msg = tea.KeyMsg{Type: k}
+		}
+		
+		model, _ := page.Update(msg)
+		assert.NotNil(t, model, "Model should not be nil after key press")
+	}
+	
+	// Switch to list mode
+	model, _ := page.Update(tea.KeyMsg{Type: tea.KeyTab})
+	page = model.(*SelectionPage)
+	
+	// Test each key binding in list mode
+	listKeys := []tea.KeyType{
+		tea.KeyTab,       // Switch to search
+		tea.KeyUp,        // Move up
+		tea.KeyDown,      // Move down
+		tea.KeyPgUp,      // Page up
+		tea.KeyPgDown,    // Page down
+		tea.KeySpace,     // Select
+		tea.KeyEnter,     // Confirm
+		tea.KeyCtrlA,     // Toggle filter
+		tea.KeyEscape,    // Quit
+	}
+	
+	// Test each key in list mode
+	for _, k := range listKeys {
+		model, _ := page.Update(tea.KeyMsg{Type: k})
+		// For Esc/Enter, the model will be quitting so we don't need to assert
+		if k != tea.KeyEscape && k != tea.KeyEnter {
+			assert.NotNil(t, model, "Model should not be nil after key press")
+		}
+	}
+}
+
+// Test window resize handling
+func TestWindowResize(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
+	
+	// Initial size
+	assert.Equal(t, 80, page.width)
+	assert.Equal(t, 24, page.height)
+	
+	// Simulate window resize
+	model, _ := page.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	page = model.(*SelectionPage)
+	
+	// Check new size
+	assert.Equal(t, 120, page.width)
+	assert.Equal(t, 40, page.height)
+	
+	// Verify components were resized
+	view := page.View()
+	assert.NotEmpty(t, view, "View should not be empty after resize")
+}
+
+// Test edge case: Consecutive search text changes
+func TestConsecutiveSearchTextChanges(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
+	
+	// Set initial search
+	page.searchBox = page.searchBox.SetValue("l")
+	page.updateResults()
+	
+	// Set another search immediately (cached value optimization should kick in)
+	page.searchBox = page.searchBox.SetValue("lo")
+	page.updateResults()
+	
+	// Set another search immediately
+	page.searchBox = page.searchBox.SetValue("log")
+	page.updateResults()
+	
+	// Final search
+	page.searchBox = page.searchBox.SetValue("login")
+	page.updateResults()
+	
+	// Verify final state
+	view := page.View()
+	assert.Contains(t, view, "Add login functionality")
+	assert.NotContains(t, view, "Integrate payment provider")
+}
+
+// Test help toggle
+func TestHelpToggle(t *testing.T) {
+	page := New(getTestStories(), false)
+	page.Init()
+	
+	// Get initial length
+	initialView := page.View()
+	initialLines := strings.Split(initialView, "\n")
+	initialLineCount := len(initialLines)
+	
+	// Toggle help off by simulating the ? key
+	model, _ := page.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	page = model.(*SelectionPage)
+	
+	// Get the view with help toggled off
+	toggledView := page.View()
+	toggledLines := strings.Split(toggledView, "\n")
+	toggledLineCount := len(toggledLines)
+	
+	// We can't check specific text as it might vary, but after toggling help,
+	// the view should be different
+	assert.NotEqual(t, initialView, toggledView, "View should change after toggling help")
+	
+	// Toggle help back on
+	model, _ = page.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	page = model.(*SelectionPage)
+	
+	// Get the final view
+	finalView := page.View()
+	finalLines := strings.Split(finalView, "\n")
+	finalLineCount := len(finalLines)
+	
+	// After toggling help back on, we should be back to the initial state
+	// (though content might differ due to rendering)
+	assert.NotEqual(t, toggledView, finalView, "View should change again after toggling help back on")
+	
+	// Either the line count or content must be different between toggled states
+	assert.True(t, initialLineCount != toggledLineCount || 
+		finalLineCount != toggledLineCount || 
+		initialView != toggledView || 
+		finalView != toggledView,
+		"Toggling help should cause a visible difference in the UI")
 } 

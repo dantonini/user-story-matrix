@@ -17,6 +17,7 @@ type SearchBox struct {
 	styles    *styles.Styles
 	focused   bool
 	width     int
+	value     string // Cache the current value to detect changes
 }
 
 // New creates a new SearchBox component
@@ -47,6 +48,7 @@ func New(styles *styles.Styles) SearchBox {
 		styles:    styles,
 		focused:   false,
 		width:     50,
+		value:     "",
 	}
 }
 
@@ -66,13 +68,18 @@ func (s SearchBox) Blur() SearchBox {
 
 // SetValue sets the search box value
 func (s SearchBox) SetValue(value string) SearchBox {
+	if s.value == value {
+		return s // Skip setting the same value to avoid unnecessary renders
+	}
+	
+	s.value = value
 	s.textInput.SetValue(value)
 	return s
 }
 
 // Value returns the current value of the search box
 func (s SearchBox) Value() string {
-	return s.textInput.Value()
+	return s.value
 }
 
 // Focused returns whether the search box is focused
@@ -82,8 +89,19 @@ func (s SearchBox) Focused() bool {
 
 // SetWidth sets the width of the search box
 func (s SearchBox) SetWidth(width int) SearchBox {
+	if width <= 0 {
+		width = 50 // Ensure a minimum width
+	}
+	
 	s.width = width
-	s.textInput.Width = width - 20 // Adjust for prompt and styling
+	
+	// Adjust for prompt and styling, ensuring a reasonable minimum
+	inputWidth := width - 20
+	if inputWidth < 30 {
+		inputWidth = 30
+	}
+	
+	s.textInput.Width = inputWidth
 	return s
 }
 
@@ -94,8 +112,18 @@ func (s SearchBox) Update(msg tea.Msg) (SearchBox, tea.Cmd) {
 		return s, nil
 	}
 	
+	// Update the text input
 	var cmd tea.Cmd
-	s.textInput, cmd = s.textInput.Update(msg)
+	newTextInput, cmd := s.textInput.Update(msg)
+	
+	// Update our model
+	s.textInput = newTextInput
+	
+	// Check if the value has changed
+	newValue := s.textInput.Value()
+	if s.value != newValue {
+		s.value = newValue
+	}
 	
 	return s, cmd
 }

@@ -33,6 +33,9 @@ type StoryList struct {
 	visibleEnd    int
 	totalCount    int
 	selectedCount int
+	// Cache fields for performance
+	lastRender    string
+	needsRender   bool
 }
 
 // New creates a new StoryList component
@@ -48,23 +51,34 @@ func New(styles *styles.Styles) StoryList {
 		visibleEnd:    0,
 		totalCount:    0,
 		selectedCount: 0,
+		needsRender:   true,
 	}
 }
 
 // Focus focuses the story list
 func (l StoryList) Focus() StoryList {
-	l.focused = true
+	if !l.focused {
+		l.focused = true
+		l.needsRender = true
+	}
 	return l
 }
 
 // Blur blurs the story list
 func (l StoryList) Blur() StoryList {
-	l.focused = false
+	if l.focused {
+		l.focused = false
+		l.needsRender = true
+	}
 	return l
 }
 
 // SetItems sets the items in the story list
 func (l StoryList) SetItems(stories []models.UserStory, selectedIDs map[string]bool) StoryList {
+	if stories == nil {
+		stories = []models.UserStory{} // Convert nil to empty slice for safety
+	}
+	
 	// Create new story items
 	items := make([]StoryItem, len(stories))
 	
@@ -88,14 +102,15 @@ func (l StoryList) SetItems(stories []models.UserStory, selectedIDs map[string]b
 	l.items = items
 	l.totalCount = len(stories)
 	l.selectedCount = selectedCount
+	l.needsRender = true
 	
 	// Ensure cursor is still valid
-	if l.cursor >= len(items) {
-		if len(items) > 0 {
-			l.cursor = len(items) - 1
-		} else {
-			l.cursor = 0
-		}
+	if len(items) == 0 {
+		l.cursor = 0
+	} else if l.cursor >= len(items) {
+		l.cursor = len(items) - 1
+	} else if l.cursor < 0 {
+		l.cursor = 0
 	}
 	
 	// Update visible range
@@ -106,11 +121,21 @@ func (l StoryList) SetItems(stories []models.UserStory, selectedIDs map[string]b
 
 // SetSize sets the dimensions of the story list
 func (l StoryList) SetSize(width, height int) StoryList {
-	l.width = width
-	l.height = height
+	if width <= 0 {
+		width = 80 // Ensure minimum width
+	}
+	if height <= 0 {
+		height = 10 // Ensure minimum height
+	}
 	
-	// Update visible range
-	l.updateVisibleRange()
+	if l.width != width || l.height != height {
+		l.width = width
+		l.height = height
+		l.needsRender = true
+		
+		// Update visible range
+		l.updateVisibleRange()
+	}
 	
 	return l
 }
@@ -139,6 +164,8 @@ func (l *StoryList) updateVisibleRange() {
 	if l.visibleEnd > len(l.items) {
 		l.visibleEnd = len(l.items)
 	}
+	
+	l.needsRender = true
 }
 
 // ToggleSelection toggles the selection of the currently selected item
@@ -157,6 +184,8 @@ func (l StoryList) ToggleSelection() (StoryList, string) {
 		l.selectedCount--
 	}
 	
+	l.needsRender = true
+	
 	// Get the toggled story ID
 	return l, l.items[l.cursor].Story.FilePath
 }
@@ -170,6 +199,8 @@ func (l StoryList) MoveUp() StoryList {
 	l.cursor--
 	if l.cursor < 0 {
 		l.cursor = 0
+	} else {
+		l.needsRender = true
 	}
 	
 	// Update visible range
@@ -187,6 +218,8 @@ func (l StoryList) MoveDown() StoryList {
 	l.cursor++
 	if l.cursor >= len(l.items) {
 		l.cursor = len(l.items) - 1
+	} else {
+		l.needsRender = true
 	}
 	
 	// Update visible range
@@ -206,6 +239,8 @@ func (l StoryList) PageUp() StoryList {
 		l.cursor = 0
 	}
 	
+	l.needsRender = true
+	
 	// Update visible range
 	l.updateVisibleRange()
 	
@@ -222,6 +257,8 @@ func (l StoryList) PageDown() StoryList {
 	if l.cursor >= len(l.items) {
 		l.cursor = len(l.items) - 1
 	}
+	
+	l.needsRender = true
 	
 	// Update visible range
 	l.updateVisibleRange()
@@ -270,6 +307,11 @@ func (l StoryList) Update(msg tea.Msg) (StoryList, tea.Cmd) {
 func (l StoryList) View() string {
 	if len(l.items) == 0 {
 		return "No stories to display."
+	}
+	
+	// Return cached view if nothing has changed
+	if !l.needsRender && l.lastRender != "" {
+		return l.lastRender
 	}
 	
 	var sb strings.Builder
@@ -322,7 +364,11 @@ func (l StoryList) View() string {
 		sb.WriteString(l.styles.Normal.Render(indicator))
 	}
 	
-	return sb.String()
+	// Cache the rendered view
+	l.lastRender = sb.String()
+	l.needsRender = false
+	
+	return l.lastRender
 }
 
 // SetCursor sets the cursor position
@@ -332,17 +378,20 @@ func (l StoryList) SetCursor(position int) StoryList {
 	}
 	
 	// Set the cursor to the specified position
-	l.cursor = position
-	
-	// Ensure the cursor is within bounds
-	if l.cursor < 0 {
-		l.cursor = 0
-	} else if l.cursor >= len(l.items) {
-		l.cursor = len(l.items) - 1
+	if l.cursor != position {
+		l.cursor = position
+		l.needsRender = true
+		
+		// Ensure the cursor is within bounds
+		if l.cursor < 0 {
+			l.cursor = 0
+		} else if l.cursor >= len(l.items) {
+			l.cursor = len(l.items) - 1
+		}
+		
+		// Update visible range
+		l.updateVisibleRange()
 	}
-	
-	// Update visible range
-	l.updateVisibleRange()
 	
 	return l
 } 
