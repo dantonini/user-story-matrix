@@ -1,11 +1,11 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/04-explicit-focus-switching-between-search-and-list.md
 created_at: 2025-03-24T07:22:46+01:00
-last_updated: 2025-03-24T20:05:42+01:00
-_content_hash: c608c0eb94c6a52b3923f96fff8963fc
+last_updated: 2025-03-25T07:48:01+01:00
+_content_hash: 3bb331464ba9aff87569cd70ca7105b2
 ---
 
-## Explicit Focus Switching Between Search and List
+# Explicit Focus Switching Between Search and List
 
 **User Story**  
 As a CLI user,  

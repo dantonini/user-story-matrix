@@ -1,11 +1,11 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/10-clear-search-filter.md
 created_at: 2025-03-24T19:37:29+01:00
-last_updated: 2025-03-24T20:06:06+01:00
-_content_hash: a24715fecc46d95bc34c5adcc473b9d7
+last_updated: 2025-03-25T07:48:17+01:00
+_content_hash: bab339527b2550a4c50a2ce241c4c88f
 ---
 
-## Clear Search Filter
+# Clear Search Filter
 
 **User Story**  
 As a CLI user,  
