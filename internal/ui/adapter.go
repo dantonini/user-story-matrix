@@ -30,7 +30,12 @@ func (a *SelectionAdapter) Init() tea.Cmd {
 
 // Update handles messages and updates the adapter
 func (a *SelectionAdapter) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return a.page.Update(msg)
+	model, cmd := a.page.Update(msg)
+	if pageModel, ok := model.(*pages.SelectionPage); ok {
+		a.page = pageModel
+		return a, cmd
+	}
+	return a, cmd
 }
 
 // View renders the adapter

@@ -163,7 +163,7 @@ Example:
 		}
 		
 		// Get the selected stories
-		selected := model.(*ui.SelectionUI).GetSelected()
+		selected := model.(*ui.SelectionAdapter).GetSelected()
 		
 		// Check if any user stories were selected
 		if len(selected) == 0 {
@@ -248,6 +248,6 @@ func init() {
 	// Initialize terminal
 	terminal = io.NewTerminalIO()
 	
-	// Register the new selection UI maker
+	// Register the new selection UI implementation
 	ui.RegisterNewSelectionUIMaker()
 } 
