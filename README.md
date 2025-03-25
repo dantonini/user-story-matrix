@@ -3,7 +3,7 @@
 
 USM (User Story Matrix) is a command-line tool designed to bring structure, repeatability, and control to your AI-assisted development workflow.
 
-If you're using AI tools like Cursor or Windsurf to write code, you’ve probably hit some limits: unclear prompts, inconsistent results, or code that kind of works... but not really.  
+If you're using AI tools like Cursor or Windsurf to write code, you've probably hit some limits: unclear prompts, inconsistent results, or code that kind of works... but not really.  
 USM helps you **break down development into manageable, testable units** – user stories – and build a consistent flow around them:
 
 - Define and organize user stories.
@@ -12,7 +12,7 @@ USM helps you **break down development into manageable, testable units** – use
 - Track and review change requests.
 
 You can think of USM as a lightweight orchestration layer between you and your AI assistant.  
-It doesn’t do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
+It doesn't do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
 
 Whether you're working solo or in a team, USM gives you a repeatable process to make AI coding less chaotic and more productive.
 
@@ -162,7 +162,42 @@ make deps
 ```bash
 # Run tests
 make test
+
+# Run tests with coverage
+make test-coverage
+
+# Generate HTML coverage report
+make coverage-html
+
+# Show functions with less than 100% coverage
+make coverage-report
 ```
+
+## Code Coverage
+
+```bash
+# Basic coverage report showing function coverage percentage
+make test-coverage
+
+# Detailed report focusing on uncovered code
+make coverage-report
+
+# Generate an HTML report to visualize coverage
+make coverage-html
+
+# For a comprehensive analysis with code context
+./coverage.sh
+```
+
+The `coverage.sh` script will:
+1. Run all tests with coverage tracking
+2. Show overall coverage percentage
+3. List functions with less than 100% coverage
+4. Display actual uncovered code blocks with context
+5. Generate an HTML report you can open in your browser
+6. Suggest areas to focus your testing efforts on
+
+The HTML report provides a visual way to see which lines of code are covered (green), not covered (red), or not executable (gray).
 
 ## Building
 

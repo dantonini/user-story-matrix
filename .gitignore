@@ -35,3 +35,4 @@ usm-*-amd64*
 # Log files
 *.log output
 output/
+coverage.html
