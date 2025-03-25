@@ -1,0 +1,45 @@
+---
+description: 
+globs: *.blueprint.md
+alwaysApply: false
+---
+A blueprint is a technical design document that outlines proposed codebase changes without actual implementation. It helps:
+- Understand the proposed changes before coding
+- Create a clear roadmap for upcoming development tasks
+
+General Guidelines:
+- The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command ./cat-user-stories-in-change-request.sh <change_request_path>.
+- The document is not for writing code but for transmitting ideas, concepts, and plans.
+- Follow a top-down (or break-down) approach: start with a high-level overview and progressively drill down into specifics.
+
+# Overview
+**Purpose:**  
+Provide a brief summary that captures the essence of all user stories.  
+- Highlight common themes and relationships among the user stories.
+- Summarize overall objectives without detailing individual acceptance criteria.
+
+## Foudamentals
+**Purpose:**  
+Outline the key technical concepts necessary to address the user stories:
+- **Data Structures:** Define any high-level data structures, including their purposes.
+- **Algorithms:** Describe key algorithms using pseudo-code, outlining their intended functionality.
+- **Refactoring Strategy:** Summarize any broad refactoring plans for the existing codebase.
+
+# How to verify – Detailed User Story Breakdown
+**Purpose:**  
+For each user story, detail how the changes will be verified:
+- **Acceptance Criteria:** Break down each user story into its individual acceptance criteria.
+- **Testing Scenarios:** For each criterion, provide clear, concise testing scenarios that are tangible and automatable.
+- **Bottom-Up Detailing:** Start with basic criteria and work toward more complex conditions.
+
+# What is the Plan – Detailed Action Items
+**Purpose:**  
+For each user story, outline a detailed plan for what needs to be done. Take into account the user story verification process described earlier so to make the verification process easy to implement.
+- **Task Breakdown:** Describe each implementation step without writing actual code.
+- **Specific Data Structures:** List any data structures that need to be defined or modified, along with their purposes.
+- **Specific Algorithms:** Provide pseudo-code for any specific algorithms, explaining their function.
+- **Targeted Refactoring:** Detail any precise refactoring steps required for the existing codebase.
+- **Validation:** Ensure the plan is validated against the current codebase, ensuring feasibility and completeness.
+
+**Note:**  
+Remember, the blueprint should be a planning and communication tool. Do not include any actual code – only high-level pseudo-code and detailed action items that make the subsequent verification and development process straightforward.

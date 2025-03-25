@@ -1,4 +1,4 @@
-.PHONY: build test clean run
+.PHONY: build test clean run demo-tui
 
 # Binary name
 BINARY_NAME=usm
@@ -33,6 +33,11 @@ build-all: clean
 # Install dependencies
 deps:
 	go mod tidy
+
+# Demo applications
+demo-tui:
+	@echo "Building and running TUI demo..."
+	@go run internal/ui/pages/cmd/main.go
 
 # Default target
 all: clean build 

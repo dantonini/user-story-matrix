@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+Adopt the Page Object Model (POM) design pattern. The POM approach provides better separation of concerns, improved testability, and easier maintenance for the TUI implementation.
+The key changes to the plan include:
+- Structured component hierarchy: Organizing the code into components, models, pages, and styles directories
+- Independent UI components: Creating standalone searchbox, storylist, and statusbar components
+- Centralized state management: Moving UI state into a dedicated model
+- Separation of concerns: Dividing presentation, logic, and data management
+- Enhanced testability: Each component can now be tested in isolation
+- Consistent styling: Styles are centralized in a dedicated package

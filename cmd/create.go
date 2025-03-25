@@ -247,4 +247,7 @@ func init() {
 
 	// Initialize terminal
 	terminal = io.NewTerminalIO()
+	
+	// Register the new selection UI maker
+	ui.RegisterNewSelectionUIMaker()
 } 

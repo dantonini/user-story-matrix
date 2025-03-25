@@ -1,0 +1,7 @@
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
+
+Read the implementation plan docs/changes-request/2025-03-24-200355-full-tui.code.md
+ 
+Your task is laying the foundation for Upcoming Development.
+
+ADD THE RULE: @blueprint-code-laying-the-foundation.mdc
