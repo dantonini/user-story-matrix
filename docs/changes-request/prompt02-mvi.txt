@@ -1,10 +1,71 @@
-Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
+Your goal is to build a **minimum viable implementation** for each user story based on the blueprint, ensuring correctness and testability at every step.
 
-Read the implementation plan docs/changes-request/2025-03-24-200355-full-tui.code.md
-Read the "laying the foundation" accomplished summary docs/changes-request/2025-03-24-200355-full-tui.code.md.accomplished.md
+## ✅ Scope
+
+- You already have:
+  - A structured blueprint with user stories, acceptance criteria, and a plan of action.
+  - A scaffolded codebase that makes room for upcoming changes.
+  
+Now you will build the **simplest working implementation** for each user story that satisfies its requirements and passes all associated tests.
+
+---
+
+## 🔁 Process: One User Story at a Time
+
+### 1. Review the User Story
+
+- Read the user story and its acceptance criteria from the blueprint.
+
+### 2. Write Verification Code
+
+- For each acceptance criterion, write a corresponding automated test (unit or integration).
+- Ensure the test clearly reflects the criterion, is easy to run, and produces a reliable outcome.
+- The absence of implementation should cause these tests to fail initially.
+
+### 3. Implement the Minimum Logic
+
+- Write the **simplest code** needed to satisfy the user story and make the tests pass.
+- Avoid unnecessary generalizations, optimizations, or edge case handling at this stage.
+- Stick closely to the logic suggested by the blueprint.
+
+### 4. Run the Full Test Suite
+
+- After implementing each user story, run the **entire test suite**.
+- All tests—existing and newly added—must pass.
+- Fix any issues immediately before proceeding to the next user story.
+
+### 5. Document and Leave TODOs
+
+- If the blueprint suggests future improvements (e.g. refactoring, edge case handling, performance tuning), add clear TODOs or comments in the code.
+- These will be handled in later phases, not during MVI.
+
+---
+
+## 📌 Principles
+
+- Keep the implementation minimal but correct.
+- Build confidence through verification.
+- Avoid building more than what’s needed to pass the tests and meet the blueprint requirements.
+- Defer enhancements and broader handling to future iterations.
+
+---
+
+## ✅ Final Check
+
+After completing MVI for all user stories:
+
+- Run the test suite again to confirm full functionality.
+- Ensure each feature is backed by at least one clear, reliable test.
+- Write a summary of what you've accomplished.
+
+---
+
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+Read the implementation plan using the command: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+Read the "laying the foundation" accomplished summary using the command: cat docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
  
-Now Your task is implementing an MVI
+Now build the MVI for each user story.
 
-At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-24-200355-full-tui.mvi.md.accomplished.md
-
-ADD THE RULE: @blueprint-code-02-mvi.mdc
+At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md
+Ensure to include a user story implementation section:
+- in this section I'd like to have an easy way to check each acceptance criterion. I rely only on "facts". Please add explicit reference (no code at all, just a compact/understable reference to lookup for) to which test ensure that criterion is met. If no test was written about that specific criterion, mention it.
