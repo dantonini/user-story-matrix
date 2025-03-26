@@ -30,6 +30,7 @@ Deliverables:
 - Refactored modules or components with improved structure
 - Simplified interfaces or decoupled logic
 - Regression tests to ensure no existing functionality breaks
+- a summary of what you achieved in markdown format in the file ./docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
 
 Goal:
 - To reduce technical debt and align the current codebase with the structural needs of the upcoming iteration.
@@ -44,5 +45,5 @@ If major components are touched, consider adding or updating smoke/regression te
 - Do not implement the full logic yet—this phase is strictly for setting up structure and enabling smooth feature delivery.
 
 Now:
-Read the user stories using ./cat-user-stories-in-change-request.sh 2025-03-26-020055-code-command.blueprint.md
-Read the blueprint using cat 2025-03-26-020055-code-command.blueprint.md
+Read the user stories using ./cat-user-stories-in-change-request.sh ./docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+Read the blueprint using cat ./docs/changes-request/2025-03-26-020055-code-command.blueprint.md
