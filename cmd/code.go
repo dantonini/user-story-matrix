@@ -139,39 +139,8 @@ Use the --reset flag to start the workflow from the beginning:
 
 // executeStep executes a workflow step and produces an output file
 func executeStep(changeRequestPath string, step workflow.WorkflowStep, outputFile string, fs io.FileSystem, term io.UserOutput) (bool, error) {
-	// Read the change request file to verify it exists and is readable
-	_, err := fs.ReadFile(changeRequestPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to read change request file: %w", err)
-	}
-
-	// TODO: This is a placeholder for the actual implementation
-	// In the future, this will involve generating appropriate prompts,
-	// executing AI-assisted tasks, and handling specific logic for each step type.
-	
-	// For now, we'll create a simple file indicating the step
-	outputContent := fmt.Sprintf("# %s\n\nThis step was executed for change request: %s\n\nStep ID: %s\nStep Description: %s\nIs Test Step: %t\n\n",
-		step.Description,
-		changeRequestPath,
-		step.ID,
-		step.Description,
-		step.IsTest,
-	)
-
-	// Create directory if it doesn't exist
-	dirPath := getDirectoryPath(outputFile)
-	if dirPath != "" && !fs.Exists(dirPath) {
-		if err := fs.MkdirAll(dirPath, 0755); err != nil {
-			return false, fmt.Errorf("failed to create output directory: %w", err)
-		}
-	}
-
-	// Write the output file
-	if err := fs.WriteFile(outputFile, []byte(outputContent), 0644); err != nil {
-		return false, fmt.Errorf("failed to write output file: %w", err)
-	}
-
-	return true, nil
+	executor := workflow.NewStepExecutor(fs, term)
+	return executor.ExecuteStep(changeRequestPath, step, outputFile)
 }
 
 // getDirectoryPath extracts the directory part of a file path

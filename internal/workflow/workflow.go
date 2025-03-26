@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package workflow
 
 import (
@@ -41,6 +40,7 @@ type WorkflowManager struct {
 type FileSystem interface {
 	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte, perm os.FileMode) error
+	MkdirAll(path string, perm os.FileMode) error
 	Exists(path string) bool
 }
 

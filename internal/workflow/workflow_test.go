@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package workflow
 
 import (
@@ -22,12 +21,15 @@ type MockFileSystem struct {
 	existsFunc   func(path string) bool
 	readFileFunc func(path string) ([]byte, error)
 	writeFileFunc func(path string, data []byte, perm os.FileMode) error
+	mkdirErr     error
+	exists       map[string]bool
 }
 
 // NewMockFileSystem creates a new MockFileSystem instance
 func NewMockFileSystem() *MockFileSystem {
 	m := &MockFileSystem{
 		files: make(map[string][]byte),
+		exists: make(map[string]bool),
 	}
 	
 	m.existsFunc = func(path string) bool {
@@ -79,6 +81,15 @@ func (m *MockFileSystem) WriteFile(path string, data []byte, perm os.FileMode) e
 // Exists implements FileSystem.Exists
 func (m *MockFileSystem) Exists(path string) bool {
 	return m.existsFunc(path)
+}
+
+// MkdirAll implements FileSystem.MkdirAll
+func (m *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
+	if m.mkdirErr != nil {
+		return m.mkdirErr
+	}
+	m.exists[path] = true
+	return nil
 }
 
 // MockIO implements UserOutput interface for testing
