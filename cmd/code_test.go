@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -197,7 +196,7 @@ func TestExecuteStep(t *testing.T) {
 	// Mock WriteFile to verify it was called with the correct parameters
 	writeFileCalled := false
 	mockFS.writeFileFn = func(path string, data []byte, perm os.FileMode) error {
-		if path == "/path/to/output.md" && perm == 0644 {
+		if path == "/path/to/output.md" && len(data) > 0 && perm == 0644 {
 			writeFileCalled = true
 			return nil
 		}
@@ -207,7 +206,7 @@ func TestExecuteStep(t *testing.T) {
 	// Mock MkdirAll to verify it was called with the correct parameters
 	mkdirAllCalled := false
 	mockFS.mkdirAllFn = func(path string, perm os.FileMode) error {
-		if path == "/path/to/" && perm == 0755 {
+		if path == "/path/to" && perm == 0755 {
 			mkdirAllCalled = true
 			return nil
 		}
@@ -216,10 +215,10 @@ func TestExecuteStep(t *testing.T) {
 	
 	// Create a test step
 	step := workflow.WorkflowStep{
-		ID:          "test-step",
-		Description: "Test Step",
-		IsTest:      true,
-		OutputFile:  "%s.test.md",
+		ID:          "01-laying-the-foundation",
+		Description: "Laying the foundation",
+		IsTest:      false,
+		OutputFile:  "%s.01-laying-the-foundation.md",
 	}
 	
 	// Call the function
