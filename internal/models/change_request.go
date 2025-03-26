@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package models
 
 import (
@@ -128,9 +134,51 @@ func LoadChangeRequestFromContent(filePath string, content []byte) (ChangeReques
 // GetPromptInstruction generates a prompt instruction for the change request
 func GetPromptInstruction(changeRequestPath string, userStoryCount int) string {
 	return fmt.Sprintf(
-		"Read all the %d user stories files in the change request %s, validate them against the codebase, and define a detailed plan for the change. Don't do any implementation, just describe what needs to be done. You can describe data structures, algorithm in pseudo code, refactoring steps, etc. Store the plan in the change request file %s in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.",
-		userStoryCount,
-		changeRequestPath,
+		`Your task is to produce a blueprint file for the change request.
+
+A blueprint is a technical design document that outlines proposed codebase changes without actual implementation. It helps:
+- Understand the proposed changes before coding
+- Create a clear roadmap for upcoming development tasks
+
+General Guidelines:
+- The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command ./cat-user-stories-in-change-request.sh <change_request_path>.
+- The document is not for writing code but for transmitting ideas, concepts, and plans.
+- Follow a top-down (or break-down) approach: start with a high-level overview and progressively drill down into specifics.
+
+# Overview
+**Purpose:**  
+Provide a brief summary that captures the essence of all user stories.  
+- Highlight common themes and relationships among the user stories.
+- Summarize overall objectives without detailing individual acceptance criteria.
+
+## Foudamentals
+**Purpose:**  
+Outline the key technical concepts necessary to address the user stories:
+- **Data Structures:** Define any high-level data structures, including their purposes.
+- **Algorithms:** Describe key algorithms using pseudo-code, outlining their intended functionality.
+- **Refactoring Strategy:** Summarize any broad refactoring plans for the existing codebase.
+
+# How to verify – Detailed User Story Breakdown
+**Purpose:**  
+For each user story, detail how the changes will be verified:
+- **Acceptance Criteria:** Break down each user story into its individual acceptance criteria.
+- **Testing Scenarios:** For each criterion, provide clear, concise testing scenarios that are tangible and automatable.
+- **Bottom-Up Detailing:** Start with basic criteria and work toward more complex conditions.
+
+# What is the Plan – Detailed Action Items
+**Purpose:**  
+For each user story, outline a detailed plan for what needs to be done. Take into account the user story verification process described earlier so to make the verification process easy to implement.
+- **Task Breakdown:** Describe each implementation step without writing actual code.
+- **Specific Data Structures:** List any data structures that need to be defined or modified, along with their purposes.
+- **Specific Algorithms:** Provide pseudo-code for any specific algorithms, explaining their function.
+- **Targeted Refactoring:** Detail any precise refactoring steps required for the existing codebase.
+- **Validation:** Ensure the plan is validated against the current codebase, ensuring feasibility and completeness.
+
+**Note:**  
+Remember, the blueprint should be a planning and communication tool. Do not include any actual code – only high-level pseudo-code and detailed action items that make the subsequent verification and development process straightforward.
+
+validate them against the codebase, and define a detailed plan for the change. Don't do any implementation, just describe what needs to be done. You can describe data structures, algorithm in pseudo code, refactoring steps, etc. 
+Store the plan in the change request file %s in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.`,
 		changeRequestPath,
 	)
 } 
