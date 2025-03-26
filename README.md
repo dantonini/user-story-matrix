@@ -10,6 +10,7 @@ USM helps you **break down development into manageable, testable units** – use
 - Generate implementation blueprints.
 - Apply structured prompts to AI tools.
 - Track and review change requests.
+- Execute implementation workflows in predictable, incremental steps.
 
 You can think of USM as a lightweight orchestration layer between you and your AI assistant.  
 It doesn't do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
@@ -104,6 +105,8 @@ usm completion powershell > usm.ps1
 # Show help
 usm --help
 
+# Execute the next step in a structured implementation workflow
+usm code docs/changes-request/my-change-request.blueprint.md
 ```
 
 ## Managing User Stories
@@ -139,6 +142,22 @@ usm create change-request
 # Create a change request from user stories in a specific directory
 usm create change-request --from docs/user-stories/my-feature
 ```
+
+### Implementing a Change Request
+
+```bash
+# Navigate through a structured implementation process for a change request
+usm code docs/changes-request/my-change-request.blueprint.md
+
+# Reset the implementation workflow and start from the beginning
+usm code --reset docs/changes-request/my-change-request.blueprint.md
+```
+
+> **Note:** The `code` command is currently a proof-of-concept and will be extended with more advanced AI integration capabilities in upcoming releases. It provides a structured workflow with 4 predefined steps:
+    - laying the foundation
+    - minimal viable implementation
+    - extend functionalities
+    - final iteration
 
 # Project Structure
 
