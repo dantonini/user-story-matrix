@@ -35,7 +35,7 @@ jobs:
         run: GOOS=windows GOARCH=amd64 go build -o usm-windows-amd64.exe -v
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: |
