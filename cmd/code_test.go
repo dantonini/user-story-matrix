@@ -127,6 +127,7 @@ func (m *MockWorkflowManager) UpdateState(changeRequestPath string, newStepIndex
 	return m.updateStateFunc(changeRequestPath, newStepIndex)
 }
 
+// TestGetDirectoryPath tests the getDirectoryPath function
 func TestGetDirectoryPath(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -149,7 +150,7 @@ func TestGetDirectoryPath(t *testing.T) {
 			want:     "",
 		},
 	}
-
+	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getDirectoryPath(tt.filePath)
@@ -160,6 +161,7 @@ func TestGetDirectoryPath(t *testing.T) {
 	}
 }
 
+// TestGetFileName tests the getFileName function
 func TestGetFileName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -182,7 +184,7 @@ func TestGetFileName(t *testing.T) {
 			want:     "file.txt",
 		},
 	}
-
+	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getFileName(tt.filePath)

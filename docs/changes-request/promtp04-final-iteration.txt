@@ -1,13 +1,11 @@
-Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
-
-## 🔄 Final Iteration Phase: Refinement & Stabilization
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
 
 You have already:
 - ✅ Laid the foundation (project structure, placeholders, key abstractions)
 - ✅ Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
 - ✅ Extended the implementation to support more scenarios and edge cases
 
-Now, execute the **Refinement & Stabilization** phase to complete the iteration.
+Now, execute the last phase of the iteration: **Refinement & Stabilization**.
 
 ### 🎯 Objectives:
 - Refine the codebase for clarity, maintainability, and performance
@@ -46,10 +44,9 @@ Now, execute the **Refinement & Stabilization** phase to complete the iteration.
 
 ### ✅ Mandatory Before Completion:
 
-- [ ] **Run the full formal test suite** – All tests must pass
-- [ ] **Ensure 100% coverage** of acceptance criteria from the blueprint
-- [ ] **Perform a final code review** (self or pair-based) with an eye on polish and stability
-- [ ] **Document any deviations** from the blueprint and rationale for changes
+- **Ensure 100% coverage** of acceptance criteria from the blueprint
+- **Perform a final code review** with an eye on polish and stability
+- **Document any deviations** from the blueprint and rationale for changes
 
 ---
 
@@ -57,11 +54,18 @@ Now, execute the **Refinement & Stabilization** phase to complete the iteration.
 
 - Final version of the code with inline comments
 - Updated and complete test suite
-- Brief changelog summarizing:
-  - Key refinements made
-  - Test improvements
-  - Any changes to original design decisions
+- An accomplishment report in docs/changes-request/2025-03-26-020055-code-command.code.md.04-refinement.accomplished.md
 
+The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
+Use always short code references (no code at all, 
+ just a compact/understable reference to lookup for, do not use line numbers) 
+ as foundation of your statements
+ For esample:
+ - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+ - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+ - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+ - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+ - Include any changes to original design decisions
 ---
 
 ### ⚠️ Reminder:
