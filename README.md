@@ -218,6 +218,41 @@ The `coverage.sh` script will:
 
 The HTML report provides a visual way to see which lines of code are covered (green), not covered (red), or not executable (gray).
 
+## Releasing
+
+USM uses an automated release process with GitHub Actions:
+
+### Automated Release (Recommended)
+
+Run the release script which will automatically:
+1. Check for uncommitted changes
+2. Increment the patch version (or use a specified version)
+3. Commit the changes to Makefile
+4. Tag and push to trigger the release workflow
+
+```bash
+# Auto-increment patch version
+./release.sh
+
+# Or specify a version
+./release.sh 1.2.3
+```
+
+### Manual Process
+
+1. Update the version in `Makefile` and any documentation
+2. Create a release branch, make a PR, and merge to main
+3. Tag the version on the main branch:
+   ```bash
+   git checkout main
+   git pull
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+4. The GitHub Actions workflow will automatically build binaries, create a GitHub release, and upload assets
+
+For more details, see [RELEASE.md](RELEASE.md).
+
 ## Building
 
 ```bash

@@ -34,6 +34,7 @@ clean:
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_NAME)-linux-amd64-$(VERSION)
 	rm -f $(BINARY_NAME)-darwin-amd64-$(VERSION)
+	rm -f $(BINARY_NAME)-darwin-arm64-$(VERSION)
 	rm -f $(BINARY_NAME)-windows-amd64-$(VERSION).exe
 	rm -f coverage.out coverage.html
 
@@ -45,6 +46,7 @@ run:
 build-all: clean
 	GOOS=linux GOARCH=amd64 go build -o $(BINARY_NAME)-linux-amd64-$(VERSION) -v
 	GOOS=darwin GOARCH=amd64 go build -o $(BINARY_NAME)-darwin-amd64-$(VERSION) -v
+	GOOS=darwin GOARCH=arm64 go build -o $(BINARY_NAME)-darwin-arm64-$(VERSION) -v
 	GOOS=windows GOARCH=amd64 go build -o $(BINARY_NAME)-windows-amd64-$(VERSION).exe -v
 
 # Install dependencies
