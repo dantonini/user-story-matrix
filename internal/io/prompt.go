@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
@@ -23,6 +29,9 @@ type UserOutput interface {
 	PrintSuccess(message string)
 	PrintError(message string)
 	PrintTable(headers []string, rows [][]string)
+	PrintWarning(message string)
+	PrintProgress(message string)
+	PrintStep(stepNumber int, totalSteps int, description string)
 }
 
 // TerminalIO implements both UserInput and UserOutput interfaces for terminal interactions
@@ -33,6 +42,9 @@ type TerminalIO struct {
 		info    lipgloss.Style
 		header  lipgloss.Style
 		cell    lipgloss.Style
+		warning lipgloss.Style
+		progress lipgloss.Style
+		step    lipgloss.Style
 	}
 }
 
@@ -46,6 +58,9 @@ func NewTerminalIO() *TerminalIO {
 	t.styles.info = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 	t.styles.header = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
 	t.styles.cell = lipgloss.NewStyle().PaddingRight(2)
+	t.styles.warning = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+	t.styles.progress = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
+	t.styles.step = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
 	
 	return t
 }
@@ -188,6 +203,22 @@ func (t *TerminalIO) PrintTable(headers []string, rows [][]string) {
 		}
 		fmt.Println(strings.Join(rowCells, " "))
 	}
+}
+
+// PrintWarning displays a warning message
+func (t *TerminalIO) PrintWarning(message string) {
+	fmt.Println(t.styles.warning.Render(message))
+}
+
+// PrintProgress displays a progress message
+func (t *TerminalIO) PrintProgress(message string) {
+	fmt.Println(t.styles.progress.Render(message))
+}
+
+// PrintStep displays a step progress message
+func (t *TerminalIO) PrintStep(stepNumber int, totalSteps int, description string) {
+	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
+	fmt.Println(t.styles.step.Render(message))
 }
 
 // Mock implementations of models for bubbletea

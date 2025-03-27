@@ -1,6 +1,14 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
+	"fmt"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -18,6 +26,9 @@ type MockIO struct {
 	Messages        []string
 	SuccessMessages []string
 	ErrorMessages   []string
+	WarningMessages []string
+	ProgressMessages []string
+	StepMessages    []string
 	Tables          []struct {
 		Headers []string
 		Rows    [][]string
@@ -33,6 +44,9 @@ func NewMockIO() *MockIO {
 		Messages:             []string{},
 		SuccessMessages:      []string{},
 		ErrorMessages:        []string{},
+		WarningMessages:      []string{},
+		ProgressMessages:     []string{},
+		StepMessages:         []string{},
 		Tables:               []struct{Headers []string; Rows [][]string}{},
 	}
 }
@@ -82,6 +96,22 @@ func (m *MockIO) PrintError(message string) {
 	m.ErrorMessages = append(m.ErrorMessages, message)
 }
 
+// PrintWarning captures a warning message
+func (m *MockIO) PrintWarning(message string) {
+	m.WarningMessages = append(m.WarningMessages, message)
+}
+
+// PrintProgress captures a progress message
+func (m *MockIO) PrintProgress(message string) {
+	m.ProgressMessages = append(m.ProgressMessages, message)
+}
+
+// PrintStep captures a step message
+func (m *MockIO) PrintStep(stepNumber int, totalSteps int, description string) {
+	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
+	m.StepMessages = append(m.StepMessages, message)
+}
+
 // PrintTable captures table data
 func (m *MockIO) PrintTable(headers []string, rows [][]string) {
 	m.Tables = append(m.Tables, struct{Headers []string; Rows [][]string}{
@@ -128,6 +158,21 @@ func (m *MockUserIO) PrintSuccess(message string) {
 // PrintError mocks the PrintError method
 func (m *MockUserIO) PrintError(message string) {
 	m.Called(message)
+}
+
+// PrintWarning mocks the PrintWarning method
+func (m *MockUserIO) PrintWarning(message string) {
+	m.Called(message)
+}
+
+// PrintProgress mocks the PrintProgress method
+func (m *MockUserIO) PrintProgress(message string) {
+	m.Called(message)
+}
+
+// PrintStep mocks the PrintStep method
+func (m *MockUserIO) PrintStep(stepNumber int, totalSteps int, description string) {
+	m.Called(stepNumber, totalSteps, description)
 }
 
 // PrintTable mocks the PrintTable method

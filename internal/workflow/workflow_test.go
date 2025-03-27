@@ -8,6 +8,7 @@ package workflow
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -94,9 +95,12 @@ func (m *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
 
 // MockIO implements UserOutput interface for testing
 type MockIO struct {
-	messages       []string
+	messages        []string
 	successMessages []string
 	errorMessages   []string
+	warningMessages []string
+	progressMessages []string
+	stepMessages    []string
 }
 
 // NewMockIO creates a new MockIO instance
@@ -105,6 +109,9 @@ func NewMockIO() *MockIO {
 		messages:        []string{},
 		successMessages: []string{},
 		errorMessages:   []string{},
+		warningMessages: []string{},
+		progressMessages: []string{},
+		stepMessages:    []string{},
 	}
 }
 
@@ -121,6 +128,22 @@ func (m *MockIO) PrintSuccess(message string) {
 // PrintError implements UserOutput.PrintError
 func (m *MockIO) PrintError(message string) {
 	m.errorMessages = append(m.errorMessages, message)
+}
+
+// PrintWarning implements UserOutput.PrintWarning
+func (m *MockIO) PrintWarning(message string) {
+	m.warningMessages = append(m.warningMessages, message)
+}
+
+// PrintProgress implements UserOutput.PrintProgress
+func (m *MockIO) PrintProgress(message string) {
+	m.progressMessages = append(m.progressMessages, message)
+}
+
+// PrintStep implements UserOutput.PrintStep
+func (m *MockIO) PrintStep(stepNumber int, totalSteps int, description string) {
+	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
+	m.stepMessages = append(m.stepMessages, message)
 }
 
 func TestGenerateStateFilePath(t *testing.T) {
@@ -252,11 +275,33 @@ func TestWorkflowManager_LoadState_WithInvalidStateFile(t *testing.T) {
 	fs.files[stateFilePath] = []byte("invalid json")
 	
 	// Call the function
-	_, err := wm.LoadState(changeRequestPath)
+	state, err := wm.LoadState(changeRequestPath)
 	
 	// Check results
-	if err == nil {
-		t.Errorf("LoadState() error = nil, want an error")
+	if err != nil {
+		t.Errorf("LoadState() error = %v, want nil", err)
+	}
+	
+	// Verify state values were reset
+	if state.CurrentStepIndex != 0 {
+		t.Errorf("LoadState() CurrentStepIndex = %v, want 0", state.CurrentStepIndex)
+	}
+	
+	// Verify warning message was printed
+	if len(io.warningMessages) != 1 {
+		t.Errorf("LoadState() should print one warning message")
+	}
+	expectedWarning := fmt.Sprintf(ErrInvalidStateFile, changeRequestPath)
+	if io.warningMessages[0] != expectedWarning {
+		t.Errorf("LoadState() warning = %v, want %v", io.warningMessages[0], expectedWarning)
+	}
+	
+	// Verify progress message was printed
+	if len(io.progressMessages) != 1 {
+		t.Errorf("LoadState() should print one progress message")
+	}
+	if io.progressMessages[0] != ProgressValidating {
+		t.Errorf("LoadState() progress = %v, want %v", io.progressMessages[0], ProgressValidating)
 	}
 }
 
@@ -305,9 +350,14 @@ func TestWorkflowManager_LoadState_WithInvalidStepIndex(t *testing.T) {
 		t.Errorf("LoadState() CompletedSteps = %v, want empty slice", state.CompletedSteps)
 	}
 	
-	// Verify error message was printed
-	if len(io.errorMessages) != 1 {
-		t.Errorf("LoadState() should print one error message")
+	// Verify warning message was printed
+	if len(io.warningMessages) != 1 {
+		t.Errorf("LoadState() should print one warning message")
+	} else {
+		expectedWarning := fmt.Sprintf(ErrUnrecognizedStep, stateFilePath)
+		if io.warningMessages[0] != expectedWarning {
+			t.Errorf("LoadState() warning = %v, want %v", io.warningMessages[0], expectedWarning)
+		}
 	}
 }
 
@@ -337,6 +387,14 @@ func TestWorkflowManager_SaveState(t *testing.T) {
 	// Check results
 	if err != nil {
 		t.Errorf("SaveState() error = %v, want nil", err)
+	}
+	
+	// Verify progress message was printed
+	if len(io.progressMessages) != 1 {
+		t.Errorf("SaveState() should print one progress message")
+	}
+	if io.progressMessages[0] != ProgressSavingState {
+		t.Errorf("SaveState() progress = %v, want %v", io.progressMessages[0], ProgressSavingState)
 	}
 	
 	// Verify file was written
@@ -389,6 +447,15 @@ func TestWorkflowManager_DetermineNextStep_NoStateFile(t *testing.T) {
 	if step != 0 {
 		t.Errorf("DetermineNextStep() = %v, want 0", step)
 	}
+	
+	// Verify step message was printed
+	if len(io.stepMessages) != 1 {
+		t.Errorf("DetermineNextStep() should print one step message")
+	}
+	expectedStep := fmt.Sprintf("Step 1/%d: %s", len(StandardWorkflowSteps), StandardWorkflowSteps[0].Description)
+	if io.stepMessages[0] != expectedStep {
+		t.Errorf("DetermineNextStep() step = %v, want %v", io.stepMessages[0], expectedStep)
+	}
 }
 
 func TestWorkflowManager_DetermineNextStep_WorkflowComplete(t *testing.T) {
@@ -429,6 +496,15 @@ func TestWorkflowManager_DetermineNextStep_WorkflowComplete(t *testing.T) {
 	}
 	if step != -1 {
 		t.Errorf("DetermineNextStep() = %v, want -1", step)
+	}
+	
+	// Verify success message was printed
+	if len(io.successMessages) != 1 {
+		t.Errorf("DetermineNextStep() should print one success message")
+	}
+	expectedSuccess := fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath)
+	if io.successMessages[0] != expectedSuccess {
+		t.Errorf("DetermineNextStep() success = %v, want %v", io.successMessages[0], expectedSuccess)
 	}
 }
 

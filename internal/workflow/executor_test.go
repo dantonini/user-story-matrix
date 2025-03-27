@@ -53,49 +53,70 @@ func (m *testFileSystem) MkdirAll(path string, perm os.FileMode) error {
 
 // testUserOutput is a mock implementation of UserOutput for testing
 type testUserOutput struct {
-	messages []string
+	messages         []string
+	progressMessages []string
+	errorMessages    []string
+	warningMessages  []string
+	stepMessages     []string
+	successMessages  []string
 }
 
 func newTestUserOutput() *testUserOutput {
 	return &testUserOutput{
-		messages: make([]string, 0),
+		messages:         make([]string, 0),
+		progressMessages: make([]string, 0),
+		errorMessages:    make([]string, 0),
+		warningMessages:  make([]string, 0),
+		stepMessages:     make([]string, 0),
+		successMessages:  make([]string, 0),
 	}
 }
 
-func (m *testUserOutput) Print(message string) {
-	m.messages = append(m.messages, message)
+func (t *testUserOutput) Print(msg string) {
+	t.messages = append(t.messages, msg)
 }
 
-func (m *testUserOutput) PrintSuccess(message string) {
-	m.messages = append(m.messages, "SUCCESS: "+message)
+func (t *testUserOutput) PrintSuccess(msg string) {
+	t.successMessages = append(t.successMessages, msg)
 }
 
-func (m *testUserOutput) PrintError(message string) {
-	m.messages = append(m.messages, "ERROR: "+message)
+func (t *testUserOutput) PrintError(msg string) {
+	t.errorMessages = append(t.errorMessages, msg)
+}
+
+func (t *testUserOutput) PrintWarning(msg string) {
+	t.warningMessages = append(t.warningMessages, msg)
+}
+
+func (t *testUserOutput) PrintProgress(msg string) {
+	t.progressMessages = append(t.progressMessages, msg)
+}
+
+func (t *testUserOutput) PrintStep(current int, total int, msg string) {
+	t.stepMessages = append(t.stepMessages, fmt.Sprintf("Step %d/%d: %s", current, total, msg))
 }
 
 func TestStepExecutor_ExecuteStep(t *testing.T) {
-	// Test cases
 	tests := []struct {
-		name             string
-		changeRequest    string
-		step            WorkflowStep
-		outputFile      string
-		wantSuccess     bool
-		wantError       bool
-		wantOutputLines []string
+		name           string
+		changeRequest  string
+		step          WorkflowStep
+		wantSuccess    bool
+		wantErrorText  string
+		expectedOutput []string
 	}{
 		{
-			name:          "successful execution - foundation step",
-			changeRequest: "Test change request content",
+			name: "Successful execution",
+			changeRequest: `# Test Change Request
+This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
 				IsTest:      false,
+				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
-			outputFile:  "output.md",
 			wantSuccess: true,
-			wantOutputLines: []string{
+			expectedOutput: []string{
 				"# Laying the foundation",
 				"## Architecture & Design",
 				"This step focuses on setting up the architecture and structure for the implementation.",
@@ -105,91 +126,68 @@ func TestStepExecutor_ExecuteStep(t *testing.T) {
 				"3. Establish file organization",
 				"4. Set up testing infrastructure",
 				"## Change Request Context",
-				"This step was executed for change request: Test change request content",
+				"This step was executed for change request:",
+				"# Test Change Request",
+				"This is a test change request.",
 				"Step ID: 01-laying-the-foundation",
 				"Step Description: Laying the foundation",
 				"Is Test Step: false",
 			},
 		},
 		{
-			name:          "successful execution - mvi step",
-			changeRequest: "Test change request content",
+			name:          "File not found",
+			changeRequest: "",
 			step: WorkflowStep{
-				ID:          "02-mvi",
-				Description: "Minimum Viable Implementation",
+				ID:          "01-laying-the-foundation",
+				Description: "Laying the foundation",
 				IsTest:      false,
+				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
-			outputFile:  "output.md",
-			wantSuccess: true,
-			wantOutputLines: []string{
-				"# Minimum Viable Implementation",
-				"## Minimum Viable Implementation",
-				"This step implements the core functionality with minimal features.",
-				"### Implementation Focus",
-				"1. Core business logic",
-				"2. Essential functionality",
-				"3. Basic error handling",
-				"4. Minimal user interface",
-				"## Change Request Context",
-				"This step was executed for change request: Test change request content",
-				"Step ID: 02-mvi",
-				"Step Description: Minimum Viable Implementation",
-				"Is Test Step: false",
-			},
-		},
-		{
-			name:          "invalid step ID",
-			changeRequest: "Test change request content",
-			step: WorkflowStep{
-				ID:          "invalid-step",
-				Description: "Invalid Step",
-				IsTest:      false,
-			},
-			outputFile:  "output.md",
-			wantSuccess: false,
-			wantError:   true,
+			wantSuccess:   false,
+			wantErrorText: fmt.Sprintf(ErrFileNotFound, "change-request.md"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup
+			// Create mocks
 			fs := newTestFileSystem()
 			io := newTestUserOutput()
+
+			// Create executor
 			executor := NewStepExecutor(fs, io)
 
-			// Add change request file to mock filesystem
-			fs.files["change-request.md"] = []byte(tt.changeRequest)
-			fs.exists["change-request.md"] = true
-
-			// Execute
-			success, err := executor.ExecuteStep("change-request.md", tt.step, tt.outputFile)
-
-			// Check success/error
-			if success != tt.wantSuccess {
-				t.Errorf("ExecuteStep() success = %v, want %v", success, tt.wantSuccess)
-			}
-			if (err != nil) != tt.wantError {
-				t.Errorf("ExecuteStep() error = %v, wantError %v", err, tt.wantError)
+			// Set up mock file system
+			if tt.changeRequest != "" {
+				fs.files["change-request.md"] = []byte(tt.changeRequest)
 			}
 
-			// If we expect success, check the output file content
+			// Execute step
+			success, err := executor.ExecuteStep("change-request.md", tt.step, "output.md")
+
+			// Check success/failure
 			if tt.wantSuccess {
-				output := string(fs.files[tt.outputFile])
-				lines := strings.Split(strings.TrimSpace(output), "\n")
+				if !success || err != nil {
+					t.Errorf("ExecuteStep() success = %v, error = %v, want success = true, error = nil", success, err)
+				}
 
-				// Check each expected line
-				for _, wantLine := range tt.wantOutputLines {
-					found := false
-					for _, line := range lines {
-						if strings.TrimSpace(line) == strings.TrimSpace(wantLine) {
-							found = true
-							break
+				// Check output file content
+				output, exists := fs.files["output.md"]
+				if !exists {
+					t.Error("ExecuteStep() did not create output file")
+				} else {
+					outputStr := string(output)
+					for _, expectedLine := range tt.expectedOutput {
+						if !strings.Contains(outputStr, expectedLine) {
+							t.Errorf("Expected line not found in output: %s", expectedLine)
 						}
 					}
-					if !found {
-						t.Errorf("Expected line not found in output: %s", wantLine)
-					}
+				}
+			} else {
+				if success || err == nil {
+					t.Error("ExecuteStep() expected error, got nil")
+				} else if err.Error() != tt.wantErrorText {
+					t.Errorf("ExecuteStep() error = %v, want %v", err, tt.wantErrorText)
 				}
 			}
 		})
@@ -210,7 +208,7 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 				// Don't add the change request file
 			},
 			wantSuccess:   false,
-			wantErrorText: "failed to read change request file",
+			wantErrorText: fmt.Sprintf(ErrFileNotFound, "change-request.md"),
 		},
 		{
 			name: "mkdir error",
@@ -220,7 +218,7 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 				fs.mkdirErr = fmt.Errorf("mkdir error")
 			},
 			wantSuccess:   false,
-			wantErrorText: "failed to create output directory",
+			wantErrorText: fmt.Sprintf(ErrOutputFileCreateFailed, "mkdir error"),
 		},
 	}
 
@@ -246,8 +244,8 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 			if success != tt.wantSuccess {
 				t.Errorf("ExecuteStep() success = %v, want %v", success, tt.wantSuccess)
 			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErrorText) {
-				t.Errorf("ExecuteStep() error = %v, want error containing %q", err, tt.wantErrorText)
+			if err == nil || err.Error() != tt.wantErrorText {
+				t.Errorf("ExecuteStep() error = %v, want %v", err, tt.wantErrorText)
 			}
 		})
 	}

@@ -26,29 +26,36 @@ func NewStepExecutor(fs FileSystem, io UserOutput) *StepExecutor {
 
 // ExecuteStep executes a workflow step and produces an output file
 func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, outputFile string) (bool, error) {
+	// Print progress message
+	e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
+
 	// Read the change request file
 	content, err := e.fs.ReadFile(changeRequestPath)
 	if err != nil {
-		return false, fmt.Errorf("failed to read change request file: %w", err)
+		e.io.PrintError(fmt.Sprintf(ErrFileNotFound, changeRequestPath))
+		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
 
 	// Generate step-specific content
 	outputContent, err := e.generateStepContent(string(content), step)
 	if err != nil {
-		return false, fmt.Errorf("failed to generate step content: %w", err)
+		e.io.PrintError(fmt.Sprintf(ErrStepExecutionFailed, err))
+		return false, fmt.Errorf(ErrStepExecutionFailed, err)
 	}
 
 	// Create directory if it doesn't exist
 	dirPath := filepath.Dir(outputFile)
 	if dirPath != "" && !e.fs.Exists(dirPath) {
 		if err := e.fs.MkdirAll(dirPath, 0755); err != nil {
-			return false, fmt.Errorf("failed to create output directory: %w", err)
+			e.io.PrintError(fmt.Sprintf(ErrOutputFileCreateFailed, err))
+			return false, fmt.Errorf(ErrOutputFileCreateFailed, err)
 		}
 	}
 
 	// Write the output file
 	if err := e.fs.WriteFile(outputFile, []byte(outputContent), 0644); err != nil {
-		return false, fmt.Errorf("failed to write output file: %w", err)
+		e.io.PrintError(fmt.Sprintf(ErrOutputFileCreateFailed, err))
+		return false, fmt.Errorf(ErrOutputFileCreateFailed, err)
 	}
 
 	return true, nil
@@ -140,7 +147,7 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 
 	// Add change request context
 	context := fmt.Sprintf("## Change Request Context\n\n"+
-		"This step was executed for change request: %s\n\n"+
+		"This step was executed for change request:\n%s\n\n"+
 		"Step ID: %s\n"+
 		"Step Description: %s\n"+
 		"Is Test Step: %t\n\n",

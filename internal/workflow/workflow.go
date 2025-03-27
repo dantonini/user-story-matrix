@@ -49,7 +49,35 @@ type UserOutput interface {
 	Print(message string)
 	PrintSuccess(message string)
 	PrintError(message string)
+	PrintWarning(message string)
+	PrintProgress(message string)
+	PrintStep(stepNumber int, totalSteps int, description string)
 }
+
+// Error message templates
+const (
+	ErrFileNotFound          = "❌ Error: File %s not found."
+	ErrInvalidStateFile      = "⚠️ Warning: Invalid state file detected for %s. Starting from the beginning."
+	ErrStateUpdateFailed     = "❌ Error: Failed to update workflow state: %s"
+	ErrStepExecutionFailed   = "❌ Error: Failed to execute step: %s"
+	ErrUnrecognizedStep      = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
+	ErrStateFileCorrupted    = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
+	ErrOutputFileCreateFailed = "❌ Error: Failed to create output file: %s"
+)
+
+// Success message templates
+const (
+	SuccessStepCompleted     = "✅ Completed step %d of %d: %s"
+	SuccessWorkflowCompleted = "🎉 All steps completed successfully for change request: %s"
+	SuccessStateReset        = "🔄 Workflow for %s has been reset to the beginning."
+)
+
+// Progress message templates
+const (
+	ProgressExecutingStep = "⏳ Executing step %s: %s"
+	ProgressSavingState   = "💾 Saving workflow state..."
+	ProgressValidating    = "🔍 Validating workflow state..."
+)
 
 // StandardWorkflowSteps defines the predefined sequence of steps in the implementation workflow
 var StandardWorkflowSteps = []WorkflowStep{
@@ -132,18 +160,22 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 		return state, nil
 	}
 
+	wm.io.PrintProgress(ProgressValidating)
+
 	data, err := wm.fs.ReadFile(stateFilePath)
 	if err != nil {
-		return state, fmt.Errorf("failed to read state file: %w", err)
+		wm.io.PrintWarning(fmt.Sprintf(ErrStateFileCorrupted, changeRequestPath))
+		return state, nil
 	}
 
 	if err := json.Unmarshal(data, &state); err != nil {
-		return state, fmt.Errorf("invalid state file format: %w", err)
+		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		return state, nil
 	}
 
 	// Validate the state
 	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(StandardWorkflowSteps) {
-		wm.io.PrintError(fmt.Sprintf("Invalid step index %d in state file. Starting from the beginning.", state.CurrentStepIndex))
+		wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
 		state.CurrentStepIndex = 0
 		state.CompletedSteps = []string{}
 	}
@@ -153,16 +185,18 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 
 // SaveState saves the workflow state to the state file
 func (wm *WorkflowManager) SaveState(state WorkflowState) error {
+	wm.io.PrintProgress(ProgressSavingState)
+	
 	state.LastModified = time.Now()
 	
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal state: %w", err)
+		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
 	
 	stateFilePath := GenerateStateFilePath(state.ChangeRequestPath)
 	if err := wm.fs.WriteFile(stateFilePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write state file: %w", err)
+		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
 	
 	return nil
@@ -172,15 +206,18 @@ func (wm *WorkflowManager) SaveState(state WorkflowState) error {
 func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, error) {
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		// If there's an error loading the state, start from the beginning
-		wm.io.PrintError(fmt.Sprintf("Error loading workflow state: %s. Starting from the beginning.", err))
+		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
 		return 0, nil
 	}
 	
 	// If we've completed all steps, return a special indicator
 	if state.CurrentStepIndex >= len(StandardWorkflowSteps) {
+		wm.io.PrintSuccess(fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath))
 		return -1, nil
 	}
+	
+	// Print current step information
+	wm.io.PrintStep(state.CurrentStepIndex+1, len(StandardWorkflowSteps), StandardWorkflowSteps[state.CurrentStepIndex].Description)
 	
 	return state.CurrentStepIndex, nil
 }
@@ -189,7 +226,7 @@ func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, err
 func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex int) error {
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		return fmt.Errorf("failed to load state for update: %w", err)
+		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
 	
 	// Update the state
@@ -201,6 +238,12 @@ func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex in
 		if i < len(StandardWorkflowSteps) {
 			state.CompletedSteps = append(state.CompletedSteps, StandardWorkflowSteps[i].ID)
 		}
+	}
+	
+	// Print success message for the completed step
+	if newStepIndex > 0 && newStepIndex <= len(StandardWorkflowSteps) {
+		completedStep := StandardWorkflowSteps[newStepIndex-1]
+		wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(StandardWorkflowSteps), completedStep.Description))
 	}
 	
 	// Save the updated state
@@ -240,5 +283,10 @@ func (wm *WorkflowManager) ResetWorkflow(changeRequestPath string) error {
 		CompletedSteps:    []string{},
 	}
 	
-	return wm.SaveState(state)
+	if err := wm.SaveState(state); err != nil {
+		return err
+	}
+	
+	wm.io.PrintSuccess(fmt.Sprintf(SuccessStateReset, changeRequestPath))
+	return nil
 } 

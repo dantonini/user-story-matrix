@@ -7,6 +7,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"testing"
@@ -50,34 +51,51 @@ func (m *mockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 
 // mockUserOutput is a simple implementation of the user output interface for testing
 type mockUserOutput struct {
-	printFn       func(string)
-	printSuccessFn func(string)
-	printErrorFn   func(string)
-	printTableFn   func([]string, [][]string)
+	messages         []string
+	successMessages  []string
+	errorMessages    []string
+	warningMessages  []string
+	progressMessages []string
+	stepMessages     []string
+}
+
+func newMockUserOutput() *mockUserOutput {
+	return &mockUserOutput{
+		messages:         make([]string, 0),
+		successMessages:  make([]string, 0),
+		errorMessages:    make([]string, 0),
+		warningMessages:  make([]string, 0),
+		progressMessages: make([]string, 0),
+		stepMessages:     make([]string, 0),
+	}
 }
 
 func (m *mockUserOutput) Print(message string) {
-	if m.printFn != nil {
-		m.printFn(message)
-	}
+	m.messages = append(m.messages, message)
 }
 
 func (m *mockUserOutput) PrintSuccess(message string) {
-	if m.printSuccessFn != nil {
-		m.printSuccessFn(message)
-	}
+	m.successMessages = append(m.successMessages, message)
 }
 
 func (m *mockUserOutput) PrintError(message string) {
-	if m.printErrorFn != nil {
-		m.printErrorFn(message)
-	}
+	m.errorMessages = append(m.errorMessages, message)
+}
+
+func (m *mockUserOutput) PrintWarning(message string) {
+	m.warningMessages = append(m.warningMessages, message)
+}
+
+func (m *mockUserOutput) PrintProgress(message string) {
+	m.progressMessages = append(m.progressMessages, message)
+}
+
+func (m *mockUserOutput) PrintStep(stepNumber int, totalSteps int, description string) {
+	m.stepMessages = append(m.stepMessages, fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description))
 }
 
 func (m *mockUserOutput) PrintTable(headers []string, rows [][]string) {
-	if m.printTableFn != nil {
-		m.printTableFn(headers, rows)
-	}
+	// Not needed for these tests
 }
 
 // MockWorkflowManager is a mock implementation of the workflow manager

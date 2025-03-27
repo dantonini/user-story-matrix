@@ -1,19 +1,55 @@
-Your task is **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+Given:
+- A set ot user stories: read them using: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+- An implementation blueprint:read it using: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
 
-- Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-24-200355-full-tui.code.md
-- Read the implementation plan docs/changes-request/2025-03-24-200355-full-tui.code.md
-- Read the "laying the foundation" accomplished summary using cat docs/changes-request/2025-03-24-200355-full-tui.code.md.accomplished.md
-- Read the "MVI" accomplished summary using cat: docs/changes-request/2025-03-24-200355-full-tui.mvi.md.accomplished.md 
+You have already:
+- Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
+- Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md 
+
+Now proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+
+### 🎯 Goals of this Phase
+
+- Extend the core logic to handle **all scenarios** described in the user stories and their acceptance criteria.
+- Add meaningful logic to improve completeness while maintaining modularity.
+- Update or create **new tests** to ensure coverage of extended functionality.
+
+### 🧪 Formal Test Execution – Mandatory
+
+At the end of this phase, you **must run the complete formal test suite**:
+- All existing and new tests **must pass**.
+- Add tests for any uncovered edge cases.
+- Document any remaining limitations or areas needing future refinement.
+
+### ✅ Guidelines
+
+- Maintain alignment with the blueprint’s structure.
+- Keep the code production-quality: clear, modular, and documented.
+- Refactor as needed to support new logic, but avoid premature optimization.
+- Do not yet focus on performance tuning or polishing—prioritize completeness and correctness.
+
+### 🛠️ Your task
 
 1. For each user story:
+   - Validate the acceptance criterias already implemented.
    - Review the acceptance criteria not yet implemented.
    - Identify edge cases and secondary scenarios.
    - Extend the implementation accordingly.
 
 2. For each new case:
    - Add or update tests.
-   - Ensure the verification logic (e.g., test assertions) remains aligned with the blueprint.
+   - Ensure the verification logic (e.g., test assertions) remains aligned and meaningful for the user story.
 
 3. Run the full test suite and validate all tests pass.
+4. At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-26-020055-code-command.code.md.03-extend-functionalities.accomplished.md
+At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-26-020055-code-command.code.md.03-extend-functionalities.accomplished.md.
 
-At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-24-200355-full-tui.extend-functionalities.md.accomplished.md
+The accomplishment report is not a summary, is a compass to the changes you made, hence avoid general statements/claim, be precise:
+Use always short code references (no code at all, 
+ just a compact/understable reference to lookup for, do not use line numbers) 
+ as foundation of your statements
+ For esample:
+ - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+ - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+ - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+ - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
