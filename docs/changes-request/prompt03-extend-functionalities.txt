@@ -1,12 +1,16 @@
-Given:
-- A set ot user stories: read them using: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
-- An implementation blueprint:read it using: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+You are about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
+
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
 
 You have already:
 - Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
 - Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md 
 
-Now proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+Your task is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
 
 ### 🎯 Goals of this Phase
 
@@ -52,4 +56,11 @@ Use always short code references (no code at all,
  - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
  - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
  - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
- - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+ - Include a dedicated section for potentially still not yet well covered acceptance criteria.
+
+--- 
+
+- Read the set of user stories using: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+- Read the implementation blueprint using: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+
+Now proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.

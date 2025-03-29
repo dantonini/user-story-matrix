@@ -1,12 +1,12 @@
-Your goal is to build a **minimum viable implementation** for each user story based on the blueprint, ensuring correctness and testability at every step.
+You are about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
 
-## ✅ Scope
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
 
-- You already have:
-  - A structured blueprint with user stories, acceptance criteria, and a plan of action.
-  - A scaffolded codebase that makes room for upcoming changes.
-  
-Now you will build the **simplest working implementation** for each user story that satisfies its requirements and passes all associated tests.
+Your task is to build the **simplest working implementation** for each user story that satisfies its requirements and passes all associated tests.
 
 ---
 
@@ -33,11 +33,6 @@ Now you will build the **simplest working implementation** for each user story t
 - After implementing each user story, run the **entire test suite**.
 - All tests—existing and newly added—must pass.
 - Fix any issues immediately before proceeding to the next user story.
-
-### 5. Document and Leave TODOs
-
-- If the blueprint suggests future improvements (e.g. refactoring, edge case handling, performance tuning), add clear TODOs or comments in the code.
-- These will be handled in later phases, not during MVI.
 
 ---
 

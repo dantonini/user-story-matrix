@@ -1,9 +1,9 @@
 Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
 
 You have already:
-- ✅ Laid the foundation (project structure, placeholders, key abstractions)
-- ✅ Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
-- ✅ Extended the implementation to support more scenarios and edge cases
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extended the implementation to support more scenarios and edge cases
 
 Now, execute the last phase of the iteration: **Refinement & Stabilization**.
 

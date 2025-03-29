@@ -1,0 +1,20 @@
+You have concluded a software iteration based on a set of user stories described in a blueprint document. 
+
+The whole iteration was composed by 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to summarize what has been accomplished so far in an "implementation" file 2025-03-26-020055-code-command.implementation.md.
+Keep into consideration that this technical document will be archived as Architecture Decision Record. Use reference to the implemented code to look up for (do not use line numbers, they change too frequently)
+Describe data structures and their purposes (if any)
+Describe relevant algorithms and their purporses (if any)
+ 
+The original blueprint: 
+@2025-03-26-020055-code-command.blueprint.md 
+the accomplished:
+- foundations: @2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
+- mvi: @2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md
+- extend:@2025-03-26-020055-code-command.code.md.03-extend-functionalities.accomplished.md 
+- refine:@2025-03-26-020055-code-command.code.md.04-refinement.accomplished.md   

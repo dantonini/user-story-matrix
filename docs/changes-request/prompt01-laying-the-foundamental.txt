@@ -1,4 +1,14 @@
-You are about to begin a new iteration of software development based on a set of user stories described in a blueprint document. Before jumping into feature implementation, your first task is to lay the foundation—that is, to prepare the codebase to safely and effectively accommodate the upcoming changes.
+You are about to begin a new iteration of software development based on a set of user stories described in a blueprint document. 
+
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to lay the foundation—that is, to prepare the codebase to safely and effectively accommodate the upcoming changes.
+
+
 
 This phase includes two core responsibilities:
 🧱 1. Architecture & Design Setup
@@ -14,6 +24,7 @@ Introduce placeholders (e.g., method stubs, empty classes, files) as needed to s
 Deliverables:
 
 - Skeletons of new modules, files, and class/functions definitions
+- Use a lot of comments / TODO and dummy implementations 
 - Basic integration points with existing code
 - Updated diagrams or descriptions (if applicable)
 
@@ -30,7 +41,18 @@ Deliverables:
 - Refactored modules or components with improved structure
 - Simplified interfaces or decoupled logic
 - Regression tests to ensure no existing functionality breaks
-- a summary of what you achieved in markdown format in the file ./docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
+- An accomplishment report in ./docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
+
+The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
+Use always short code references (no code at all, 
+ just a compact/understable reference to lookup for, do not use line numbers) 
+ as foundation of your statements
+ For esample:
+ - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+ - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+ - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+ - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+ - Include any changes to original design decisions
 
 Goal:
 - To reduce technical debt and align the current codebase with the structural needs of the upcoming iteration.
