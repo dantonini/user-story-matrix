@@ -18,7 +18,6 @@ import (
 type WorkflowStep struct {
 	ID          string // Unique identifier (e.g., "01-laying-the-foundation")
 	Description string // Human-readable description
-	IsTest      bool   // Whether this is a test step
 	OutputFile  string // Template for output filename
 }
 
@@ -87,49 +86,41 @@ var StandardWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation - Setting up the architecture and structure",
-		IsTest:      false,
 		OutputFile:  "%s.01-laying-the-foundation.md",
 	},
 	{
 		ID:          "01-laying-the-foundation-test",
 		Description: "Laying the foundation testing - Verifying the foundational changes",
-		IsTest:      true,
 		OutputFile:  "%s.01-laying-the-foundation-test.md",
 	},
 	{
 		ID:          "02-mvi",
 		Description: "Minimum Viable Implementation - Building the core functionality",
-		IsTest:      false,
 		OutputFile:  "%s.02-mvi.md",
 	},
 	{
 		ID:          "02-mvi-test",
 		Description: "Minimum Viable Implementation testing - Verifying the core functionality",
-		IsTest:      true,
 		OutputFile:  "%s.02-mvi-test.md",
 	},
 	{
 		ID:          "03-extend-functionalities",
 		Description: "Extending functionalities - Adding additional features and improvements",
-		IsTest:      false,
 		OutputFile:  "%s.03-extend-functionalities.md",
 	},
 	{
 		ID:          "03-extend-functionalities-test",
 		Description: "Extending functionalities testing - Verifying the additional features",
-		IsTest:      true,
 		OutputFile:  "%s.03-extend-functionalities-test.md",
 	},
 	{
 		ID:          "04-final-iteration",
 		Description: "Final iteration - Polishing and final adjustments",
-		IsTest:      false,
 		OutputFile:  "%s.04-final-iteration.md",
 	},
 	{
 		ID:          "04-final-iteration-test",
 		Description: "Final iteration testing - Final verification and validation",
-		IsTest:      true,
 		OutputFile:  "%s.04-final-iteration-test.md",
 	},
 }

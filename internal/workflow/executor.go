@@ -149,12 +149,10 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 	context := fmt.Sprintf("## Change Request Context\n\n"+
 		"This step was executed for change request:\n%s\n\n"+
 		"Step ID: %s\n"+
-		"Step Description: %s\n"+
-		"Is Test Step: %t\n\n",
+		"Step Description: %s\n",
 		changeRequestContent,
 		step.ID,
 		step.Description,
-		step.IsTest,
 	)
 
 	return header + content + context, nil

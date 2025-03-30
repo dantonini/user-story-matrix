@@ -237,7 +237,6 @@ func TestExecuteStep(t *testing.T) {
 	step := workflow.WorkflowStep{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation",
-		IsTest:      false,
 		OutputFile:  "%s.01-laying-the-foundation.md",
 	}
 	

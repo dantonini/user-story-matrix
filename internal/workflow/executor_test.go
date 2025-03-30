@@ -116,7 +116,6 @@ This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
-				IsTest:      false,
 				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
 			wantSuccess: true,
@@ -135,7 +134,6 @@ This is a test change request.`,
 				"This is a test change request.",
 				"Step ID: 01-laying-the-foundation",
 				"Step Description: Laying the foundation",
-				"Is Test Step: false",
 			},
 		},
 		{
@@ -144,7 +142,6 @@ This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
-				IsTest:      false,
 				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
 			wantSuccess:   false,
@@ -252,7 +249,6 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 			step := WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
-				IsTest:      false,
 			}
 			success, err := executor.ExecuteStep("change-request.md", step, "output/test.md")
 
@@ -296,7 +292,6 @@ func TestGenerateStepContent(t *testing.T) {
 			step := WorkflowStep{
 				ID:          tc.stepID,
 				Description: "Test description",
-				IsTest:      strings.Contains(tc.stepID, "test"),
 			}
 			
 			content, err := executor.generateStepContent(changeRequestContent, step)
@@ -366,7 +361,6 @@ func TestStepExecutor_ExecuteStep_WriteFileError(t *testing.T) {
 	step := WorkflowStep{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation",
-		IsTest:      false,
 	}
 	
 	// Execute step (expect failure)
