@@ -195,14 +195,14 @@ func TestGetFileName(t *testing.T) {
 	}
 }
 
+// TestExecuteStep tests the executeStep function
 func TestExecuteStep(t *testing.T) {
-	// Create a mock filesystem
 	mockFS := &mockFileSystem{}
 	mockIO := &mockUserOutput{}
 	
 	// Configure the mock filesystem
 	mockFS.existsFn = func(path string) bool {
-		// Assume the change request file exists, but not the output directory
+		// Assume the change request file exists
 		return path == "/path/to/change-request.blueprint.md"
 	}
 	
@@ -213,30 +213,11 @@ func TestExecuteStep(t *testing.T) {
 		return nil, errors.New("file not found")
 	}
 	
-	// Mock WriteFile to verify it was called with the correct parameters
-	writeFileCalled := false
-	mockFS.writeFileFn = func(path string, data []byte, perm os.FileMode) error {
-		if path == "/path/to/output.md" && len(data) > 0 && perm == 0644 {
-			writeFileCalled = true
-			return nil
-		}
-		return errors.New("unexpected parameters")
-	}
-	
-	// Mock MkdirAll to verify it was called with the correct parameters
-	mkdirAllCalled := false
-	mockFS.mkdirAllFn = func(path string, perm os.FileMode) error {
-		if path == "/path/to" && perm == 0755 {
-			mkdirAllCalled = true
-			return nil
-		}
-		return errors.New("unexpected parameters")
-	}
-	
 	// Create a test step
 	step := workflow.WorkflowStep{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation",
+		Prompt:      "Test prompt with ${change_request_file_path}",
 		OutputFile:  "%s.01-laying-the-foundation.md",
 	}
 	
@@ -252,12 +233,18 @@ func TestExecuteStep(t *testing.T) {
 		t.Errorf("executeStep() success = %v, want true", success)
 	}
 	
-	if !mkdirAllCalled {
-		t.Errorf("MkdirAll was not called as expected")
+	// Check that the expected message was printed
+	expectedMsg := "Processed prompt for step 01-laying-the-foundation: Test prompt with /path/to/change-request.blueprint.md"
+	messagePrinted := false
+	for _, msg := range mockIO.messages {
+		if msg == expectedMsg {
+			messagePrinted = true
+			break
+		}
 	}
 	
-	if !writeFileCalled {
-		t.Errorf("WriteFile was not called as expected")
+	if !messagePrinted {
+		t.Errorf("Expected message not printed: %s", expectedMsg)
 	}
 }
 

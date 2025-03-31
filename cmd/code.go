@@ -35,8 +35,9 @@ and keeps track of your progress. The workflow consists of 8 numbered steps:
 7. Final iteration
 8. Final iteration testing
 
-The command detects which step you're on, executes it, and updates your progress.
-Progress is stored in a .step file, allowing you to resume where you left off.
+The command detects which step you're on, executes it by displaying the prompt,
+and updates your progress. Progress is stored in a .step file, allowing you to 
+resume where you left off.
 
 Example:
   usm code docs/changes-request/2025-03-26-020055-code-command.blueprint.md
@@ -103,10 +104,10 @@ Use the --reset flag to start the workflow from the beginning:
 
 		currentStep := workflow.StandardWorkflowSteps[nextStepIndex]
 
-		// Generate output filename
+		// Generate output filename (still needed for state tracking)
 		outputFile := wm.GenerateOutputFilename(changeRequestPath, currentStep)
 
-		// Execute the step
+		// Execute the step - now just prints the prompt to stdout
 		success, err := executeStep(changeRequestPath, currentStep, outputFile, fs, term)
 		if err != nil {
 			term.PrintError(fmt.Sprintf("Failed to execute step: %s", err))
@@ -125,7 +126,6 @@ Use the --reset flag to start the workflow from the beginning:
 		}
 
 		term.PrintSuccess(fmt.Sprintf("Completed step %d: %s", nextStepIndex+1, currentStep.Description))
-		term.Print(fmt.Sprintf("Output saved to: %s", outputFile))
 
 		// Check if we've completed all steps
 		if nextStepIndex+1 >= len(workflow.StandardWorkflowSteps) {
@@ -137,7 +137,7 @@ Use the --reset flag to start the workflow from the beginning:
 	},
 }
 
-// executeStep executes a workflow step and produces an output file
+// executeStep executes a workflow step and prints the processed prompt
 func executeStep(changeRequestPath string, step workflow.WorkflowStep, outputFile string, fs io.FileSystem, term io.UserOutput) (bool, error) {
 	executor := workflow.NewStepExecutor(fs, term)
 	return executor.ExecuteStep(changeRequestPath, step, outputFile)

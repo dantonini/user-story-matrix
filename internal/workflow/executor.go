@@ -7,7 +7,6 @@ package workflow
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -25,7 +24,9 @@ func NewStepExecutor(fs FileSystem, io UserOutput) *StepExecutor {
 	}
 }
 
-// ExecuteStep executes a workflow step and produces an output file
+// ExecuteStep executes a workflow step and outputs the processed prompt to stdout.
+// The outputFile parameter is only used for backward compatibility with the existing API,
+// but no file is actually written.
 func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, outputFile string) (bool, error) {
 	// Print progress message
 	e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
@@ -37,9 +38,8 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 		}
 	}
 
-	// Read the change request file
-	content, err := e.fs.ReadFile(changeRequestPath)
-	if err != nil {
+	// Check if the change request file exists
+	if !e.fs.Exists(changeRequestPath) {
 		e.io.PrintError(fmt.Sprintf(ErrFileNotFound, changeRequestPath))
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
@@ -54,27 +54,8 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 		e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
 	}
 
-	// Generate step-specific content
-	outputContent, err := e.generateStepContent(string(content), step, processedPrompt)
-	if err != nil {
-		e.io.PrintError(fmt.Sprintf(ErrStepExecutionFailed, err))
-		return false, fmt.Errorf(ErrStepExecutionFailed, err)
-	}
-
-	// Create directory if it doesn't exist
-	dirPath := filepath.Dir(outputFile)
-	if dirPath != "" && !e.fs.Exists(dirPath) {
-		if err := e.fs.MkdirAll(dirPath, 0755); err != nil {
-			e.io.PrintError(fmt.Sprintf(ErrOutputFileCreateFailed, err))
-			return false, fmt.Errorf(ErrOutputFileCreateFailed, err)
-		}
-	}
-
-	// Write the output file
-	if err := e.fs.WriteFile(outputFile, []byte(outputContent), 0644); err != nil {
-		e.io.PrintError(fmt.Sprintf(ErrOutputFileCreateFailed, err))
-		return false, fmt.Errorf(ErrOutputFileCreateFailed, err)
-	}
+	// Print the processed prompt directly to stdout instead of writing to a file
+	e.io.Print(fmt.Sprintf("Processed prompt for step %s: %s", step.ID, processedPrompt))
 
 	return true, nil
 }
