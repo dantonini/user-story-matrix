@@ -18,13 +18,15 @@ type PromptVariables struct {
 }
 
 // InterpolationError represents an error during prompt interpolation
+// It provides detailed information about malformed and missing variables
 type InterpolationError struct {
-	Message       string
-	MalformedVars []string
-	MissingVars   []string
+	Message       string   // Error message
+	MalformedVars []string // Variables with syntax issues
+	MissingVars   []string // Variables that weren't available for interpolation
 }
 
 // Error implements the error interface for InterpolationError
+// It formats the error message to include details about malformed and missing variables
 func (e *InterpolationError) Error() string {
 	if len(e.MalformedVars) > 0 && len(e.MissingVars) > 0 {
 		return fmt.Sprintf("%s: malformed variables [%s], missing variables [%s]",
@@ -37,7 +39,7 @@ func (e *InterpolationError) Error() string {
 	return e.Message
 }
 
-// NewInterpolationError creates a new InterpolationError
+// NewInterpolationError creates a new InterpolationError with the given details
 func NewInterpolationError(message string, malformedVars []string, missingVars []string) *InterpolationError {
 	return &InterpolationError{
 		Message:       message,
@@ -47,6 +49,8 @@ func NewInterpolationError(message string, malformedVars []string, missingVars [
 }
 
 // InterpolatePrompt replaces variables in the format ${variable_name} with their values
+// This is a simple implementation that only handles the ChangeRequestFilePath variable
+// For more complex interpolation with error handling, use InterpolatePromptWithError
 func InterpolatePrompt(prompt string, variables PromptVariables) string {
 	result := prompt
 
@@ -57,6 +61,8 @@ func InterpolatePrompt(prompt string, variables PromptVariables) string {
 }
 
 // InterpolatePromptWithError replaces variables and returns an error if any problems are encountered
+// It identifies both missing variables (not available in the variables struct) and
+// malformed variables (syntax issues like spaces in variable names or unclosed braces)
 func InterpolatePromptWithError(prompt string, variables PromptVariables) (string, error) {
 	result, missingVars, malformedVars := interpolateWithDetails(prompt, variables)
 	
@@ -72,17 +78,24 @@ func InterpolatePromptWithError(prompt string, variables PromptVariables) (strin
 }
 
 // interpolateWithDetails performs variable interpolation and returns details about issues
+// It is the core function used by the other interpolation functions
+// Returns:
+// - The interpolated string with available variables replaced
+// - A list of variables that weren't available for interpolation
+// - A list of variables with syntax issues
 func interpolateWithDetails(prompt string, variables PromptVariables) (string, []string, []string) {
 	result := prompt
 	missingVars := []string{}
 	malformedVars := []string{}
 	
 	// Regular expression to find all variables in format ${variable_name}
-	// This regex also captures malformed variables like ${var with spaces} or ${missing-closing-brace
+	// This regex matches valid variable names consisting of letters, numbers, underscores, and hyphens
 	reValid := regexp.MustCompile(`\${([a-zA-Z0-9_-]+)}`)
+	
+	// This regex captures malformed variables like ${var with spaces} or ${missing-closing-brace
 	reMalformed := regexp.MustCompile(`\${([^}]*[\s]+[^}]*)}|\${([^}]*)$`)
 	
-	// Find malformed variables
+	// First, find malformed variables to avoid treating them as valid ones
 	malformedMatches := reMalformed.FindAllStringSubmatch(prompt, -1)
 	for _, match := range malformedMatches {
 		if len(match) > 1 {
@@ -95,7 +108,7 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 		}
 	}
 	
-	// Find and replace valid variables
+	// Next, find and replace valid variables
 	validMatches := reValid.FindAllStringSubmatch(prompt, -1)
 	for _, match := range validMatches {
 		if len(match) > 1 {

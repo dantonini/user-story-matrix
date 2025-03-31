@@ -1,9 +1,9 @@
-Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
 
 You have already:
-- Laid the foundation (project structure, placeholders, key abstractions)
-- Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
-- Extended the implementation to support more scenarios and edge cases
+- Laid the foundation (project structure, placeholders, key abstractions): cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
+- Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
+- Extended the implementation to support more scenarios and edge cases: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.03-extend-functionalities.accomplished.md
 
 Now, execute the last phase of the iteration: **Refinement & Stabilization**.
 
@@ -54,7 +54,7 @@ Now, execute the last phase of the iteration: **Refinement & Stabilization**.
 
 - Final version of the code with inline comments
 - Updated and complete test suite
-- An accomplishment report in docs/changes-request/2025-03-26-020055-code-command.code.md.04-refinement.accomplished.md
+- An accomplishment report in docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.04-refinement.accomplished.md
 
 The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, 

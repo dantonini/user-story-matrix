@@ -6,6 +6,8 @@
 package workflow
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -256,4 +258,103 @@ func TestGenerateDefaultPrompt(t *testing.T) {
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
+}
+
+func TestInterpolationErrorString(t *testing.T) {
+	tests := []struct {
+		name         string
+		message      string
+		malformedVars []string
+		missingVars  []string
+		expected     string
+	}{
+		{
+			name:         "Only message",
+			message:      "test message",
+			malformedVars: nil,
+			missingVars:  nil,
+			expected:     "test message",
+		},
+		{
+			name:         "Message with malformed variables",
+			message:      "test message",
+			malformedVars: []string{"var with space", "another-bad"},
+			missingVars:  nil,
+			expected:     "test message: malformed variables [var with space, another-bad]",
+		},
+		{
+			name:         "Message with missing variables",
+			message:      "test message",
+			malformedVars: nil,
+			missingVars:  []string{"missing1", "missing2"},
+			expected:     "test message: missing variables [missing1, missing2]",
+		},
+		{
+			name:         "Message with both malformed and missing variables",
+			message:      "test message",
+			malformedVars: []string{"bad-var"},
+			missingVars:  []string{"missing-var"},
+			expected:     "test message: malformed variables [bad-var], missing variables [missing-var]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := NewInterpolationError(tt.message, tt.malformedVars, tt.missingVars)
+			if err.Error() != tt.expected {
+				t.Errorf("Expected error string '%s', got '%s'", tt.expected, err.Error())
+			}
+		})
+	}
+}
+
+func BenchmarkInterpolation(b *testing.B) {
+	// Generate a large prompt with many variable references
+	var prompt strings.Builder
+	for i := 0; i < 1000; i++ {
+		prompt.WriteString(fmt.Sprintf("This is sentence %d with ${change_request_file_path} variable reference.\n", i))
+	}
+	
+	largePath := "/very/long/path/to/a/file/with/a/lot/of/segments/that/might/slow/down/string/operations/in/a/large/text.md"
+	vars := PromptVariables{
+		ChangeRequestFilePath: largePath,
+	}
+	
+	b.ResetTimer()
+	
+	// Benchmark InterpolatePrompt
+	b.Run("InterpolatePrompt", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			InterpolatePrompt(prompt.String(), vars)
+		}
+	})
+	
+	// Benchmark InterpolatePromptWithMissingVars
+	b.Run("InterpolatePromptWithMissingVars", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			InterpolatePromptWithMissingVars(prompt.String(), vars)
+		}
+	})
+	
+	// Benchmark InterpolatePromptWithError
+	b.Run("InterpolatePromptWithError", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = InterpolatePromptWithError(prompt.String(), vars)
+		}
+	})
+	
+	// Create a large map of variables
+	varMap := map[string]string{
+		"change_request_file_path": largePath,
+	}
+	for i := 0; i < 50; i++ {
+		varMap[fmt.Sprintf("var_%d", i)] = fmt.Sprintf("value_%d", i)
+	}
+	
+	// Benchmark interpolatePromptWithMap
+	b.Run("interpolatePromptWithMap", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			interpolatePromptWithMap(prompt.String(), varMap)
+		}
+	})
 } 

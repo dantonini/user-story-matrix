@@ -494,6 +494,11 @@ func TestFormatPromptAsInstructions(t *testing.T) {
 			expected: "No specific instructions provided.",
 		},
 		{
+			name:     "Whitespace only prompt",
+			prompt:   "   \n  \t  ",
+			expected: "No specific instructions provided.",
+		},
+		{
 			name:     "Single sentence",
 			prompt:   "This is a test prompt.",
 			expected: "1. This is a test prompt.\n",
@@ -512,6 +517,21 @@ func TestFormatPromptAsInstructions(t *testing.T) {
 			name:     "Newlines",
 			prompt:   "First line.\nSecond line.\nThird line.",
 			expected: "1. First line.\n2. Second line.\n3. Third line.\n",
+		},
+		{
+			name:     "Prompt with empty sentences",
+			prompt:   "First sentence.. Second sentence.",
+			expected: "1. First sentence.\n2. Second sentence.\n",
+		},
+		{
+			name:     "No valid sentences",
+			prompt:   "....,,,,",
+			expected: "No specific instructions provided.",
+		},
+		{
+			name:     "Sentences without punctuation",
+			prompt:   "First sentence Second sentence Third sentence",
+			expected: "1. First sentence Second sentence Third sentence.\n",
 		},
 	}
 
@@ -537,6 +557,11 @@ func TestExtractSentences(t *testing.T) {
 			expected: []string{},
 		},
 		{
+			name:     "Whitespace only",
+			text:     "   \n  \t  ",
+			expected: []string{},
+		},
+		{
 			name:     "Single sentence",
 			text:     "This is a test.",
 			expected: []string{"This is a test"},
@@ -555,6 +580,21 @@ func TestExtractSentences(t *testing.T) {
 			name:     "Sentences with newlines",
 			text:     "First line.\nSecond line.\nThird line.",
 			expected: []string{"First line", "Second line", "Third line"},
+		},
+		{
+			name:     "No ending punctuation",
+			text:     "This sentence has no ending punctuation",
+			expected: []string{"This sentence has no ending punctuation"},
+		},
+		{
+			name:     "Mixed ending and no ending punctuation",
+			text:     "First sentence. Second sentence without ending punctuation",
+			expected: []string{"First sentence", "Second sentence without ending punctuation"},
+		},
+		{
+			name:     "Empty sentences",
+			text:     "First sentence... Second sentence.",
+			expected: []string{"First sentence", "Second sentence"},
 		},
 	}
 
@@ -817,6 +857,92 @@ func TestGenerateStepContent_InvalidStepID(t *testing.T) {
 				t.Error("generateStepContent() expected error, got nil")
 			} else if err.Error() != tc.wantErrText {
 				t.Errorf("generateStepContent() error = %v, want %v", err, tc.wantErrText)
+			}
+		})
+	}
+}
+
+func TestIsInvalidSentence(t *testing.T) {
+	tests := []struct {
+		name     string
+		sentence string
+		expected bool
+	}{
+		{
+			name:     "Normal sentence",
+			sentence: "This is a valid sentence.",
+			expected: false,
+		},
+		{
+			name:     "Only punctuation",
+			sentence: "....,,,!!!",
+			expected: true,
+		},
+		{
+			name:     "Only whitespace and punctuation",
+			sentence: " . , ! ? ; : ",
+			expected: true,
+		},
+		{
+			name:     "Empty string",
+			sentence: "",
+			expected: true,
+		},
+		{
+			name:     "Whitespace only",
+			sentence: "   \t  \n  ",
+			expected: true,
+		},
+		{
+			name:     "Valid sentence with lots of punctuation",
+			sentence: "This, is a valid sentence, with punctuation!!!",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isInvalidSentence(tt.sentence)
+			if result != tt.expected {
+				t.Errorf("isInvalidSentence(%q) = %v, want %v", tt.sentence, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCleanPunctuation(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected string
+	}{
+		{
+			name:     "Double periods",
+			text:     "Test sentence.. with double periods...",
+			expected: "Test sentence. with double periods.",
+		},
+		{
+			name:     "Multiple double punctuation",
+			text:     "Test with multiple,, types!! of?? punctuation..",
+			expected: "Test with multiple, types! of? punctuation.",
+		},
+		{
+			name:     "No double punctuation",
+			text:     "Normal sentence with no double punctuation.",
+			expected: "Normal sentence with no double punctuation.",
+		},
+		{
+			name:     "Many repeated punctuation",
+			text:     "Test......... with many....... repeated punctuation!!!!!",
+			expected: "Test. with many. repeated punctuation!",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cleanPunctuation(tt.text)
+			if result != tt.expected {
+				t.Errorf("cleanPunctuation(%q) = %q, want %q", tt.text, result, tt.expected)
 			}
 		})
 	}
