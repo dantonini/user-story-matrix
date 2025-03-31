@@ -125,14 +125,7 @@ This is a test change request.`,
 				"## Architecture & Design",
 				"This step focuses on setting up the architecture and structure for the implementation.",
 				"### Key Activities",
-				"1. Create necessary packages and interfaces",
-				"2. Define core data structures",
-				"3. Establish file organization",
-				"4. Set up testing infrastructure",
-				"## Change Request Context",
-				"This step was executed for change request:",
-				"# Test Change Request",
-				"This is a test change request.",
+				"1. This is a test prompt with change-request.md variable",
 				"Step ID: 01-laying-the-foundation",
 				"Step Description: Laying the foundation",
 				"Step Prompt: This is a test prompt with change-request.md variable",
@@ -396,5 +389,435 @@ func TestStepExecutor_ExecuteStep_WriteFileError(t *testing.T) {
 	expectedError := fmt.Sprintf(ErrOutputFileCreateFailed, "write file error")
 	if err.Error() != expectedError {
 		t.Errorf("ExecuteStep() error = %v, want %v", err, expectedError)
+	}
+}
+
+// This update adds new test cases for validating prompts with errors
+func TestStepExecutor_ExecuteStep_PromptValidation(t *testing.T) {
+	tests := []struct {
+		name              string
+		prompt            string
+		expectWarnings    bool
+		expectMissingVars bool
+	}{
+		{
+			name:              "Valid prompt with existing variable",
+			prompt:            "Process the file at ${change_request_file_path}",
+			expectWarnings:    false,
+			expectMissingVars: false,
+		},
+		{
+			name:              "Valid prompt with missing variable",
+			prompt:            "Process the file at ${unknown_variable}",
+			expectWarnings:    false,
+			expectMissingVars: true,
+		},
+		{
+			name:              "Malformed prompt",
+			prompt:            "Process the file at ${variable with spaces}",
+			expectWarnings:    true,
+			expectMissingVars: false,
+		},
+		{
+			name:              "Unclosed variable syntax",
+			prompt:            "Process the file at ${incomplete",
+			expectWarnings:    true,
+			expectMissingVars: false,
+		},
+		{
+			name:              "Empty prompt",
+			prompt:            "",
+			expectWarnings:    false,
+			expectMissingVars: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mocks
+			fs := newTestFileSystem()
+			io := newTestUserOutput()
+
+			// Create executor
+			executor := NewStepExecutor(fs, io)
+
+			// Create test step
+			step := WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				Prompt:      tt.prompt,
+				OutputFile:  "output.md",
+			}
+
+			// Set up mock file system
+			fs.files["change-request.md"] = []byte("# Test Change Request\nThis is a test.")
+
+			// Execute step
+			executor.ExecuteStep("change-request.md", step, "output.md")
+
+			// Check if warnings were generated as expected
+			if tt.expectWarnings && len(io.warningMessages) == 0 {
+				t.Error("Expected warnings for malformed prompt, but none were generated")
+			}
+
+			// Check if missing variables were reported as expected
+			if tt.expectMissingVars {
+				foundMissingVarWarning := false
+				for _, msg := range io.warningMessages {
+					if contains(msg, "undefined variables") {
+						foundMissingVarWarning = true
+						break
+					}
+				}
+				if !foundMissingVarWarning {
+					t.Error("Expected warning about undefined variables, but none was generated")
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
+
+func TestFormatPromptAsInstructions(t *testing.T) {
+	tests := []struct {
+		name     string
+		prompt   string
+		expected string
+	}{
+		{
+			name:     "Empty prompt",
+			prompt:   "",
+			expected: "No specific instructions provided.",
+		},
+		{
+			name:     "Single sentence",
+			prompt:   "This is a test prompt.",
+			expected: "1. This is a test prompt.\n",
+		},
+		{
+			name:     "Multiple sentences",
+			prompt:   "First sentence. Second sentence. Third sentence.",
+			expected: "1. First sentence.\n2. Second sentence.\n3. Third sentence.\n",
+		},
+		{
+			name:     "Different punctuation",
+			prompt:   "Question? Exclamation! Statement.",
+			expected: "1. Question?\n2. Exclamation!\n3. Statement.\n",
+		},
+		{
+			name:     "Newlines",
+			prompt:   "First line.\nSecond line.\nThird line.",
+			expected: "1. First line.\n2. Second line.\n3. Third line.\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatPromptAsInstructions(tt.prompt)
+			if result != tt.expected {
+				t.Errorf("formatPromptAsInstructions() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractSentences(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected []string
+	}{
+		{
+			name:     "Empty text",
+			text:     "",
+			expected: []string{},
+		},
+		{
+			name:     "Single sentence",
+			text:     "This is a test.",
+			expected: []string{"This is a test"},
+		},
+		{
+			name:     "Multiple sentences with periods",
+			text:     "First sentence. Second sentence. Third sentence.",
+			expected: []string{"First sentence", "Second sentence", "Third sentence"},
+		},
+		{
+			name:     "Sentences with different punctuation",
+			text:     "Question? Exclamation! Statement.",
+			expected: []string{"Question", "Exclamation", "Statement"},
+		},
+		{
+			name:     "Sentences with newlines",
+			text:     "First line.\nSecond line.\nThird line.",
+			expected: []string{"First line", "Second line", "Third line"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractSentences(tt.text)
+			
+			// Check length
+			if len(result) != len(tt.expected) {
+				t.Errorf("extractSentences() returned %d sentences, want %d", len(result), len(tt.expected))
+				return
+			}
+			
+			// Check content
+			for i, s := range result {
+				if !strings.Contains(s, tt.expected[i]) {
+					t.Errorf("sentence %d = %q, want to contain %q", i, s, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateStepContent_PromptIntegration(t *testing.T) {
+	tests := []struct {
+		name               string
+		stepID             string
+		stepDescription    string
+		prompt             string
+		changeRequestContent string
+		expectedContains   []string
+	}{
+		{
+			name:               "Foundation step with prompt",
+			stepID:             "01-laying-the-foundation",
+			stepDescription:    "Laying the foundation",
+			prompt:             "Create necessary packages. Define core data structures. Establish file organization.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Laying the foundation",
+				"## Architecture & Design",
+				"This step focuses on setting up the architecture and structure for the implementation.",
+				"### Key Activities",
+				"1. Create necessary packages.",
+				"2. Define core data structures.",
+				"3. Establish file organization.",
+				"Step Prompt: Create necessary packages. Define core data structures. Establish file organization.",
+			},
+		},
+		{
+			name:               "Test step with prompt",
+			stepID:             "01-laying-the-foundation-test",
+			stepDescription:    "Foundation testing",
+			prompt:             "Verify package structure. Test interfaces. Validate data structures.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Foundation testing",
+				"## Foundation Testing",
+				"This step verifies the foundational changes made in the previous step.",
+				"### Test Coverage",
+				"1. Verify package structure.",
+				"2. Test interfaces.",
+				"3. Validate data structures.",
+				"Step Prompt: Verify package structure. Test interfaces. Validate data structures.",
+			},
+		},
+		{
+			name:               "MVI step with prompt",
+			stepID:             "02-mvi",
+			stepDescription:    "Minimum Viable Implementation",
+			prompt:             "Implement core functionality. Add basic error handling. Create minimal UI.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Minimum Viable Implementation",
+				"## Minimum Viable Implementation",
+				"This step implements the core functionality with minimal features.",
+				"### Key Activities",
+				"1. Implement core functionality.",
+				"2. Add basic error handling.",
+				"3. Create minimal UI.",
+			},
+		},
+		{
+			name:               "MVI test step with prompt",
+			stepID:             "02-mvi-test",
+			stepDescription:    "MVI Testing",
+			prompt:             "Test core functionality. Verify error handling. Check integration.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# MVI Testing",
+				"## MVI Testing",
+				"This step verifies the minimum viable implementation.",
+				"### Test Coverage",
+				"1. Test core functionality.",
+				"2. Verify error handling.",
+				"3. Check integration.",
+			},
+		},
+		{
+			name:               "Extended functionality step",
+			stepID:             "03-extend-functionalities",
+			stepDescription:    "Extended Functionality",
+			prompt:             "Add additional features. Enhance error handling. Optimize performance.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Extended Functionality",
+				"## Extended Functionality",
+				"This step adds additional features and improvements.",
+				"### Key Activities",
+				"1. Add additional features.",
+				"2. Enhance error handling.",
+				"3. Optimize performance.",
+			},
+		},
+		{
+			name:               "Extended functionality test step",
+			stepID:             "03-extend-functionalities-test",
+			stepDescription:    "Extended Functionality Testing",
+			prompt:             "Test all features. Verify error handling. Benchmark performance.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Extended Functionality Testing",
+				"## Extended Functionality Testing",
+				"This step verifies the extended functionality.",
+				"### Test Coverage",
+				"1. Test all features.",
+				"2. Verify error handling.",
+				"3. Benchmark performance.",
+			},
+		},
+		{
+			name:               "Final iteration step",
+			stepID:             "04-final-iteration",
+			stepDescription:    "Final Iteration",
+			prompt:             "Clean up code. Update documentation. Final optimizations.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Final Iteration",
+				"## Final Iteration",
+				"This step focuses on polishing and final adjustments.",
+				"### Key Activities",
+				"1. Clean up code.",
+				"2. Update documentation.",
+				"3. Final optimizations.",
+			},
+		},
+		{
+			name:               "Final iteration test step",
+			stepID:             "04-final-iteration-test",
+			stepDescription:    "Final Testing",
+			prompt:             "Run end-to-end tests. Verify documentation. Confirm performance targets.",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Final Testing",
+				"## Final Testing",
+				"This step performs final verification and validation.",
+				"### Test Coverage",
+				"1. Run end-to-end tests.",
+				"2. Verify documentation.",
+				"3. Confirm performance targets.",
+			},
+		},
+		{
+			name:               "Empty prompt",
+			stepID:             "01-laying-the-foundation",
+			stepDescription:    "Laying the foundation",
+			prompt:             "",
+			changeRequestContent: "Test change request",
+			expectedContains: []string{
+				"# Laying the foundation",
+				"## Architecture & Design",
+				"This step focuses on setting up the architecture and structure for the implementation.",
+				"### Key Activities",
+				"No specific instructions provided.",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mocks
+			fs := newTestFileSystem()
+			io := newTestUserOutput()
+			
+			// Create executor
+			executor := NewStepExecutor(fs, io)
+			
+			// Create step
+			step := WorkflowStep{
+				ID:          tt.stepID,
+				Description: tt.stepDescription,
+				Prompt:      tt.prompt,
+				OutputFile:  "output.md",
+			}
+			
+			// Generate content
+			content, err := executor.generateStepContent(tt.changeRequestContent, step, tt.prompt)
+			
+			// Verify no error
+			if err != nil {
+				t.Errorf("generateStepContent() error = %v", err)
+				return
+			}
+			
+			// Verify content contains expected strings
+			for _, expected := range tt.expectedContains {
+				if !strings.Contains(content, expected) {
+					t.Errorf("generateStepContent() = %q, want to contain %q", content, expected)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateStepContent_InvalidStepID(t *testing.T) {
+	// Create mocks
+	fs := newTestFileSystem()
+	io := newTestUserOutput()
+	
+	// Create executor
+	executor := NewStepExecutor(fs, io)
+	
+	// Create steps with invalid IDs
+	testCases := []struct {
+		name        string
+		stepID      string
+		wantErrText string
+	}{
+		{
+			name:        "Completely invalid ID",
+			stepID:      "invalid-id",
+			wantErrText: "unknown step ID format: invalid-id",
+		},
+		{
+			name:        "Invalid prefix",
+			stepID:      "00-something",
+			wantErrText: "unknown step ID format: 00-something",
+		},
+		{
+			name:        "Invalid format",
+			stepID:      "prefix-without-number",
+			wantErrText: "unknown step ID format: prefix-without-number",
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			step := WorkflowStep{
+				ID:          tc.stepID,
+				Description: "Test step",
+				Prompt:      "Test prompt",
+				OutputFile:  "output.md",
+			}
+			
+			// Try to generate content with invalid step ID
+			_, err := executor.generateStepContent("Test CR", step, "Test prompt")
+			
+			// Check error
+			if err == nil {
+				t.Error("generateStepContent() expected error, got nil")
+			} else if err.Error() != tc.wantErrText {
+				t.Errorf("generateStepContent() error = %v, want %v", err, tc.wantErrText)
+			}
+		})
 	}
 } 

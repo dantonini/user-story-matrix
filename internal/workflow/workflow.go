@@ -66,6 +66,8 @@ const (
 	ErrNegativeStepIndex       = "invalid step index: negative value"
 	ErrExceedingStepIndex      = "invalid step index: exceeds number of steps"
 	ErrFailedToLoadState       = "failed to load state: %w"
+	ErrInvalidPrompt         = "❌ Error: Invalid prompt in step %s: %s"
+	ErrStepValidationFailed  = "❌ Error: Step validation failed: %s"
 )
 
 // Success message templates
@@ -301,4 +303,34 @@ func (wm *WorkflowManager) ResetWorkflow(changeRequestPath string) error {
 	
 	wm.io.PrintSuccess(fmt.Sprintf(SuccessStateReset, changeRequestPath))
 	return nil
+}
+
+// ValidateWorkflowSteps validates all steps in a workflow
+func (wm *WorkflowManager) ValidateWorkflowSteps(steps []WorkflowStep) []error {
+	var errors []error
+	
+	for _, step := range steps {
+		// Validate that required fields are present
+		if step.ID == "" {
+			errors = append(errors, fmt.Errorf("step missing ID"))
+			continue
+		}
+		
+		if step.Description == "" {
+			errors = append(errors, fmt.Errorf("step %s missing description", step.ID))
+		}
+		
+		if step.OutputFile == "" {
+			errors = append(errors, fmt.Errorf("step %s missing output file template", step.ID))
+		}
+		
+		// Validate prompt if present
+		if step.Prompt != "" {
+			if err := ValidatePrompt(step.Prompt); err != nil {
+				errors = append(errors, fmt.Errorf("step %s has invalid prompt: %w", step.ID, err))
+			}
+		}
+	}
+	
+	return errors
 } 

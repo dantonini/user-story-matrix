@@ -8,6 +8,7 @@ package workflow
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // StepExecutor handles the execution of workflow steps
@@ -29,6 +30,13 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 	// Print progress message
 	e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
 
+	// Validate the prompt for syntax errors
+	if step.Prompt != "" {
+		if err := ValidatePrompt(step.Prompt); err != nil {
+			e.io.PrintWarning(fmt.Sprintf("Prompt validation warning for step %s: %v", step.ID, err))
+		}
+	}
+
 	// Read the change request file
 	content, err := e.fs.ReadFile(changeRequestPath)
 	if err != nil {
@@ -37,7 +45,14 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 	}
 	
 	// Process the prompt with variable interpolation
-	processedPrompt := generateStepPrompt(step, changeRequestPath)
+	processedPrompt, missingVars := InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
+		ChangeRequestFilePath: changeRequestPath,
+	})
+	
+	// Warn about missing variables
+	if len(missingVars) > 0 {
+		e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
+	}
 
 	// Generate step-specific content
 	outputContent, err := e.generateStepContent(string(content), step, processedPrompt)
@@ -66,93 +81,67 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 
 // generateStepContent generates the content for a specific step
 func (e *StepExecutor) generateStepContent(changeRequestContent string, step WorkflowStep, prompt string) (string, error) {
-	// TODO: Future improvement - Refactor this function to primarily use the prompt field
-	// for content generation, rather than hardcoded templates. This will reduce duplication
-	// and make the content generation more flexible and consistent. The function should still
-	// handle step-specific formatting, but the core instructions should come from the prompt.
-
 	// Common header for all steps
 	header := fmt.Sprintf("# %s\n\n", step.Description)
 
-	// Step-specific content
-	var content string
-	switch step.ID {
-	case "01-laying-the-foundation":
-		content = "## Architecture & Design\n\n" +
-			"This step focuses on setting up the architecture and structure for the implementation.\n\n" +
-			"### Key Activities\n" +
-			"1. Create necessary packages and interfaces\n" +
-			"2. Define core data structures\n" +
-			"3. Establish file organization\n" +
-			"4. Set up testing infrastructure\n\n"
-
-	case "01-laying-the-foundation-test":
-		content = "## Foundation Testing\n\n" +
-			"This step verifies the foundational changes made in the previous step.\n\n" +
-			"### Test Coverage\n" +
-			"1. Package structure validation\n" +
-			"2. Interface completeness\n" +
-			"3. Data structure integrity\n" +
-			"4. Test infrastructure functionality\n\n"
-
-	case "02-mvi":
-		content = "## Minimum Viable Implementation\n\n" +
-			"This step implements the core functionality with minimal features.\n\n" +
-			"### Implementation Focus\n" +
-			"1. Core business logic\n" +
-			"2. Essential functionality\n" +
-			"3. Basic error handling\n" +
-			"4. Minimal user interface\n\n"
-
-	case "02-mvi-test":
-		content = "## MVI Testing\n\n" +
-			"This step verifies the minimum viable implementation.\n\n" +
-			"### Test Coverage\n" +
-			"1. Core functionality tests\n" +
-			"2. Basic error handling tests\n" +
-			"3. Integration tests\n" +
-			"4. User interface tests\n\n"
-
-	case "03-extend-functionalities":
-		content = "## Extended Functionality\n\n" +
-			"This step adds additional features and improvements.\n\n" +
-			"### Implementation Focus\n" +
-			"1. Additional features\n" +
-			"2. Enhanced error handling\n" +
-			"3. Performance optimizations\n" +
-			"4. User experience improvements\n\n"
-
-	case "03-extend-functionalities-test":
-		content = "## Extended Functionality Testing\n\n" +
-			"This step verifies the extended functionality.\n\n" +
-			"### Test Coverage\n" +
-			"1. Feature tests\n" +
-			"2. Error handling tests\n" +
-			"3. Performance tests\n" +
-			"4. User experience tests\n\n"
-
-	case "04-final-iteration":
-		content = "## Final Iteration\n\n" +
-			"This step focuses on polishing and final adjustments.\n\n" +
-			"### Implementation Focus\n" +
-			"1. Code cleanup\n" +
-			"2. Documentation updates\n" +
-			"3. Final optimizations\n" +
-			"4. User feedback incorporation\n\n"
-
-	case "04-final-iteration-test":
-		content = "## Final Testing\n\n" +
-			"This step performs final verification and validation.\n\n" +
-			"### Test Coverage\n" +
-			"1. End-to-end tests\n" +
-			"2. Documentation verification\n" +
-			"3. Performance benchmarks\n" +
-			"4. User acceptance tests\n\n"
-
-	default:
-		return "", fmt.Errorf("unknown step ID: %s", step.ID)
+	// Step-specific structure based on the phase
+	var phaseTitle, phaseIntro string
+	isTestPhase := strings.Contains(step.ID, "-test")
+	
+	// Determine if this is a foundation, MVI, extension, or final phase
+	phaseType := ""
+	if strings.HasPrefix(step.ID, "01-") {
+		phaseType = "foundation"
+	} else if strings.HasPrefix(step.ID, "02-") {
+		phaseType = "mvi"
+	} else if strings.HasPrefix(step.ID, "03-") {
+		phaseType = "extend"
+	} else if strings.HasPrefix(step.ID, "04-") {
+		phaseType = "final"
 	}
-
+	
+	// Set phase title and intro based on phase type and whether it's a test phase
+	switch {
+	case phaseType == "foundation" && !isTestPhase:
+		phaseTitle = "Architecture & Design"
+		phaseIntro = "This step focuses on setting up the architecture and structure for the implementation."
+	case phaseType == "foundation" && isTestPhase:
+		phaseTitle = "Foundation Testing"
+		phaseIntro = "This step verifies the foundational changes made in the previous step."
+	case phaseType == "mvi" && !isTestPhase:
+		phaseTitle = "Minimum Viable Implementation"
+		phaseIntro = "This step implements the core functionality with minimal features."
+	case phaseType == "mvi" && isTestPhase:
+		phaseTitle = "MVI Testing"
+		phaseIntro = "This step verifies the minimum viable implementation."
+	case phaseType == "extend" && !isTestPhase:
+		phaseTitle = "Extended Functionality"
+		phaseIntro = "This step adds additional features and improvements."
+	case phaseType == "extend" && isTestPhase:
+		phaseTitle = "Extended Functionality Testing"
+		phaseIntro = "This step verifies the extended functionality."
+	case phaseType == "final" && !isTestPhase:
+		phaseTitle = "Final Iteration"
+		phaseIntro = "This step focuses on polishing and final adjustments."
+	case phaseType == "final" && isTestPhase:
+		phaseTitle = "Final Testing"
+		phaseIntro = "This step performs final verification and validation."
+	default:
+		return "", fmt.Errorf("unknown step ID format: %s", step.ID)
+	}
+	
+	// Create structure section
+	structureSection := fmt.Sprintf("## %s\n\n%s\n\n", phaseTitle, phaseIntro)
+	
+	// Generate prompt-based instructions section
+	var instructionsTitle string
+	if isTestPhase {
+		instructionsTitle = "### Test Coverage"
+	} else {
+		instructionsTitle = "### Key Activities"
+	}
+	instructionsSection := fmt.Sprintf("%s\n\n%s\n", instructionsTitle, formatPromptAsInstructions(prompt))
+	
 	// Add change request context and prompt
 	context := fmt.Sprintf("## Change Request Context\n\n"+
 		"This step was executed for change request:\n%s\n\n"+
@@ -165,5 +154,62 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 		prompt,
 	)
 
-	return header + content + context, nil
+	return header + structureSection + instructionsSection + context, nil
+}
+
+// formatPromptAsInstructions formats the prompt text as numbered instructions
+func formatPromptAsInstructions(prompt string) string {
+	if prompt == "" {
+		return "No specific instructions provided."
+	}
+	
+	// Extract key points from the prompt by splitting on periods and other sentence-ending punctuation
+	sentences := extractSentences(prompt)
+	
+	// Format sentences as numbered instructions
+	var result strings.Builder
+	for i, sentence := range sentences {
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" {
+			continue
+		}
+		
+		// Add numbered point
+		result.WriteString(fmt.Sprintf("%d. %s\n", i+1, sentence))
+	}
+	
+	return result.String()
+}
+
+// extractSentences splits a text into individual sentences
+func extractSentences(text string) []string {
+	// Simple implementation - split on period followed by space or newline
+	// A more sophisticated implementation could use NLP techniques
+	var sentences []string
+	
+	// Replace common ending punctuation with a special marker
+	text = strings.ReplaceAll(text, ". ", ".|.")
+	text = strings.ReplaceAll(text, ".\n", ".|.")
+	text = strings.ReplaceAll(text, "? ", "?|.")
+	text = strings.ReplaceAll(text, "?\n", "?|.")
+	text = strings.ReplaceAll(text, "! ", "!|.")
+	text = strings.ReplaceAll(text, "!\n", "!|.")
+	
+	// Split on the marker
+	parts := strings.Split(text, "|.")
+	
+	// Process each part
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			sentences = append(sentences, part)
+		}
+	}
+	
+	// If we couldn't split properly, just use the whole text
+	if len(sentences) == 0 && text != "" {
+		sentences = append(sentences, text)
+	}
+	
+	return sentences
 } 

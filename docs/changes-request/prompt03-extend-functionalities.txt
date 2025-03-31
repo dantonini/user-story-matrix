@@ -6,11 +6,14 @@ The whole iteration is divided into 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-You have already:
-- Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
-- Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md 
+The initial blueprint is:
+- docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
+Retrieve the user stories mentioned in the blueprint are:
+- docs/user-stories/code-command/08-introduce-prompt-in-existing-step-definition.md
 
-Your task is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+You have already:
+- Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat 2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
+- Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
 
 ### 🎯 Goals of this Phase
 
@@ -60,7 +63,5 @@ Use always short code references (no code at all,
 
 --- 
 
-- Read the set of user stories using: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
-- Read the implementation blueprint using: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
 
-Now proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
+Your task now is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.

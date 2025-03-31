@@ -867,4 +867,112 @@ func TestWorkflowManager_ResetWorkflow_Error(t *testing.T) {
 	if !strings.Contains(err.Error(), "write error") {
 		t.Errorf("ResetWorkflow() error = %v, should contain 'write error'", err)
 	}
+}
+
+func TestWorkflowManager_ValidateWorkflowSteps(t *testing.T) {
+	tests := []struct {
+		name         string
+		steps        []WorkflowStep
+		wantErrorNum int
+	}{
+		{
+			name: "Valid steps",
+			steps: []WorkflowStep{
+				{
+					ID:          "01-test",
+					Description: "Test step",
+					Prompt:      "Valid prompt with ${change_request_file_path}",
+					OutputFile:  "output.md",
+				},
+			},
+			wantErrorNum: 0,
+		},
+		{
+			name: "Missing ID",
+			steps: []WorkflowStep{
+				{
+					Description: "Test step",
+					Prompt:      "Valid prompt",
+					OutputFile:  "output.md",
+				},
+			},
+			wantErrorNum: 1,
+		},
+		{
+			name: "Missing description",
+			steps: []WorkflowStep{
+				{
+					ID:         "01-test",
+					Prompt:     "Valid prompt",
+					OutputFile: "output.md",
+				},
+			},
+			wantErrorNum: 1,
+		},
+		{
+			name: "Missing output file",
+			steps: []WorkflowStep{
+				{
+					ID:          "01-test",
+					Description: "Test step",
+					Prompt:      "Valid prompt",
+				},
+			},
+			wantErrorNum: 1,
+		},
+		{
+			name: "Invalid prompt with malformed variable",
+			steps: []WorkflowStep{
+				{
+					ID:          "01-test",
+					Description: "Test step",
+					Prompt:      "Invalid prompt with ${var with spaces}",
+					OutputFile:  "output.md",
+				},
+			},
+			wantErrorNum: 1,
+		},
+		{
+			name: "Invalid prompt with unclosed variable",
+			steps: []WorkflowStep{
+				{
+					ID:          "01-test",
+					Description: "Test step",
+					Prompt:      "Invalid prompt with ${unclosed",
+					OutputFile:  "output.md",
+				},
+			},
+			wantErrorNum: 1,
+		},
+		{
+			name: "Multiple errors",
+			steps: []WorkflowStep{
+				{
+					ID:          "01-test",
+					Description: "",
+					Prompt:      "Invalid prompt with ${var with spaces}",
+					OutputFile:  "",
+				},
+			},
+			wantErrorNum: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := newTestFileSystem()
+			io := newTestUserOutput()
+			
+			wm := NewWorkflowManager(fs, io)
+			
+			errors := wm.ValidateWorkflowSteps(tt.steps)
+			
+			if len(errors) != tt.wantErrorNum {
+				t.Errorf("ValidateWorkflowSteps() got %d errors, want %d errors", len(errors), tt.wantErrorNum)
+				for i, err := range errors {
+					t.Logf("Error %d: %v", i, err)
+				}
+			}
+		})
+	}
 } 

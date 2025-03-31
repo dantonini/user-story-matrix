@@ -37,6 +37,15 @@ func TestInterpolatePrompt(t *testing.T) {
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
+	
+	// Test with multiple occurrences of the same variable
+	prompt = "Path: ${change_request_file_path}, use ${change_request_file_path} for processing"
+	expected = "Path: /path/to/file, use /path/to/file for processing"
+	result = InterpolatePrompt(prompt, vars)
+	
+	if result != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
 }
 
 func TestInterpolatePromptWithMissingVars(t *testing.T) {
@@ -89,6 +98,115 @@ func TestInterpolatePromptWithMap(t *testing.T) {
 	
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
+	}
+	
+	// Test with nested map containing complex variables
+	complexVarMap := map[string]string{
+		"change_request_file_path": "/path",
+		"user_name":                "john",
+		"project_id":               "123",
+		"timestamp":                "2025-04-01",
+	}
+	
+	complexPrompt := "User ${user_name} is working on project ${project_id} at ${timestamp} using ${change_request_file_path}"
+	complexExpected := "User john is working on project 123 at 2025-04-01 using /path"
+	complexResult := interpolatePromptWithMap(complexPrompt, complexVarMap)
+	
+	if complexResult != complexExpected {
+		t.Errorf("Expected '%s', got '%s'", complexExpected, complexResult)
+	}
+}
+
+func TestInterpolatePromptWithError(t *testing.T) {
+	// Test with missing variables
+	prompt := "Process ${nonexistent_var} and ${change_request_file_path}"
+	vars := PromptVariables{
+		ChangeRequestFilePath: "/path/to/file",
+	}
+	
+	result, err := InterpolatePromptWithError(prompt, vars)
+	expected := "Process ${nonexistent_var} and /path/to/file"
+	
+	if result != expected {
+		t.Errorf("Expected result '%s', got '%s'", expected, result)
+	}
+	
+	if err == nil {
+		t.Error("Expected error for missing variables, got nil")
+	} else {
+		ierr, ok := err.(*InterpolationError)
+		if !ok {
+			t.Errorf("Expected *InterpolationError, got %T", err)
+		} else {
+			if len(ierr.MissingVars) != 1 || ierr.MissingVars[0] != "nonexistent_var" {
+				t.Errorf("Expected missing variable 'nonexistent_var', got %v", ierr.MissingVars)
+			}
+		}
+	}
+	
+	// Test with malformed variables
+	malformedPrompt := "Process ${var with spaces} and ${incomplete"
+	result, err = InterpolatePromptWithError(malformedPrompt, vars)
+	
+	if err == nil {
+		t.Error("Expected error for malformed variables, got nil")
+	} else {
+		ierr, ok := err.(*InterpolationError)
+		if !ok {
+			t.Errorf("Expected *InterpolationError, got %T", err)
+		} else {
+			if len(ierr.MalformedVars) == 0 {
+				t.Error("Expected malformed variables, got none")
+			}
+		}
+	}
+	
+	// Test with valid prompt
+	validPrompt := "Process ${change_request_file_path}"
+	result, err = InterpolatePromptWithError(validPrompt, vars)
+	expected = "Process /path/to/file"
+	
+	if result != expected {
+		t.Errorf("Expected result '%s', got '%s'", expected, result)
+	}
+	
+	if err != nil {
+		t.Errorf("Expected no error for valid prompt, got %v", err)
+	}
+}
+
+func TestValidatePrompt(t *testing.T) {
+	// Test with valid prompt
+	validPrompt := "Process ${change_request_file_path} and ${another_var}"
+	err := ValidatePrompt(validPrompt)
+	
+	if err != nil {
+		t.Errorf("Expected no error for valid prompt, got %v", err)
+	}
+	
+	// Test with malformed variables
+	malformedPrompt := "Process ${var with spaces}"
+	err = ValidatePrompt(malformedPrompt)
+	
+	if err == nil {
+		t.Error("Expected error for malformed variables, got nil")
+	} else {
+		ierr, ok := err.(*InterpolationError)
+		if !ok {
+			t.Errorf("Expected *InterpolationError, got %T", err)
+		} else {
+			if len(ierr.MalformedVars) == 0 {
+				t.Error("Expected malformed variables, got none")
+			}
+		}
+	}
+	
+	// Test with unclosed variable
+	unclosedPrompt := "Process ${incomplete"
+	err = ValidatePrompt(unclosedPrompt)
+	
+	if err == nil {
+		t.Error("Expected error for unclosed variable, got nil")
 	}
 }
 
