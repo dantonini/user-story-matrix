@@ -55,12 +55,12 @@ After completing MVI for all user stories:
 
 ---
 
-Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-26-020055-code-command.blueprint.md
-Read the implementation plan using the command: cat docs/changes-request/2025-03-26-020055-code-command.blueprint.md
-Read the "laying the foundation" accomplished summary using the command: cat docs/changes-request/2025-03-26-020055-code-command.code.md.01-foundation.accomplished.md
+Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
+Read the implementation plan using the command: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
+Read the "laying the foundation" accomplished summary using the command: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
  
 Now build the MVI for each user story.
 
-At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-26-020055-code-command.code.md.02-mvi.accomplished.md
+At the end of your task write the summary of what you accomplished in docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
 Ensure to include a user story implementation section:
 - in this section I'd like to have an easy way to check each acceptance criterion. I rely only on "facts". Please add explicit reference (no code at all, just a compact/understable reference to lookup for) to which test ensure that criterion is met. If no test was written about that specific criterion, mention it.
