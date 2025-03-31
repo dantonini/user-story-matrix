@@ -47,7 +47,7 @@ The accomplishment report is not a summary, it is a "compass" to the changes you
 Use always short code references (no code at all, 
  just a compact/understable reference to lookup for, do not use line numbers) 
  as foundation of your statements
- For esample:
+ For example:
  - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
  - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
  - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
@@ -67,5 +67,5 @@ If major components are touched, consider adding or updating smoke/regression te
 - Do not implement the full logic yet—this phase is strictly for setting up structure and enabling smooth feature delivery.
 
 Now:
-Read the user stories using ./cat-user-stories-in-change-request.sh ./docs/changes-request/2025-03-26-020055-code-command.blueprint.md
-Read the blueprint using cat ./docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+Read the user stories using ./cat-user-stories-in-change-request.sh docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
+Read the blueprint using cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
