@@ -55,7 +55,7 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 	}
 
 	// Print the processed prompt directly to stdout instead of writing to a file
-	e.io.Print(fmt.Sprintf("Processed prompt for step %s: %s", step.ID, processedPrompt))
+	e.io.Print(processedPrompt)
 
 	return true, nil
 }
