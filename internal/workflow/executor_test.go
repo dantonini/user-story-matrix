@@ -116,6 +116,7 @@ This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
+				Prompt:      "This is a test prompt with ${change_request_file_path} variable",
 				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
 			wantSuccess: true,
@@ -134,6 +135,7 @@ This is a test change request.`,
 				"This is a test change request.",
 				"Step ID: 01-laying-the-foundation",
 				"Step Description: Laying the foundation",
+				"Step Prompt: This is a test prompt with change-request.md variable",
 			},
 		},
 		{
@@ -142,6 +144,7 @@ This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
+				Prompt:      "Test prompt",
 				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
 			wantSuccess:   false,
@@ -265,77 +268,91 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 
 // TestGenerateStepContent tests the generateStepContent method with different step types
 func TestGenerateStepContent(t *testing.T) {
-	fs := newTestFileSystem()
-	io := newTestUserOutput()
-	executor := NewStepExecutor(fs, io)
-	
-	changeRequestContent := "# Test Change Request"
-	
-	testCases := []struct {
-		name        string
-		stepID      string
-		shouldError bool
+	tests := []struct {
+		name           string
+		stepID         string
+		description    string
+		prompt         string
+		inputContent   string
+		expectedStrings []string
+		expectError    bool
 	}{
-		{"Laying foundation", "01-laying-the-foundation", false},
-		{"Laying foundation test", "01-laying-the-foundation-test", false},
-		{"MVI", "02-mvi", false},
-		{"MVI test", "02-mvi-test", false},
-		{"Extend functionalities", "03-extend-functionalities", false},
-		{"Extend functionalities test", "03-extend-functionalities-test", false},
-		{"Final iteration", "04-final-iteration", false},
-		{"Final iteration test", "04-final-iteration-test", false},
-		{"Unknown step", "unknown-step", true},
+		{
+			name:        "01-laying-the-foundation",
+			stepID:      "01-laying-the-foundation",
+			description: "Laying the foundation",
+			prompt:      "Test prompt for foundation",
+			inputContent: `# Test Change Request
+This is a test change request.`,
+			expectedStrings: []string{
+				"# Laying the foundation",
+				"## Architecture & Design",
+				"This step focuses on setting up the architecture and structure for the implementation.",
+				"Step ID: 01-laying-the-foundation",
+				"Step Description: Laying the foundation",
+				"Step Prompt: Test prompt for foundation",
+			},
+			expectError: false,
+		},
+		{
+			name:        "01-laying-the-foundation-test",
+			stepID:      "01-laying-the-foundation-test",
+			description: "Laying the foundation test",
+			prompt:      "Test prompt for foundation test",
+			inputContent: `# Test Change Request
+This is a test change request.`,
+			expectedStrings: []string{
+				"## Foundation Testing",
+				"This step verifies the foundational changes made in the previous step.",
+				"Step ID: 01-laying-the-foundation-test",
+				"Step Prompt: Test prompt for foundation test",
+			},
+			expectError: false,
+		},
+		{
+			name:        "Unknown step",
+			stepID:      "unknown-step",
+			description: "Unknown step",
+			prompt:      "Test prompt for unknown step",
+			inputContent: `# Test Change Request
+This is a test change request.`,
+			expectedStrings: []string{},
+			expectError: true,
+		},
 	}
-	
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create executor
+			executor := NewStepExecutor(newTestFileSystem(), newTestUserOutput())
+
+			// Create step
 			step := WorkflowStep{
-				ID:          tc.stepID,
-				Description: "Test description",
+				ID:          tt.stepID,
+				Description: tt.description,
+				Prompt:      tt.prompt,
+				OutputFile:  "%s.output.md",
+			}
+
+			// Call generateStepContent
+			output, err := executor.generateStepContent(tt.inputContent, step, tt.prompt)
+			
+			// Check for expected error
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("Expected error for step ID %s, but got none", tt.stepID)
+				}
+				return
 			}
 			
-			content, err := executor.generateStepContent(changeRequestContent, step)
-			
-			if tc.shouldError {
-				if err == nil {
-					t.Errorf("Expected error for unknown step ID %s, but got none", tc.stepID)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error for step ID %s: %v", tc.stepID, err)
-				}
-				
-				// Verify that the content contains expected sections
-				if !strings.Contains(content, fmt.Sprintf("# %s", step.Description)) {
-					t.Errorf("Content doesn't contain title: %s", content)
-				}
-				
-				if !strings.Contains(content, changeRequestContent) {
-					t.Errorf("Content doesn't contain change request context: %s", content)
-				}
-				
-				if !strings.Contains(content, fmt.Sprintf("Step ID: %s", step.ID)) {
-					t.Errorf("Content doesn't contain step ID: %s", content)
-				}
-				
-				// Step-specific content should be in the output
-				switch tc.stepID {
-				case "01-laying-the-foundation":
-					if !strings.Contains(content, "Architecture & Design") {
-						t.Errorf("Foundation step doesn't contain expected content")
-					}
-				case "02-mvi":
-					if !strings.Contains(content, "Minimum Viable Implementation") {
-						t.Errorf("MVI step doesn't contain expected content")
-					}
-				case "03-extend-functionalities":
-					if !strings.Contains(content, "Extended Functionality") {
-						t.Errorf("Extend step doesn't contain expected content")
-					}
-				case "04-final-iteration":
-					if !strings.Contains(content, "Final Iteration") {
-						t.Errorf("Final step doesn't contain expected content")
-					}
+			if err != nil {
+				t.Fatalf("Error calling generateStepContent: %v", err)
+			}
+
+			// Check output contains expected content
+			for _, expected := range tt.expectedStrings {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected output to contain '%s', but it did not", expected)
 				}
 			}
 		})

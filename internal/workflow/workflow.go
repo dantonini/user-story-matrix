@@ -18,6 +18,7 @@ import (
 type WorkflowStep struct {
 	ID          string // Unique identifier (e.g., "01-laying-the-foundation")
 	Description string // Human-readable description
+	Prompt      string // AI agent instructions with variable interpolation
 	OutputFile  string // Template for output filename
 }
 
@@ -86,41 +87,49 @@ var StandardWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation - Setting up the architecture and structure",
+		Prompt:      "You are about to begin a new iteration of software development. Your task is to lay the foundation—that is, to prepare the codebase to safely and effectively accommodate the upcoming changes in the blueprint file at ${change_request_file_path}.",
 		OutputFile:  "%s.01-laying-the-foundation.md",
 	},
 	{
 		ID:          "01-laying-the-foundation-test",
 		Description: "Laying the foundation testing - Verifying the foundational changes",
+		Prompt:      "Review the foundational changes implemented based on the blueprint at ${change_request_file_path}. Verify that the structure is appropriate and tests are in place.",
 		OutputFile:  "%s.01-laying-the-foundation-test.md",
 	},
 	{
 		ID:          "02-mvi",
 		Description: "Minimum Viable Implementation - Building the core functionality",
+		Prompt:      "Implement the core functionality described in the blueprint at ${change_request_file_path}. Focus on meeting the basic acceptance criteria.",
 		OutputFile:  "%s.02-mvi.md",
 	},
 	{
 		ID:          "02-mvi-test",
 		Description: "Minimum Viable Implementation testing - Verifying the core functionality",
+		Prompt:      "Test the minimum viable implementation based on the blueprint at ${change_request_file_path}. Ensure all basic functionality works as expected.",
 		OutputFile:  "%s.02-mvi-test.md",
 	},
 	{
 		ID:          "03-extend-functionalities",
 		Description: "Extending functionalities - Adding additional features and improvements",
+		Prompt:      "Extend the functionality with additional features described in the blueprint at ${change_request_file_path}. Improve the implementation beyond the basic requirements.",
 		OutputFile:  "%s.03-extend-functionalities.md",
 	},
 	{
 		ID:          "03-extend-functionalities-test",
 		Description: "Extending functionalities testing - Verifying the additional features",
+		Prompt:      "Test the extended functionality implemented based on the blueprint at ${change_request_file_path}. Verify all features work correctly.",
 		OutputFile:  "%s.03-extend-functionalities-test.md",
 	},
 	{
 		ID:          "04-final-iteration",
 		Description: "Final iteration - Polishing and final adjustments",
+		Prompt:      "Polish the implementation described in the blueprint at ${change_request_file_path}. Make final adjustments to ensure quality and maintainability.",
 		OutputFile:  "%s.04-final-iteration.md",
 	},
 	{
 		ID:          "04-final-iteration-test",
 		Description: "Final iteration testing - Final verification and validation",
+		Prompt:      "Perform final verification and validation of the implementation based on the blueprint at ${change_request_file_path}. Ensure all requirements are met.",
 		OutputFile:  "%s.04-final-iteration-test.md",
 	},
 }

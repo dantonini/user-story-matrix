@@ -35,9 +35,12 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 		e.io.PrintError(fmt.Sprintf(ErrFileNotFound, changeRequestPath))
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
+	
+	// Process the prompt with variable interpolation
+	processedPrompt := generateStepPrompt(step, changeRequestPath)
 
 	// Generate step-specific content
-	outputContent, err := e.generateStepContent(string(content), step)
+	outputContent, err := e.generateStepContent(string(content), step, processedPrompt)
 	if err != nil {
 		e.io.PrintError(fmt.Sprintf(ErrStepExecutionFailed, err))
 		return false, fmt.Errorf(ErrStepExecutionFailed, err)
@@ -62,7 +65,12 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 }
 
 // generateStepContent generates the content for a specific step
-func (e *StepExecutor) generateStepContent(changeRequestContent string, step WorkflowStep) (string, error) {
+func (e *StepExecutor) generateStepContent(changeRequestContent string, step WorkflowStep, prompt string) (string, error) {
+	// TODO: Future improvement - Refactor this function to primarily use the prompt field
+	// for content generation, rather than hardcoded templates. This will reduce duplication
+	// and make the content generation more flexible and consistent. The function should still
+	// handle step-specific formatting, but the core instructions should come from the prompt.
+
 	// Common header for all steps
 	header := fmt.Sprintf("# %s\n\n", step.Description)
 
@@ -145,14 +153,16 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 		return "", fmt.Errorf("unknown step ID: %s", step.ID)
 	}
 
-	// Add change request context
+	// Add change request context and prompt
 	context := fmt.Sprintf("## Change Request Context\n\n"+
 		"This step was executed for change request:\n%s\n\n"+
 		"Step ID: %s\n"+
-		"Step Description: %s\n",
+		"Step Description: %s\n"+
+		"Step Prompt: %s\n",
 		changeRequestContent,
 		step.ID,
 		step.Description,
+		prompt,
 	)
 
 	return header + content + context, nil

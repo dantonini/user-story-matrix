@@ -171,7 +171,14 @@ This change request aims to extend the current step definition by introducing a 
    - Include edge cases and error conditions
    - Test integration with existing functionality
 
-### 5. Update Documentation
+### 5. Future Content Generation Improvements
+1. For subsequent phases, the content generation mechanism should be improved:
+   - Shift away from hardcoded templates in `generateStepContent`
+   - Make `generateStepContent` primarily use the prompt field for content generation
+   - Keep step-specific formatting but derive core instructional content from the prompt
+   - This will streamline the process and reduce duplication
+
+### 6. Update Documentation
 1. Update code documentation:
    - Add godoc comments for new types and functions
    - Include examples of prompt usage
@@ -182,7 +189,7 @@ This change request aims to extend the current step definition by introducing a 
    - Include examples of prompt usage
    - Document supported variables
 
-### 6. Validation and Error Handling
+### 7. Validation and Error Handling
 1. Add validation in `WorkflowManager`:
    - Validate prompt syntax during step creation
    - Add error handling for invalid variable references
