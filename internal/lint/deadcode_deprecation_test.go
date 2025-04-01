@@ -41,9 +41,7 @@ func TestDeadcodeLinterDeprecationHandling(t *testing.T) {
 		parts := strings.Split(version, " ")
 		if len(parts) >= 2 {
 			versionStr := parts[1]
-			if strings.HasPrefix(versionStr, "v") {
-				versionStr = versionStr[1:] // Remove 'v' prefix if present
-			}
+			versionStr = strings.TrimPrefix(versionStr, "v") // Remove 'v' prefix if present
 			
 			versionParts := strings.Split(versionStr, ".")
 			if len(versionParts) >= 2 {

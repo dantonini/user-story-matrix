@@ -1,6 +1,13 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
+	"errors"
 	"os"
 	"testing"
 )
@@ -67,13 +74,13 @@ func TestMockFileSystem(t *testing.T) {
 
 	// Test ReadDir for non-existent directory
 	_, err = fs.ReadDir("nonexistent")
-	if err != os.ErrNotExist {
+	if !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("ReadDir returned wrong error for non-existent directory: got %v, want %v", err, os.ErrNotExist)
 	}
 
 	// Test ReadDir for file
 	_, err = fs.ReadDir(testFile)
-	if err != os.ErrInvalid {
+	if !errors.Is(err, os.ErrInvalid) {
 		t.Errorf("ReadDir returned wrong error for file: got %v, want %v", err, os.ErrInvalid)
 	}
 

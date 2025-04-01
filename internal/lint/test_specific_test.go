@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package lint
 
 import (
@@ -147,13 +146,16 @@ func TestLintReportTarget(t *testing.T) {
 	// Run the target and check for a report file
 	cmd := exec.Command("make", "lint-report")
 	cmd.Dir = rootDir
-	output, err := cmd.CombinedOutput()
-	t.Logf("make lint-report output: %s", string(output))
+	cmdOutput, cmdErr := cmd.CombinedOutput()
+	t.Logf("make lint-report output: %s", string(cmdOutput))
+	if cmdErr != nil {
+		t.Logf("Command returned error: %v", cmdErr)
+	}
 	
 	// Check if a report file was created
 	reportPath := filepath.Join(rootDir, "output", "lint-report.json")
-	_, err = os.Stat(reportPath)
-	if err != nil {
-		t.Logf("Report file may not have been created: %v", err)
+	_, statErr := os.Stat(reportPath)
+	if statErr != nil {
+		t.Logf("Report file may not have been created: %v", statErr)
 	}
 } 

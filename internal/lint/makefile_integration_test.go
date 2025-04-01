@@ -153,11 +153,15 @@ func TestBuildFullCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	err = cmd.Run()
+	runErr := cmd.Run()
 
 	// Log output for debugging
 	output := stdout.String() + stderr.String()
 	t.Logf("Command output: %s", output)
+
+	if runErr != nil {
+		t.Logf("Command failed with error: %v, but this doesn't necessarily mean the test failed", runErr)
+	}
 
 	// Don't fail on command error, just check output for evidence of actions
 	// This handles cases where linting fails but the process ran correctly

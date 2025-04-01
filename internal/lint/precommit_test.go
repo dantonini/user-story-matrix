@@ -174,8 +174,8 @@ func TestPreCommitWithLintIssue(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create a test file with a lint issue (unchecked error)
-	testFilePath := filepath.Join(tempDir, "test.go")
+	// Create a test file with a function to be detected
+	testFilePath := filepath.Join(tempDir, "test_file.go")
 	testCode := `package test
 
 import (
@@ -187,8 +187,8 @@ func main() {
 	os.Create("test.txt")
 }
 `
-	if err := os.WriteFile(testFilePath, []byte(testCode), 0600); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+	if writeErr := os.WriteFile(testFilePath, []byte(testCode), 0600); writeErr != nil {
+		t.Fatalf("Failed to write test file: %v", writeErr)
 	}
 
 	// Find the root directory

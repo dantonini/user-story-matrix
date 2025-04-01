@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
@@ -87,10 +93,12 @@ func TestDraftManager_LoadDraft(t *testing.T) {
 	path, _ = dm.GetDraftPath()
 	fs.Files[path] = []byte("invalid json")
 	
-	fr, err = dm.LoadDraft()
+	fr, loadErr := dm.LoadDraft()
 	
 	// This should not return an error but should return a new feature request
 	assert.Equal(t, models.NewFeatureRequest().Title, fr.Title)
+	// It should parse incorrectly but still create a new feature request
+	assert.NotNil(t, loadErr)
 }
 
 func TestDraftManager_DeleteDraft(t *testing.T) {
