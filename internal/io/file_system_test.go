@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
@@ -19,8 +25,8 @@ func TestOSFileSystem(t *testing.T) {
 
 	// Test MkdirAll
 	testDir := filepath.Join(tempDir, "test/nested/dir")
-	if err := fs.MkdirAll(testDir, 0755); err != nil {
-		t.Errorf("MkdirAll failed: %v", err)
+	if mkdirErr := fs.MkdirAll(testDir, 0755); mkdirErr != nil {
+		t.Errorf("MkdirAll failed: %v", mkdirErr)
 	}
 
 	// Test Exists
@@ -34,8 +40,8 @@ func TestOSFileSystem(t *testing.T) {
 	// Test WriteFile
 	testFile := filepath.Join(testDir, "test.txt")
 	testContent := []byte("test content")
-	if err := fs.WriteFile(testFile, testContent, 0644); err != nil {
-		t.Errorf("WriteFile failed: %v", err)
+	if writeErr := fs.WriteFile(testFile, testContent, 0600); writeErr != nil {
+		t.Errorf("WriteFile failed: %v", writeErr)
 	}
 
 	// Test ReadFile

@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package utils
 
 import (
@@ -22,7 +21,6 @@ var (
 	hashStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	dateStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	headerStyle   = lipgloss.NewStyle().Bold(true).Underline(true).Foreground(lipgloss.Color("14"))
-	listItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
 	numberStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 	subtitleStyle = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("13"))
 )

@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package lint
 
 import (
@@ -154,7 +153,7 @@ func main() {
 	used()
 }
 `
-	if err := os.WriteFile(testFilePath, []byte(testCode), 0644); err != nil {
+	if err := os.WriteFile(testFilePath, []byte(testCode), 0600); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 

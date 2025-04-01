@@ -78,7 +78,6 @@ func NewTerminalIOWithDebug(debug bool) *TerminalIO {
 // Prompt displays a message and waits for user input
 func (t *TerminalIO) Prompt(message string) (string, error) {
 	ti := textinput.New()
-	ti.Placeholder = ""
 	ti.Focus()
 
 	m := promptModel{
@@ -92,7 +91,11 @@ func (t *TerminalIO) Prompt(message string) (string, error) {
 		return "", err
 	}
 
-	return result.(promptModel).textInput.Value(), nil
+	resultModel, ok := result.(promptModel)
+	if !ok {
+		return "", fmt.Errorf("unexpected model type: %T", result)
+	}
+	return resultModel.textInput.Value(), nil
 }
 
 // Select displays a list of options and returns the selected index
@@ -117,7 +120,11 @@ func (t *TerminalIO) Select(message string, options []string) (int, error) {
 		return -1, err
 	}
 
-	return result.(selectModel).selected, nil
+	resultModel, ok := result.(selectModel)
+	if !ok {
+		return -1, fmt.Errorf("unexpected model type: %T", result)
+	}
+	return resultModel.selected, nil
 }
 
 // MultiSelect displays a list of options and returns the selected indices
@@ -143,7 +150,11 @@ func (t *TerminalIO) MultiSelect(message string, options []string) ([]int, error
 		return nil, err
 	}
 
-	resultModel := result.(multiSelectModel)
+	resultModel, ok := result.(multiSelectModel)
+	if !ok {
+		return nil, fmt.Errorf("unexpected model type: %T", result)
+	}
+	
 	if !resultModel.confirmed {
 		return nil, fmt.Errorf("selection canceled")
 	}

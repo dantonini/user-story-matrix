@@ -6,7 +6,7 @@
 package models
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -82,9 +82,9 @@ func ExtractMetadataFromContent(content string) (map[string]string, error) {
 	return metadata, nil
 }
 
-// GenerateContentHash calculates the MD5 hash of the content
+// GenerateContentHash calculates the SHA-256 hash of the content
 func GenerateContentHash(content string) string {
-	hash := md5.New()
+	hash := sha256.New()
 	_, err := io.WriteString(hash, content)
 	if err != nil {
 		// In case of error, return an empty hash
@@ -135,8 +135,8 @@ func GetNextSequentialNumber(dirEntries []os.DirEntry) string {
 		seqNum := ExtractSequentialNumberFromFilename(entry.Name())
 		if seqNum != "" {
 			num := 0
-			fmt.Sscanf(seqNum, "%d", &num)
-			if num > maxNum {
+			_, err := fmt.Sscanf(seqNum, "%d", &num)
+			if err == nil && num > maxNum {
 				maxNum = num
 			}
 		}
@@ -208,8 +208,8 @@ func LoadUserStoryFromFile(filePath string, content []byte) (UserStory, error) {
 	}
 
 	// Get file path
-	if filePath, ok := metadata["file_path"]; ok {
-		us.FilePath = filePath
+	if filePathFromMeta, ok := metadata["file_path"]; ok {
+		us.FilePath = filePathFromMeta
 	}
 
 	// Get content hash

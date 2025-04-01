@@ -48,36 +48,6 @@ func TestCreateChangeRequestComponents(t *testing.T) {
 	})
 }
 
-// mockProgram implements the program interface for testing
-type mockProgram struct {
-	model tea.Model
-}
-
-func (m *mockProgram) Run() (tea.Model, error) {
-	return m.model, nil
-}
-
-// mockSelectionUI implements a mock selection UI
-type mockSelectionUI struct {
-	selected []int
-}
-
-func (m *mockSelectionUI) Init() tea.Cmd {
-	return nil
-}
-
-func (m *mockSelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
-}
-
-func (m *mockSelectionUI) View() string {
-	return "Mock Selection UI"
-}
-
-func (m *mockSelectionUI) GetSelected() []int {
-	return m.selected
-}
-
 // TestImplementationStatusFilter tests the implementation status filter acceptance criteria
 func TestImplementationStatusFilter(t *testing.T) {
 	// Save original UI creator to restore it after the test
@@ -147,4 +117,25 @@ func TestImplementationStatusFilter(t *testing.T) {
 		// Verify that showAll flag was set to true, meaning all stories are shown regardless of implementation status
 		assert.True(t, capturedShowAll)
 	})
+}
+
+// mockSelectionUI implements a mock selection UI
+type mockSelectionUI struct {
+	selected []int
+}
+
+func (m *mockSelectionUI) Init() tea.Cmd {
+	return nil
+}
+
+func (m *mockSelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
+}
+
+func (m *mockSelectionUI) View() string {
+	return "Mock Selection UI"
+}
+
+func (m *mockSelectionUI) GetSelected() []int {
+	return m.selected
 }

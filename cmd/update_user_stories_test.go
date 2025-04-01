@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -90,8 +89,8 @@ func TestCalculateContentHash(t *testing.T) {
 	
 	hash := calculateContentHash(content)
 	
-	// The expected hash is the MD5 hash of the content
-	expectedHash := "00db2e256db8faa52e9c56dad9e0b9bd"
+	// The expected hash is the SHA-256 hash of the content
+	expectedHash := "c24a2f89c682fea773be9292bada1e861b2f139fb38e35ada3f78f1b87e7c6f1"
 	
 	if hash != expectedHash {
 		t.Errorf("Expected hash to be %q but got %q", expectedHash, hash)
@@ -109,7 +108,7 @@ func TestGenerateMetadata(t *testing.T) {
 	
 	// Create a sample user story file
 	filePath := filepath.Join(tempDir, "sample.md")
-	err = os.WriteFile(filePath, []byte("# Sample User Story\n\nThis is a sample user story.\n"), 0644)
+	err = os.WriteFile(filePath, []byte("# Sample User Story\n\nThis is a sample user story.\n"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create sample file: %v", err)
 	}
@@ -126,7 +125,7 @@ func TestGenerateMetadata(t *testing.T) {
 	}
 	
 	// Set the content hash
-	contentHash := "00db2e256db8faa52e9c56dad9e0b9bd"
+	contentHash := "c24a2f89c682fea773be9292bada1e861b2f139fb38e35ada3f78f1b87e7c6f1"
 	
 	// Generate metadata
 	metadata := generateMetadata(filePath, tempDir, fileInfo, existingMetadata, contentHash)
@@ -136,7 +135,7 @@ func TestGenerateMetadata(t *testing.T) {
 		"file_path:", 
 		"created_at: 2023-01-01T12:00:00Z", 
 		"last_updated:", 
-		"_content_hash: 00db2e256db8faa52e9c56dad9e0b9bd",
+		"_content_hash: c24a2f89c682fea773be9292bada1e861b2f139fb38e35ada3f78f1b87e7c6f1",
 	}
 	
 	for _, field := range expectedFields {
@@ -192,7 +191,7 @@ This is a sample user story.
 		t.Run(tc.name, func(t *testing.T) {
 			// Create the sample file
 			filePath := filepath.Join(tempDir, "sample.md")
-			err = os.WriteFile(filePath, []byte(tc.initialContent), 0644)
+			err = os.WriteFile(filePath, []byte(tc.initialContent), 0600)
 			if err != nil {
 				t.Fatalf("Failed to create sample file: %v", err)
 			}
@@ -270,7 +269,7 @@ func TestFindMarkdownFiles(t *testing.T) {
 	}
 	
 	for path, content := range files {
-		err = os.WriteFile(path, []byte(content), 0644)
+		err = os.WriteFile(path, []byte(content), 0600)
 		if err != nil {
 			t.Fatalf("Failed to create file %s: %v", path, err)
 		}
@@ -339,10 +338,11 @@ func TestEndToEndUpdateProcess(t *testing.T) {
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 	
-	// Make sure to change back when we're done
+	// Return to the original directory
 	defer func() {
-		if err := os.Chdir(currentDir); err != nil {
-			t.Logf("Failed to return to original directory: %v", err)
+		chdirErr := os.Chdir(currentDir)
+		if chdirErr != nil {
+			t.Fatalf("Failed to return to original directory: %v", chdirErr)
 		}
 	}()
 	
@@ -356,7 +356,7 @@ func TestEndToEndUpdateProcess(t *testing.T) {
 	// Create a sample user story file
 	sampleFile := filepath.Join(userStoriesDir, "sample.md")
 	initialContent := "# Sample User Story\n\nThis is a sample user story.\n"
-	err = os.WriteFile(sampleFile, []byte(initialContent), 0644)
+	err = os.WriteFile(sampleFile, []byte(initialContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create sample file: %v", err)
 	}
@@ -408,7 +408,7 @@ func TestEndToEndUpdateProcess(t *testing.T) {
 	metadataSection := metadataRegex.FindString(string(currentContent))
 	
 	// Write the file with existing metadata and modified content
-	err = os.WriteFile(sampleFile, []byte(metadataSection+modifiedContent), 0644)
+	err = os.WriteFile(sampleFile, []byte(metadataSection+modifiedContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write modified file: %v", err)
 	}
@@ -473,10 +473,11 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 	
-	// Make sure to change back when we're done
+	// Return to the original directory
 	defer func() {
-		if err := os.Chdir(currentDir); err != nil {
-			t.Logf("Failed to return to original directory: %v", err)
+		chdirErr := os.Chdir(currentDir)
+		if chdirErr != nil {
+			t.Fatalf("Failed to return to original directory: %v", chdirErr)
 		}
 	}()
 	
@@ -490,7 +491,7 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	
 	// Create a test user story file
 	testFile := filepath.Join(mockUserStoriesDir, "test.md")
-	err = os.WriteFile(testFile, []byte("# Test User Story\n\nThis is a test user story.\n"), 0644)
+	err = os.WriteFile(testFile, []byte("# Test User Story\n\nThis is a test user story.\n"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -507,8 +508,9 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	// Create a command with test-root flag
 	cmd := &cobra.Command{}
 	cmd.Flags().String("test-root", tempDir, "")
-	if err := cmd.Flag("test-root").Value.Set(tempDir); err != nil {
-		t.Fatalf("Failed to set test-root flag: %v", err)
+	flagErr := cmd.Flag("test-root").Value.Set(tempDir)
+	if flagErr != nil {
+		t.Fatalf("Failed to set test-root flag: %v", flagErr)
 	}
 	
 	// Execute the command
@@ -625,10 +627,11 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 	
-	// Make sure to change back when we're done
+	// Return to the original directory
 	defer func() {
-		if err := os.Chdir(currentDir); err != nil {
-			t.Logf("Failed to return to original directory: %v", err)
+		chdirErr := os.Chdir(currentDir)
+		if chdirErr != nil {
+			t.Fatalf("Failed to return to original directory: %v", chdirErr)
 		}
 	}()
 	
@@ -642,7 +645,7 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	
 	// Create a test user story file
 	testFile := filepath.Join(mockUserStoriesDir, "debug-test.md")
-	err = os.WriteFile(testFile, []byte("# Debug Test User Story\n\nThis is a debug test user story.\n"), 0644)
+	err = os.WriteFile(testFile, []byte("# Debug Test User Story\n\nThis is a debug test user story.\n"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -650,14 +653,16 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	// Create a cobra command with debug flag
 	cmd := &cobra.Command{}
 	cmd.Flags().Bool("debug", false, "")
-	if err := cmd.Flag("debug").Value.Set("true"); err != nil {
-		t.Fatalf("Failed to set debug flag: %v", err)
+	debugFlagErr := cmd.Flag("debug").Value.Set("true")
+	if debugFlagErr != nil {
+		t.Fatalf("Failed to set debug flag: %v", debugFlagErr)
 	}
 	
 	// Set test-root flag
 	cmd.Flags().String("test-root", "", "")
-	if err := cmd.Flag("test-root").Value.Set(tempDir); err != nil {
-		t.Fatalf("Failed to set test-root flag: %v", err)
+	testRootFlagErr := cmd.Flag("test-root").Value.Set(tempDir)
+	if testRootFlagErr != nil {
+		t.Fatalf("Failed to set test-root flag: %v", testRootFlagErr)
 	}
 	
 	// Execute the command with debug flag

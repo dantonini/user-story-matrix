@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -56,8 +62,9 @@ Example:
 		go func() {
 			<-c
 			draftRequest := form.SaveDraft()
-			if err := draftManager.SaveDraft(draftRequest); err != nil {
-				logger.Error("Failed to save draft: " + err.Error())
+			saveErr := draftManager.SaveDraft(draftRequest)
+			if saveErr != nil {
+				logger.Error("Failed to save draft: " + saveErr.Error())
 			} else {
 				terminal.Print("\nDraft saved. You can resume later with 'usm ask feature'.")
 			}

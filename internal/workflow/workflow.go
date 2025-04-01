@@ -289,7 +289,7 @@ At the end of this phase, you **must run the complete formal test suite**:
 ### 🛠️ Your task
 
 1. For each user story:
-   - Validate the acceptance criterias already implemented.
+   - Validate the acceptance criteria already implemented.
    - Review the acceptance criteria not yet implemented.
    - Identify edge cases and secondary scenarios.
    - Extend the implementation accordingly.

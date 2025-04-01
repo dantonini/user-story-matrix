@@ -3,11 +3,10 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -52,7 +51,12 @@ and ensures each has an up-to-date metadata section containing:
 		
 		// Check for the --test-root flag (only used in tests)
 		var userStoriesDir string
-		testRoot, _ := cmd.Flags().GetString("test-root")
+		testRoot, err := cmd.Flags().GetString("test-root")
+		if err != nil {
+			logger.Error("Failed to get test-root flag", zap.Error(err))
+			fmt.Fprintf(os.Stderr, "Error: Failed to get test-root flag: %s\n", err)
+			return
+		}
 		if testRoot != "" {
 			// For testing, use the specified directory
 			userStoriesDir = filepath.Join(testRoot, "docs", "user-stories")
@@ -180,9 +184,9 @@ func getContentWithoutMetadata(content string) string {
 	return metadataRegex.ReplaceAllString(content, "")
 }
 
-// calculateContentHash calculates MD5 hash of content
+// calculateContentHash calculates SHA-256 hash of content
 func calculateContentHash(content string) string {
-	hash := md5.New()
+	hash := sha256.New()
 	hash.Write([]byte(content))
 	return hex.EncodeToString(hash.Sum(nil))
 }
@@ -261,7 +265,7 @@ func updateFileMetadata(filePath, root string) (bool, string, error) {
 		logger.Debug("Content or metadata changed, updating file", 
 			zap.String("file", filePath))
 		
-		err = os.WriteFile(filePath, []byte(newContent), 0644)
+		err = os.WriteFile(filePath, []byte(newContent), 0600)
 		if err != nil {
 			return false, contentHash, err
 		}

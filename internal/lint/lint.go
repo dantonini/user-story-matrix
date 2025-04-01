@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 // Package lint provides functionality for code linting and static analysis
 package lint
 
@@ -317,7 +316,7 @@ func CreateLintReport(outputPath string) (string, error) {
 			return "", fmt.Errorf("failed to create output directory: %w", err)
 		}
 		
-		if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(outputPath, []byte(output), 0600); err != nil {
 			return "", fmt.Errorf("failed to write lint report: %w", err)
 		}
 	}

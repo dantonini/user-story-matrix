@@ -15,6 +15,11 @@ import (
 	"github.com/user-story-matrix/usm/internal/workflow"
 )
 
+// Define static errors
+var (
+	ErrFileNotFound = errors.New("file not found")
+)
+
 // mockFileSystem is a simple implementation of the filesystem interface for testing
 type mockFileSystem struct {
 	existsFn    func(string) bool
@@ -58,18 +63,6 @@ type mockUserOutput struct {
 	progressMessages []string
 	stepMessages     []string
 	debugEnabled     bool
-}
-
-func newMockUserOutput() *mockUserOutput {
-	return &mockUserOutput{
-		messages:         make([]string, 0),
-		successMessages:  make([]string, 0),
-		errorMessages:    make([]string, 0),
-		warningMessages:  make([]string, 0),
-		progressMessages: make([]string, 0),
-		stepMessages:     make([]string, 0),
-		debugEnabled:     false,
-	}
 }
 
 func (m *mockUserOutput) Print(message string) {
@@ -216,7 +209,7 @@ func TestExecuteStep(t *testing.T) {
 		if path == "/path/to/change-request.blueprint.md" {
 			return []byte("Test content"), nil
 		}
-		return nil, errors.New("file not found")
+		return nil, ErrFileNotFound
 	}
 
 	// Create a test step
@@ -256,11 +249,7 @@ func TestExecuteStep(t *testing.T) {
 
 // TestCodeCmd_FileNotFound tests the behavior when the file is not found
 func TestCodeCmd_FileNotFound(t *testing.T) {
-	// This test is failing because the Execute() function doesn't propagate the panic from os.Exit
 	// Since we're already testing the functionality in executeStep and other more focused tests,
 	// we'll skip this integration test for now
 	t.Skip("Skipping this test as it requires more complex mocking of cobra command execution")
 }
-
-// Override os.Exit for testing
-var osExit = os.Exit

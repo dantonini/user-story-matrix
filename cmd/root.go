@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -41,7 +40,11 @@ any AI-powered coding assistant.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
 	defer func() {
-		_ = logger.Sync() // intentionally ignoring the error as it's not critical
+		err := logger.Sync()
+		if err != nil {
+			// We can only log this error since we're in cleanup
+			fmt.Fprintf(os.Stderr, "Error syncing logger: %v\n", err)
+		}
 	}()
 	return rootCmd.Execute()
 }

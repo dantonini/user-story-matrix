@@ -41,11 +41,6 @@ var (
 	fromUserStoriesDir string
 	// Show all user stories, including implemented ones
 	showAll bool
-	// Terminal interface for testing
-	terminal interface {
-		io.UserInput
-		io.UserOutput
-	}
 	// Program creator for testing
 	newProgram programCreator = func(m tea.Model, opts ...tea.ProgramOption) program {
 		return &teaProgram{tea.NewProgram(m, opts...)}
@@ -163,7 +158,12 @@ Example:
 		}
 
 		// Get the selected stories
-		selected := model.(*ui.SelectionAdapter).GetSelected()
+		selAdapter, ok := model.(*ui.SelectionAdapter)
+		if !ok {
+			terminal.PrintError("Error: could not get selection result")
+			return
+		}
+		selected := selAdapter.GetSelected()
 
 		// Check if any user stories were selected
 		if len(selected) == 0 {
@@ -219,7 +219,7 @@ Example:
 		}
 
 		// Save the file
-		if err := fs.WriteFile(filePath, []byte(template), 0644); err != nil {
+		if err := fs.WriteFile(filePath, []byte(template), 0600); err != nil {
 			terminal.PrintError(fmt.Sprintf("Failed to write file: %s", err))
 			return
 		}
@@ -244,9 +244,6 @@ func init() {
 	// Add flags
 	createChangeRequestCmd.Flags().StringVar(&fromUserStoriesDir, "from", "", "Directory to read user stories from (default is docs/user-stories)")
 	createChangeRequestCmd.Flags().BoolVar(&showAll, "show-all", false, "Show all user stories, including implemented ones")
-
-	// Initialize terminal
-	terminal = io.NewTerminalIO()
 
 	// Register the new selection UI implementation
 	ui.RegisterNewSelectionUIMaker()

@@ -148,7 +148,7 @@ func TestInterpolatePromptWithError(t *testing.T) {
 	
 	// Test with malformed variables
 	malformedPrompt := "Process ${var with spaces} and ${incomplete"
-	result, err = InterpolatePromptWithError(malformedPrompt, vars)
+	_, err = InterpolatePromptWithError(malformedPrompt, vars)
 	
 	if err == nil {
 		t.Error("Expected error for malformed variables, got nil")
