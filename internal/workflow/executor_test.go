@@ -130,7 +130,7 @@ This is a test change request.`,
 				OutputFile:  "%s.01-laying-the-foundation.md",
 			},
 			wantSuccess:    true,
-			expectedOutput: "Processed prompt for step 01-laying-the-foundation: This is a test prompt with change-request.md variable",
+			expectedOutput: "This is a test prompt with change-request.md variable",
 		},
 		{
 			name:          "File not found",

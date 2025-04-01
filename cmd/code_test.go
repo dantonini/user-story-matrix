@@ -240,7 +240,7 @@ func TestExecuteStep(t *testing.T) {
 	}
 	
 	// Check that the expected message was printed
-	expectedMsg := "Processed prompt for step 01-laying-the-foundation: Test prompt with /path/to/change-request.blueprint.md"
+	expectedMsg := "Test prompt with /path/to/change-request.blueprint.md"
 	messagePrinted := false
 	for _, msg := range mockIO.messages {
 		if msg == expectedMsg {

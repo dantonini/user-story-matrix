@@ -53,9 +53,9 @@ linters-settings:
 
 issues:
   # Maximum count of issues with the same text
-  max-same-issues: 3
+  max-same-issues: 0
   # Maximum issues count per one linter
-  max-issues-per-linter: 10
+  max-issues-per-linter: 0
 
   # Excluding configuration per-path, per-linter or per-text
   exclude-rules:
@@ -63,7 +63,7 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
-        - unused
+        - staticcheck
     
     # Exclude known false positives or acceptable patterns
     # TODO: Add specific exclusion rules if needed after initial run

@@ -8,6 +8,9 @@ VERSION=0.1.1
 GOLANGCI_VERSION := $(shell golangci-lint --version 2>/dev/null | grep -o 'version [0-9.]*' | sed 's/version //' || echo "0.0.0")
 SUPPORTS_CACHE := $(shell echo "$(GOLANGCI_VERSION)" | awk -F. '{ if ($$1 > 1 || ($$1 == 1 && $$2 >= 54)) print "true"; else print "false"; }')
 
+# Define output directory to be excluded from linting/tests
+EXCLUDE_OUTPUT := --skip-dirs=output
+
 # Determine which linter to use for dead code detection
 ifeq ($(shell echo "$(GOLANGCI_VERSION)" | awk -F. '{ if ($$1 > 1 || ($$1 == 1 && $$2 >= 49)) print "true"; else print "false"; }'),true)
     DEADCODE_LINTER=unused
@@ -49,20 +52,20 @@ build:
 lint:
 	@echo "Running linters..."
 	$(call ensure_golangci_lint)
-	@golangci-lint run --fast --no-config --disable-all --enable=errcheck,govet $(CACHE_FLAG) ./... || echo "Linting found issues, but continuing"
+	@golangci-lint run --fast --no-config --disable-all --enable=errcheck,govet $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues, but continuing"
 
 # Lint only test files
 lint-tests:
 	@echo "Running linters on test files only..."
 	$(call ensure_golangci_lint)
-	@echo "Command: golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files=\"^[^_]*\.go$$\" $(CACHE_FLAG) ./..."
-	@golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files="^[^_]*\.go$$" $(CACHE_FLAG) ./... || echo "Linting found issues in test files, but continuing"
+	@echo "Command: golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files=\"^[^_]*\.go$$\" $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./..."
+	@golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files="^[^_]*\.go$$" $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues in test files, but continuing"
 
 # Lint for CI environments
 lint-ci:
 	@echo "Running linters for CI..."
 	$(call ensure_golangci_lint)
-	@golangci-lint run --timeout=5m --out-format=github-actions $(CACHE_FLAG) ./... || echo "Linting found issues in CI, but continuing"
+	@golangci-lint run --timeout=5m --out-format=github-actions $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues in CI, but continuing"
 
 # Generate lint report
 lint-report:
@@ -79,7 +82,7 @@ build-full:
 	@echo "Running linters..."
 	$(call ensure_golangci_lint)
 	@echo "Using linters compatible with Go $(GO_VERSION): $(SAFE_LINTERS)"
-	@golangci-lint run $(CACHE_FLAG) --timeout=2m --no-config --disable-all --enable=$(SAFE_LINTERS) ./... || true
+	@golangci-lint run $(CACHE_FLAG) --timeout=2m --no-config --disable-all --enable=$(SAFE_LINTERS) $(EXCLUDE_OUTPUT) ./... || true
 	@echo "Running full build with linting..."
 	go build -o $(BINARY_NAME) -v
 
@@ -90,11 +93,11 @@ lint-fix-deadcode:
 
 # Run tests
 test:
-	go test -v ./...
+	go test -v $(shell go list ./... | grep -v /output/)
 
 # Run tests with coverage
 test-coverage:
-	go test -v -coverprofile=coverage.out -covermode=atomic ./...
+	go test -v -coverprofile=coverage.out -covermode=atomic $(shell go list ./... | grep -v /output/)
 	go tool cover -func=coverage.out
 
 # Generate HTML coverage report
