@@ -1,0 +1,77 @@
+# USM - User Story Matrix golangci-lint configuration
+# This is a minimal, non-intrusive baseline lint configuration for USM.
+
+# Timeout for running all linters (default: 1m)
+run:
+  timeout: 2m
+  # Include test files
+  tests: true
+  # Skip directories
+  skip-dirs:
+    - .git
+    - .github
+    - .vscode
+    - .idea
+    - vendor
+    - output
+
+# Define output configuration
+output:
+  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml
+  format: colored-line-number
+  # Print lines of code with issues
+  print-issued-lines: true
+  # Print linter name in the end of issue text
+  print-linter-name: true
+
+# Enable only a subset of high-signal linters
+linters:
+  disable-all: true
+  enable:
+    # Essential linters as per acceptance criteria
+    - unused      # Finds unused code (Replacing deprecated 'deadcode')
+    - errcheck    # Checks for unchecked errors
+    - govet       # Reports suspicious constructs
+    - staticcheck # Applies static analysis checks
+    # - deadcode  # Legacy linter, deprecated since v1.49.0 - using 'unused' instead
+
+linters-settings:
+  # Specific linter settings can be added here
+  # Keep minimal for now as per acceptance criteria
+  govet:
+    # Report about shadowed variables
+    check-shadowing: true
+  errcheck:
+    # Report about not checking errors in type assertions
+    check-type-assertions: true
+  unused:
+    # Check for unused constants, variables, functions, types, etc.
+    check-exported: false  # Only check unexported for minimal intrusiveness
+  staticcheck:
+    # Enable various staticcheck analyzers
+    checks: ["all"]
+
+issues:
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+  # Maximum issues count per one linter
+  max-issues-per-linter: 10
+
+  # Excluding configuration per-path, per-linter or per-text
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unused
+    
+    # Exclude known false positives or acceptable patterns
+    # TODO: Add specific exclusion rules if needed after initial run
+    # - text: "should have comment or be unexported"
+    #   linters:
+    #     - golint
+
+# Notes on golangci-lint version compatibility:
+# - The 'deadcode' linter is deprecated since v1.49.0 in favor of 'unused'
+# - If using a newer version, this config uses 'unused' instead of 'deadcode'
+# - The scripts/lint-fix-deadcode.sh script is version-aware and will use the appropriate linter 

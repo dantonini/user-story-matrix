@@ -1,0 +1,20 @@
+Running linters on test files only...
+internal/models/user_story.go:88:16: Error return value of `io.WriteString` is not checked (errcheck)
+	io.WriteString(hash, content)
+	              ^
+internal/implementation/tracker_test.go:23:18: Error return value of `mockFS.WriteFile` is not checked (errcheck)
+	mockFS.WriteFile(userStoryPath, []byte(`---
+	                ^
+internal/implementation/tracker_test.go:43:18: Error return value of `mockFS.WriteFile` is not checked (errcheck)
+	mockFS.WriteFile(changeRequestPath, []byte(`---
+	                ^
+internal/implementation/tracker_test.go:63:17: Error return value of `mockFS.MkdirAll` is not checked (errcheck)
+	mockFS.MkdirAll("docs/user-stories", 0755)
+	               ^
+internal/implementation/tracker_test.go:64:17: Error return value of `mockFS.MkdirAll` is not checked (errcheck)
+	mockFS.MkdirAll("docs/changes-request", 0755)
+	               ^
+internal/implementation/tracker_test.go:81:18: Error return value of `mockFS.WriteFile` is not checked (errcheck)
+	mockFS.WriteFile(implementationPath, []byte(`# Implementation
+	                ^
+Linting found issues in test files, but continuing

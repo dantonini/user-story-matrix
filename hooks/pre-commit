@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# USM pre-commit hook for lightweight linting
+# This hook runs a fast subset of linters on changed files
+# but allows the commit to proceed regardless of the lint result.
+
+set -e
+
+# Define colors for output
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Define cache directory
+CACHE_DIR=".lint-cache"
+CACHE_ENABLED=true
+MAX_FILES_FOR_PARALLEL=10
+TIMEOUT="30s"
+
+echo -e "${YELLOW}Running pre-commit linting checks...${NC}"
+
+# Check if golangci-lint is installed
+if ! command -v golangci-lint &> /dev/null; then
+    echo -e "${YELLOW}golangci-lint not found. Installing...${NC}"
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+fi
+
+# Get the golangci-lint version
+GOLANGCI_VERSION=$(golangci-lint --version 2>/dev/null | grep -o 'version [0-9.]*' | sed 's/version //' || echo "unknown")
+
+# Ensure cache directory exists if caching is enabled
+if [ "$CACHE_ENABLED" = true ]; then
+    mkdir -p "$CACHE_DIR"
+fi
+
+# Find all staged Go files
+STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep "\.go$" || true)
+FILE_COUNT=$(echo "$STAGED_GO_FILES" | wc -l | tr -d ' ')
+
+# If no Go files are staged, use a test file for demonstration purposes
+if [ -z "$STAGED_GO_FILES" ]; then
+    if [ -f "internal/lint/lint.go" ]; then
+        echo -e "${YELLOW}No staged Go files found. Testing pre-commit hook on lint.go for demonstration purposes.${NC}"
+        STAGED_GO_FILES="internal/lint/lint.go"
+        FILE_COUNT=1
+    else
+        echo -e "${GREEN}No Go files to lint.${NC}"
+        exit 0
+    fi
+fi
+
+# Determine if we should use parallel processing
+USE_PARALLEL=false
+if [ "$FILE_COUNT" -gt "$MAX_FILES_FOR_PARALLEL" ]; then
+    USE_PARALLEL=true
+    echo -e "${BLUE}Processing $FILE_COUNT files in parallel mode${NC}"
+fi
+
+# Run linters on staged files only
+LINT_RESULT=0
+echo -e "${YELLOW}Running fast linters on staged files...${NC}"
+
+# Use a fast subset of linters
+COMMON_ARGS="--fast --no-config --disable-all --enable=errcheck,govet --timeout=$TIMEOUT"
+
+if [ "$CACHE_ENABLED" = true ]; then
+    COMMON_ARGS="$COMMON_ARGS --cache"
+fi
+
+# Add version-specific settings
+if [[ "$GOLANGCI_VERSION" != "unknown" ]]; then
+    MAJOR=$(echo "$GOLANGCI_VERSION" | cut -d. -f1)
+    MINOR=$(echo "$GOLANGCI_VERSION" | cut -d. -f2)
+    
+    # Add optimization for larger file sets on newer linters
+    if [[ "$MAJOR" -gt 1 || ("$MAJOR" -eq 1 && "$MINOR" -ge 45) ]]; then
+        COMMON_ARGS="$COMMON_ARGS --max-issues-per-linter=5 --max-same-issues=3"
+    fi
+fi
+
+if [ "$USE_PARALLEL" = true ]; then
+    # For many files, run on all at once with optimized settings
+    golangci-lint run $COMMON_ARGS $STAGED_GO_FILES || LINT_RESULT=$?
+else
+    # For fewer files, run individually to show issues as they're found
+    echo "$STAGED_GO_FILES" | while read -r file; do
+        if [ -n "$file" ]; then
+            echo -e "${BLUE}Checking: $file${NC}"
+            # Use cache for consistency
+            if golangci-lint run $COMMON_ARGS "$file"; then
+                echo -e "${GREEN}✓ $file${NC}"
+            else
+                echo -e "${RED}✗ $file${NC}"
+                LINT_RESULT=1
+            fi
+        fi
+    done
+fi
+
+# Show warnings but allow commit to proceed
+if [ $LINT_RESULT -ne 0 ]; then
+    echo -e "${RED}Linting issues were found.${NC}"
+    echo -e "${YELLOW}Commit will proceed anyway. Please consider fixing these issues.${NC}"
+    echo -e "${BLUE}To fix all issues automatically, you can run:${NC}"
+    echo -e "${BLUE}  golangci-lint run --fix --fast --no-config --disable-all --enable=errcheck,govet $STAGED_GO_FILES${NC}"
+else
+    echo -e "${GREEN}No linting issues found.${NC}"
+fi
+
+# Always exit successfully to allow the commit to proceed
+exit 0 

@@ -6,14 +6,14 @@ The whole iteration was composed by 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to summarize what has been accomplished so far in an "implementation" file docs/changes-request/2025-03-31-081819-code-command.implementation.md
+Your task is to summarize what has been accomplished so far in an "implementation" file docs/changes-request/2025-04-01-073821-golangci-lint-adoption.implementation.md
 Keep into consideration that this technical document will be archived as Architecture Decision Record. Use reference to the implemented code to look up for (do not use line numbers, they change too frequently)
 Describe data structures and their purposes (if any)
 Describe relevant algorithms and their purporses (if any)
  
-The original blueprint: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md
+The original blueprint: cat docs/changes-request/2025-04-01-073821-golangci-lint-adoption.blueprint.md
 the accomplished reports:
-- foundations: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
-- mvi: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
-- extend: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.03-extend-functionalities.accomplished.md 
-- refine: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.04-refinement.accomplished.md   
+- foundations: cat docs/changes-request/2025-04-01-073821-golangci-lint-adoption.blueprint.md.01-foundation.accomplished.md
+- mvi: cat docs/changes-request/2025-04-01-073821-golangci-lint-adoption.blueprint.md.02-mvi.accomplished.md
+- extend: cat docs/changes-request/2025-04-01-073821-golangci-lint-adoption.blueprint.md.03-extend-functionalities.accomplished.md 
+- refine: cat docs/changes-request/2025-04-01-073821-golangci-lint-adoption.blueprint.md.04-refinement.accomplished.md   

@@ -174,7 +174,59 @@ usm code --reset docs/changes-request/my-change-request.blueprint.md
 ```bash
 # Install dependencies
 make deps
+
+# Install pre-commit hooks (recommended for developers)
+make install-hooks
 ```
+
+## Code Quality
+
+USM uses [golangci-lint](https://golangci-lint.run/) for static code analysis to maintain code quality.
+
+### Available Linters
+
+The following essential linters are enabled by default:
+
+- **unused**: Finds unused code (replaces deprecated 'deadcode' linter in newer versions)
+- **errcheck**: Checks for unchecked errors
+- **govet**: Reports suspicious constructs
+- **staticcheck**: Applies static analysis checks
+
+### Linting Commands
+
+```bash
+# Run linters only
+make lint
+
+# Run a full build with linting
+make build-full
+
+# Standard build (no linting)
+make build
+
+# Find and report dead/unused code
+make lint-fix-deadcode
+```
+
+### Pre-commit Hook
+
+USM includes a lightweight pre-commit hook that runs fast linters on changed files without blocking your commits.
+
+To install it:
+
+```bash
+make install-hooks
+```
+
+### Configuration
+
+The linting configuration is defined in `.golangci.yml` in the project root. This minimal configuration is designed to be non-intrusive while still catching important issues.
+
+### Version Compatibility
+
+USM handles linter compatibility automatically:
+- For golangci-lint < v1.49.0: Uses the 'deadcode' linter
+- For golangci-lint >= v1.49.0: Uses the 'unused' linter (which replaces the deprecated 'deadcode')
 
 ## Testing
 
