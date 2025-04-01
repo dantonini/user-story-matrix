@@ -72,7 +72,7 @@ lint-report:
 	@echo "Generating lint report..."
 	$(call ensure_golangci_lint)
 	@mkdir -p output/reports
-	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) $(EXCLUDE_OUTPUT) > output/reports/lint-report.json
+	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... > output/reports/lint-report.json
 	@echo "Report saved to output/reports/lint-report.json"
 	@echo "Summary of issues:"
 	@cat output/reports/lint-report.json | grep -o '"Pos":{"Filename":"[^"]*"' | sort | uniq -c | sort -nr
