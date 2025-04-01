@@ -36,3 +36,4 @@ usm-*-amd64*
 *.log output
 output/
 coverage.html
+*.step
