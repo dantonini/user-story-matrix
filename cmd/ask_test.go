@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -55,6 +61,7 @@ func TestExecuteAskCommand(t *testing.T) {
 	// We're just making sure the command structure is correct
 	assert.NotPanics(t, func() {
 		testCmd.SetArgs([]string{"ask", "--help"})
-		testCmd.Execute()
+		err := testCmd.Execute()
+		assert.NoError(t, err)
 	})
 } 

@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
@@ -33,6 +32,9 @@ type MockIO struct {
 		Headers []string
 		Rows    [][]string
 	}
+	
+	// Debug mode flag
+	DebugEnabled bool
 }
 
 // NewMockIO creates a new instance of MockIO
@@ -48,6 +50,7 @@ func NewMockIO() *MockIO {
 		ProgressMessages:     []string{},
 		StepMessages:         []string{},
 		Tables:               []struct{Headers []string; Rows [][]string}{},
+		DebugEnabled:         false,
 	}
 }
 
@@ -112,6 +115,11 @@ func (m *MockIO) PrintStep(stepNumber int, totalSteps int, description string) {
 	m.StepMessages = append(m.StepMessages, message)
 }
 
+// IsDebugEnabled returns the debug mode status
+func (m *MockIO) IsDebugEnabled() bool {
+	return m.DebugEnabled
+}
+
 // PrintTable captures table data
 func (m *MockIO) PrintTable(headers []string, rows [][]string) {
 	m.Tables = append(m.Tables, struct{Headers []string; Rows [][]string}{
@@ -173,6 +181,12 @@ func (m *MockUserIO) PrintProgress(message string) {
 // PrintStep mocks the PrintStep method
 func (m *MockUserIO) PrintStep(stepNumber int, totalSteps int, description string) {
 	m.Called(stepNumber, totalSteps, description)
+}
+
+// IsDebugEnabled mocks the IsDebugEnabled method
+func (m *MockUserIO) IsDebugEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
 }
 
 // PrintTable mocks the PrintTable method

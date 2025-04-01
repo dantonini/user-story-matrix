@@ -102,6 +102,7 @@ type MockIO struct {
 	warningMessages []string
 	progressMessages []string
 	stepMessages    []string
+	debugEnabled    bool
 }
 
 // NewMockIO creates a new MockIO instance
@@ -113,6 +114,7 @@ func NewMockIO() *MockIO {
 		warningMessages: []string{},
 		progressMessages: []string{},
 		stepMessages:    []string{},
+		debugEnabled:    false,
 	}
 }
 
@@ -145,6 +147,16 @@ func (m *MockIO) PrintProgress(message string) {
 func (m *MockIO) PrintStep(stepNumber int, totalSteps int, description string) {
 	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
 	m.stepMessages = append(m.stepMessages, message)
+}
+
+// PrintTable implements UserOutput.PrintTable
+func (m *MockIO) PrintTable(headers []string, rows [][]string) {
+	// Not needed for these tests
+}
+
+// IsDebugEnabled implements UserOutput.IsDebugEnabled
+func (m *MockIO) IsDebugEnabled() bool {
+	return m.debugEnabled
 }
 
 func TestGenerateStateFilePath(t *testing.T) {

@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -34,7 +40,9 @@ any AI-powered coding assistant.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync() // intentionally ignoring the error as it's not critical
+	}()
 	return rootCmd.Execute()
 }
 

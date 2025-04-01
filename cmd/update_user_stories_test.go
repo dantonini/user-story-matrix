@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -334,7 +340,11 @@ func TestEndToEndUpdateProcess(t *testing.T) {
 	}
 	
 	// Make sure to change back when we're done
-	defer os.Chdir(currentDir)
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			t.Logf("Failed to return to original directory: %v", err)
+		}
+	}()
 	
 	// Create a user stories directory structure
 	userStoriesDir := filepath.Join(tempDir, "docs", "user-stories")
@@ -464,7 +474,11 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	}
 	
 	// Make sure to change back when we're done
-	defer os.Chdir(currentDir)
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			t.Logf("Failed to return to original directory: %v", err)
+		}
+	}()
 	
 	// Create a mock user-stories directory structure rather than using the real one
 	mockDocsDir := filepath.Join(tempDir, "docs")
@@ -493,7 +507,9 @@ func TestUpdateUserStoriesCommand(t *testing.T) {
 	// Create a command with test-root flag
 	cmd := &cobra.Command{}
 	cmd.Flags().String("test-root", tempDir, "")
-	cmd.Flag("test-root").Value.Set(tempDir)
+	if err := cmd.Flag("test-root").Value.Set(tempDir); err != nil {
+		t.Fatalf("Failed to set test-root flag: %v", err)
+	}
 	
 	// Execute the command
 	updateUserStoriesCmd.Run(cmd, nil)
@@ -610,7 +626,11 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	}
 	
 	// Make sure to change back when we're done
-	defer os.Chdir(currentDir)
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			t.Logf("Failed to return to original directory: %v", err)
+		}
+	}()
 	
 	// Create a mock user-stories directory structure rather than using the real one
 	mockDocsDir := filepath.Join(tempDir, "docs")
@@ -629,12 +649,16 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 	
 	// Create a cobra command with debug flag
 	cmd := &cobra.Command{}
-	cmd.Flags().Bool("debug", true, "")
-	cmd.Flag("debug").Value.Set("true")
+	cmd.Flags().Bool("debug", false, "")
+	if err := cmd.Flag("debug").Value.Set("true"); err != nil {
+		t.Fatalf("Failed to set debug flag: %v", err)
+	}
 	
-	// Add test-root flag
-	cmd.Flags().String("test-root", tempDir, "")
-	cmd.Flag("test-root").Value.Set(tempDir)
+	// Set test-root flag
+	cmd.Flags().String("test-root", "", "")
+	if err := cmd.Flag("test-root").Value.Set(tempDir); err != nil {
+		t.Fatalf("Failed to set test-root flag: %v", err)
+	}
 	
 	// Execute the command with debug flag
 	updateUserStoriesCmd.Run(cmd, nil)

@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package models
 
 import (
@@ -141,7 +140,8 @@ A blueprint is a technical design document that outlines proposed codebase chang
 - Create a clear roadmap for upcoming development tasks
 
 General Guidelines:
-- The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command ./cat-user-stories-in-change-request.sh <change_request_path>.
+- The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command:
+	./cat-user-stories-in-change-request.sh %s
 - The document is not for writing code but for transmitting ideas, concepts, and plans.
 - Follow a top-down (or break-down) approach: start with a high-level overview and progressively drill down into specifics.
 
@@ -179,6 +179,6 @@ Remember, the blueprint should be a planning and communication tool. Do not incl
 
 validate them against the codebase, and define a detailed plan for the change. Don't do any implementation, just describe what needs to be done. You can describe data structures, algorithm in pseudo code, refactoring steps, etc. 
 Store the plan in the change request file %s in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.`,
-		changeRequestPath,
+		changeRequestPath,changeRequestPath,
 	)
 } 

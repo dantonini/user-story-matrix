@@ -63,6 +63,7 @@ type testUserOutput struct {
 	warningMessages  []string
 	stepMessages     []string
 	successMessages  []string
+	debugEnabled     bool
 }
 
 func newTestUserOutput() *testUserOutput {
@@ -73,6 +74,7 @@ func newTestUserOutput() *testUserOutput {
 		warningMessages:  make([]string, 0),
 		stepMessages:     make([]string, 0),
 		successMessages:  make([]string, 0),
+		debugEnabled:     false,
 	}
 }
 
@@ -98,6 +100,14 @@ func (t *testUserOutput) PrintProgress(msg string) {
 
 func (t *testUserOutput) PrintStep(current int, total int, msg string) {
 	t.stepMessages = append(t.stepMessages, fmt.Sprintf("Step %d/%d: %s", current, total, msg))
+}
+
+func (t *testUserOutput) PrintTable(headers []string, rows [][]string) {
+	// Not needed for these tests
+}
+
+func (t *testUserOutput) IsDebugEnabled() bool {
+	return t.debugEnabled
 }
 
 func TestStepExecutor_ExecuteStep(t *testing.T) {
@@ -157,7 +167,7 @@ This is a test change request.`,
 			// Check success/failure
 			if tt.wantSuccess {
 				if !success || err != nil {
-					t.Errorf("ExecuteStep() success = %v, error = %v, want success = true, error = nil", success, err)
+					t.Errorf("ExecuteStep() error = %v, success = %v", err, success)
 				}
 
 				// Check that the expected message was printed
@@ -275,7 +285,10 @@ func TestStepExecutor_ExecuteStep_PromptValidation(t *testing.T) {
 			}
 
 			// Execute step
-			executor.ExecuteStep("change-request.md", step, "output.md")
+			success, err := executor.ExecuteStep("change-request.md", step, "output.md")
+			if !success || err != nil {
+				t.Errorf("ExecuteStep() failed: success=%v, error=%v", success, err)
+			}
 
 			// Check for warnings
 			if tt.expectWarning {

@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package implementation
 
 import (
@@ -20,7 +19,7 @@ func TestIsUserStoryImplemented(t *testing.T) {
 	
 	// Create test user story
 	userStoryPath := "docs/user-stories/01-test-user-story.md"
-	mockFS.WriteFile(userStoryPath, []byte(`---
+	err := mockFS.WriteFile(userStoryPath, []byte(`---
 file_path: docs/user-stories/01-test-user-story.md
 created_at: 2025-01-01T00:00:00Z
 last_updated: 2025-01-01T00:00:00Z
@@ -37,10 +36,11 @@ so that I can verify the implementation status feature.
 
 - Check if user story is marked as implemented when referenced in an implemented change request
 `), 0644)
+	assert.NoError(t, err)
 	
 	// Create test change request blueprint
 	changeRequestPath := "docs/changes-request/2025-01-01-000000-test-change-request.blueprint.md"
-	mockFS.WriteFile(changeRequestPath, []byte(`---
+	err = mockFS.WriteFile(changeRequestPath, []byte(`---
 name: test-change-request
 created-at: 2025-01-01T00:00:00Z
 user-stories:
@@ -58,10 +58,13 @@ This is a change request for implementing the following user stories:
 
 Please provide a detailed implementation plan.
 `), 0644)
+	assert.NoError(t, err)
 	
 	// Create test directory structure
-	mockFS.MkdirAll("docs/user-stories", 0755)
-	mockFS.MkdirAll("docs/changes-request", 0755)
+	err = mockFS.MkdirAll("docs/user-stories", 0755)
+	assert.NoError(t, err)
+	err = mockFS.MkdirAll("docs/changes-request", 0755)
+	assert.NoError(t, err)
 	
 	// Create test user story model
 	userStory := models.UserStory{
@@ -78,10 +81,11 @@ Please provide a detailed implementation plan.
 	
 	// Test 2: Add implementation file and check again, user story should be implemented
 	implementationPath := "docs/changes-request/2025-01-01-000000-test-change-request.implementation.md"
-	mockFS.WriteFile(implementationPath, []byte(`# Implementation
+	err = mockFS.WriteFile(implementationPath, []byte(`# Implementation
 
 This is the implementation for the user story.
 `), 0644)
+	assert.NoError(t, err)
 	
 	isImplemented, err = IsUserStoryImplemented(userStory, mockFS)
 	assert.NoError(t, err)

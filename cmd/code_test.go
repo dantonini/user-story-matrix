@@ -57,6 +57,7 @@ type mockUserOutput struct {
 	warningMessages  []string
 	progressMessages []string
 	stepMessages     []string
+	debugEnabled     bool
 }
 
 func newMockUserOutput() *mockUserOutput {
@@ -67,6 +68,7 @@ func newMockUserOutput() *mockUserOutput {
 		warningMessages:  make([]string, 0),
 		progressMessages: make([]string, 0),
 		stepMessages:     make([]string, 0),
+		debugEnabled:     false,
 	}
 }
 
@@ -96,6 +98,10 @@ func (m *mockUserOutput) PrintStep(stepNumber int, totalSteps int, description s
 
 func (m *mockUserOutput) PrintTable(headers []string, rows [][]string) {
 	// Not needed for these tests
+}
+
+func (m *mockUserOutput) IsDebugEnabled() bool {
+	return m.debugEnabled
 }
 
 // MockWorkflowManager is a mock implementation of the workflow manager

@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package cmd
 
 import (
@@ -269,6 +275,8 @@ func init() {
 	rootCmd.AddCommand(updateUserStoriesCmd)
 	// Add a hidden flag for testing
 	updateUserStoriesCmd.Flags().String("test-root", "", "Root directory for testing (hidden)")
-	updateUserStoriesCmd.Flags().MarkHidden("test-root")
+	if err := updateUserStoriesCmd.Flags().MarkHidden("test-root"); err != nil {
+		logger.Error("Failed to mark flag as hidden", zap.Error(err))
+	}
 	logger.Debug("Update user-stories command added to root command")
 } 

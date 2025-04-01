@@ -85,7 +85,12 @@ func ExtractMetadataFromContent(content string) (map[string]string, error) {
 // GenerateContentHash calculates the MD5 hash of the content
 func GenerateContentHash(content string) string {
 	hash := md5.New()
-	io.WriteString(hash, content)
+	_, err := io.WriteString(hash, content)
+	if err != nil {
+		// In case of error, return an empty hash
+		// This should never happen with strings, but we handle it anyway
+		return ""
+	}
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
