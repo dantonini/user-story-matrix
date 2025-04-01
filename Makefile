@@ -2,7 +2,7 @@
 
 # Binary name
 BINARY_NAME=usm
-VERSION=0.1.1
+VERSION=0.1.2
 
 # Detect golangci-lint version for compatibility
 GOLANGCI_VERSION := $(shell golangci-lint --version 2>/dev/null | grep -o 'version [0-9.]*' | sed 's/version //' || echo "0.0.0")
