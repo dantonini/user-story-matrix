@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
@@ -35,23 +34,23 @@ const (
 
 // FeatureForm is a tea.Model for the feature request form
 type FeatureForm struct {
-	fr                  models.FeatureRequest
-	titleInput          textinput.Model
-	descInput           textinput.Model
-	userStoryAsInput    textinput.Model
-	userStoryWantInput  textinput.Model
+	fr                   models.FeatureRequest
+	titleInput           textinput.Model
+	descInput            textinput.Model
+	userStoryAsInput     textinput.Model
+	userStoryWantInput   textinput.Model
 	userStorySoThatInput textinput.Model
-	acInputs            []textinput.Model
-	activeField         FieldType
-	activeACIndex       int
-	reviewMode          bool
-	ConfirmSubmission   bool // User confirmed submission
-	editMode            bool
-	cancel              bool
-	focused             bool
-	width               int
-	height              int
-	err                 error
+	acInputs             []textinput.Model
+	activeField          FieldType
+	activeACIndex        int
+	reviewMode           bool
+	ConfirmSubmission    bool // User confirmed submission
+	editMode             bool
+	cancel               bool
+	focused              bool
+	width                int
+	height               int
+	err                  error
 }
 
 // NewFeatureForm creates a new feature request form
@@ -73,7 +72,7 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	userStoryAs := ""
 	userStoryWant := ""
 	userStorySoThat := ""
-	
+
 	if fr.UserStory != "" {
 		parts := strings.Split(fr.UserStory, " I want ")
 		if len(parts) > 1 {
@@ -115,7 +114,7 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 		acInputs[i].Placeholder = fmt.Sprintf("Enter acceptance criteria %d", i+1)
 		acInputs[i].Width = 80
 		acInputs[i].CharLimit = 200
-		
+
 		// Set values from existing AC if available
 		if i < len(fr.AcceptanceCriteria) {
 			acInputs[i].SetValue(fr.AcceptanceCriteria[i])
@@ -123,22 +122,22 @@ func NewFeatureForm(fr models.FeatureRequest) *FeatureForm {
 	}
 
 	form := &FeatureForm{
-		fr:                  fr,
-		titleInput:          titleInput,
-		descInput:           descInput,
-		userStoryAsInput:    userStoryAsInput,
-		userStoryWantInput:  userStoryWantInput,
+		fr:                   fr,
+		titleInput:           titleInput,
+		descInput:            descInput,
+		userStoryAsInput:     userStoryAsInput,
+		userStoryWantInput:   userStoryWantInput,
 		userStorySoThatInput: userStorySoThatInput,
-		acInputs:            acInputs,
-		activeField:         TitleField,
-		activeACIndex:       0,
-		reviewMode:          false,
-		ConfirmSubmission:   false,
-		editMode:            false,
-		cancel:              false,
-		focused:             true,
-		width:               80,
-		height:              24,
+		acInputs:             acInputs,
+		activeField:          TitleField,
+		activeACIndex:        0,
+		reviewMode:           false,
+		ConfirmSubmission:    false,
+		editMode:             false,
+		cancel:               false,
+		focused:              true,
+		width:                80,
+		height:               24,
 	}
 
 	return form
@@ -267,11 +266,11 @@ func (f *FeatureForm) View() string {
 				break
 			}
 		}
-		
+
 		if allEmpty {
 			return f.renderConfirmationOnly()
 		}
-		
+
 		return f.renderReviewMode()
 	}
 
@@ -291,7 +290,7 @@ func (f *FeatureForm) View() string {
 	ac3Style := lipgloss.NewStyle()
 	ac4Style := lipgloss.NewStyle()
 	ac5Style := lipgloss.NewStyle()
-	
+
 	switch f.activeField {
 	case TitleField:
 		titleStyle = titleStyle.Bold(true).Foreground(lipgloss.Color("12"))
@@ -314,45 +313,45 @@ func (f *FeatureForm) View() string {
 	case AcceptanceCriteria5Field:
 		ac5Style = ac5Style.Bold(true).Foreground(lipgloss.Color("12"))
 	}
-	
+
 	// Define label settings
 	labelWidth := 12
-	
+
 	// Title field
 	b.WriteString(titleStyle.Width(labelWidth).Render("Title:"))
 	b.WriteString(" " + f.titleInput.View() + "\n")
-	
+
 	// Description field
 	b.WriteString(descStyle.Width(labelWidth).Render("Description:"))
 	b.WriteString(" " + f.descInput.View() + "\n")
-	
+
 	// User Story fields
 	headerStyle := lipgloss.NewStyle().Bold(true).AlignHorizontal(lipgloss.Left)
 	b.WriteString(headerStyle.Render("User Story") + "\n")
 	b.WriteString(asStyle.Width(labelWidth).Render("As a:"))
 	b.WriteString(" " + f.userStoryAsInput.View() + "\n")
-	
+
 	b.WriteString(wantStyle.Width(labelWidth).Render("I want:"))
 	b.WriteString(" " + f.userStoryWantInput.View() + "\n")
-	
+
 	b.WriteString(soThatStyle.Width(labelWidth).Render("So that:"))
 	b.WriteString(" " + f.userStorySoThatInput.View() + "\n")
-	
+
 	// Acceptance Criteria fields
 	b.WriteString(headerStyle.Render("Acceptance Criteria") + "\n")
-	
+
 	b.WriteString(ac1Style.Width(labelWidth).Render("1:"))
 	b.WriteString(" " + f.acInputs[0].View() + "\n")
-	
+
 	b.WriteString(ac2Style.Width(labelWidth).Render("2:"))
 	b.WriteString(" " + f.acInputs[1].View() + "\n")
-	
+
 	b.WriteString(ac3Style.Width(labelWidth).Render("3:"))
 	b.WriteString(" " + f.acInputs[2].View() + "\n")
-	
+
 	b.WriteString(ac4Style.Width(labelWidth).Render("4:"))
 	b.WriteString(" " + f.acInputs[3].View() + "\n")
-	
+
 	b.WriteString(ac5Style.Width(labelWidth).Render("5:"))
 	b.WriteString(" " + f.acInputs[4].View() + "\n\n")
 
@@ -360,8 +359,8 @@ func (f *FeatureForm) View() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8")).AlignHorizontal(lipgloss.Left)
 	b.WriteString(helpStyle.Render(
 		"Tab: next field, Shift+Tab: previous field, Enter: confirm field\n" +
-		"Press Tab after filling all fields to submit\n" +
-		"Press Ctrl+C to cancel and save as draft\n"))
+			"Press Tab after filling all fields to submit\n" +
+			"Press Ctrl+C to cancel and save as draft\n"))
 
 	return b.String()
 }
@@ -369,10 +368,10 @@ func (f *FeatureForm) View() string {
 // renderConfirmationOnly renders just the confirmation prompt without summary
 func (f *FeatureForm) renderConfirmationOnly() string {
 	var b strings.Builder
-	
+
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Submit Feature Request?\n"))
 	b.WriteString("Press Enter to confirm (Y) or N to go back to editing\n")
-	
+
 	return b.String()
 }
 
@@ -407,7 +406,7 @@ func (f *FeatureForm) renderReviewMode() string {
 // RenderThankYouMessage returns a warm thank you message after submission
 func (f *FeatureForm) RenderThankYouMessage() string {
 	var b strings.Builder
-	
+
 	// Add a decorative element
 	thanksStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -416,23 +415,23 @@ func (f *FeatureForm) RenderThankYouMessage() string {
 		BorderForeground(lipgloss.Color("10")).
 		Padding(1, 2).
 		Align(lipgloss.Center)
-	
+
 	messageStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")). // White color
 		Width(60).
 		Align(lipgloss.Center)
-	
+
 	b.WriteString("\n\n")
 	b.WriteString(thanksStyle.Render("Feature Request Submitted!"))
 	b.WriteString("\n\n")
-	
+
 	message := "Thank you for taking the time to submit a feature request! " +
 		"Your feedback is incredibly valuable and helps make this tool better for everyone. " +
 		"I'll review your request carefully and do my best to implement it soon."
-	
+
 	b.WriteString(messageStyle.Render(message))
 	b.WriteString("\n\n")
-	
+
 	return b.String()
 }
 
@@ -570,12 +569,12 @@ func (f *FeatureForm) prevField() {
 func (f *FeatureForm) updateFeatureRequest() {
 	f.fr.Title = f.titleInput.Value()
 	f.fr.Description = f.descInput.Value()
-	
+
 	// Combine user story parts
 	asValue := strings.TrimSpace(f.userStoryAsInput.Value())
 	wantValue := strings.TrimSpace(f.userStoryWantInput.Value())
 	soThatValue := strings.TrimSpace(f.userStorySoThatInput.Value())
-	
+
 	userStory := ""
 	if asValue != "" {
 		userStory = "As a " + asValue
@@ -586,9 +585,9 @@ func (f *FeatureForm) updateFeatureRequest() {
 			}
 		}
 	}
-	
+
 	f.fr.UserStory = userStory
-	
+
 	// For backwards compatibility, store the combined user story in the importance field
 	f.fr.Importance = userStory
 
@@ -612,4 +611,4 @@ func (f *FeatureForm) SaveDraft() models.FeatureRequest {
 // GetFeatureRequest returns the completed feature request
 func (f *FeatureForm) GetFeatureRequest() models.FeatureRequest {
 	return f.fr
-} 
+}

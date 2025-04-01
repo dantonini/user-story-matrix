@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
@@ -33,18 +32,18 @@ type UserStoryForm struct {
 	us                models.UserStory
 	titleInput        textinput.Model
 	descInput         textinput.Model
-	asInput          textinput.Model
-	wantInput        textinput.Model
-	soThatInput      textinput.Model
-	acInputs         []textinput.Model
-	activeField      UserStoryFieldType
-	activeACIndex    int
+	asInput           textinput.Model
+	wantInput         textinput.Model
+	soThatInput       textinput.Model
+	acInputs          []textinput.Model
+	activeField       UserStoryFieldType
+	activeACIndex     int
 	ConfirmSubmission bool
-	cancel           bool
-	focused          bool
-	width            int
-	height           int
-	err              error
+	cancel            bool
+	focused           bool
+	width             int
+	height            int
+	err               error
 }
 
 // NewUserStoryForm creates a new user story form
@@ -86,20 +85,20 @@ func NewUserStoryForm(us models.UserStory) *UserStoryForm {
 	}
 
 	form := &UserStoryForm{
-		us:               us,
-		titleInput:       titleInput,
-		descInput:        descInput,
-		asInput:         asInput,
-		wantInput:       wantInput,
-		soThatInput:     soThatInput,
-		acInputs:        acInputs,
-		activeField:     USTitleField,
-		activeACIndex:   0,
+		us:                us,
+		titleInput:        titleInput,
+		descInput:         descInput,
+		asInput:           asInput,
+		wantInput:         wantInput,
+		soThatInput:       soThatInput,
+		acInputs:          acInputs,
+		activeField:       USTitleField,
+		activeACIndex:     0,
 		ConfirmSubmission: false,
-		cancel:          false,
-		focused:         true,
-		width:           80,
-		height:          24,
+		cancel:            false,
+		focused:           true,
+		width:             80,
+		height:            24,
 	}
 
 	return form
@@ -199,7 +198,7 @@ func (f *UserStoryForm) View() string {
 	ac3Style := lipgloss.NewStyle()
 	ac4Style := lipgloss.NewStyle()
 	ac5Style := lipgloss.NewStyle()
-	
+
 	switch f.activeField {
 	case USTitleField:
 		titleStyle = titleStyle.Bold(true).Foreground(lipgloss.Color("5"))
@@ -225,45 +224,45 @@ func (f *UserStoryForm) View() string {
 			ac5Style = ac5Style.Bold(true).Foreground(lipgloss.Color("5"))
 		}
 	}
-	
+
 	// Define label settings
 	labelWidth := 12
-	
+
 	// Title field
 	b.WriteString(titleStyle.Width(labelWidth).Render("Title"))
 	b.WriteString(f.titleInput.View() + "\n\n")
-	
+
 	// Description field
 	b.WriteString(descStyle.Width(labelWidth).Render("Description"))
 	b.WriteString(f.descInput.View() + "\n\n")
-	
+
 	// User Story fields
 	headerStyle := lipgloss.NewStyle().Bold(true).AlignHorizontal(lipgloss.Left)
 	b.WriteString(headerStyle.Render("User Story") + "\n")
 	b.WriteString(asStyle.Width(labelWidth).Render("As a"))
 	b.WriteString(f.asInput.View() + "\n")
-	
+
 	b.WriteString(wantStyle.Width(labelWidth).Render("I want"))
 	b.WriteString(f.wantInput.View() + "\n")
-	
+
 	b.WriteString(soThatStyle.Width(labelWidth).Render("So that"))
 	b.WriteString(f.soThatInput.View() + "\n\n")
-	
+
 	// Acceptance Criteria fields
 	b.WriteString(headerStyle.Render("Acceptance Criteria") + "\n")
-	
+
 	b.WriteString(ac1Style.Width(labelWidth).Render("1."))
 	b.WriteString(f.acInputs[0].View() + "\n")
-	
+
 	b.WriteString(ac2Style.Width(labelWidth).Render("2."))
 	b.WriteString(f.acInputs[1].View() + "\n")
-	
+
 	b.WriteString(ac3Style.Width(labelWidth).Render("3."))
 	b.WriteString(f.acInputs[2].View() + "\n")
-	
+
 	b.WriteString(ac4Style.Width(labelWidth).Render("4."))
 	b.WriteString(f.acInputs[3].View() + "\n")
-	
+
 	b.WriteString(ac5Style.Width(labelWidth).Render("5."))
 	b.WriteString(f.acInputs[4].View() + "\n")
 
@@ -428,4 +427,4 @@ func (f *UserStoryForm) GetUserStory() models.UserStory {
 	us.ContentHash = contentHash
 
 	return us
-} 
+}

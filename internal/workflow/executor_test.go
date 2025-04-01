@@ -178,7 +178,7 @@ This is a test change request.`,
 						break
 					}
 				}
-				
+
 				if !found {
 					t.Errorf("Expected message not found: %s\nActual messages: %v", tt.expectedOutput, io.messages)
 				}
@@ -422,13 +422,13 @@ func TestExtractSentences(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractSentences(tt.input)
-			
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("extractSentences(%q) returned %d sentences, want %d", tt.input, len(result), len(tt.expected))
 				t.Errorf("Got: %v, Want: %v", result, tt.expected)
 				return
 			}
-			
+
 			for i, sentence := range result {
 				if sentence != tt.expected[i] {
 					t.Errorf("extractSentences(%q)[%d] = %q, want %q", tt.input, i, sentence, tt.expected[i])
@@ -534,4 +534,4 @@ func TestCleanPunctuation(t *testing.T) {
 			}
 		})
 	}
-} 
+}

@@ -17,12 +17,12 @@ import (
 
 // mockFileSystem is a simple implementation of the filesystem interface for testing
 type mockFileSystem struct {
-	existsFn     func(string) bool
-	readFileFn   func(string) ([]byte, error)
-	readDirFn    func(string) ([]os.DirEntry, error)
-	writeFileFn  func(string, []byte, os.FileMode) error
-	mkdirAllFn   func(string, os.FileMode) error
-	walkDirFn    func(string, fs.WalkDirFunc) error
+	existsFn    func(string) bool
+	readFileFn  func(string) ([]byte, error)
+	readDirFn   func(string) ([]os.DirEntry, error)
+	writeFileFn func(string, []byte, os.FileMode) error
+	mkdirAllFn  func(string, os.FileMode) error
+	walkDirFn   func(string, fs.WalkDirFunc) error
 }
 
 func (m *mockFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
@@ -106,11 +106,11 @@ func (m *mockUserOutput) IsDebugEnabled() bool {
 
 // MockWorkflowManager is a mock implementation of the workflow manager
 type MockWorkflowManager struct {
-	resetWorkflowFunc       func(string) error
-	isWorkflowCompleteFunc  func(string) (bool, error)
-	determineNextStepFunc   func(string) (int, error)
+	resetWorkflowFunc          func(string) error
+	isWorkflowCompleteFunc     func(string) (bool, error)
+	determineNextStepFunc      func(string) (int, error)
 	generateOutputFilenameFunc func(string, workflow.WorkflowStep) string
-	updateStateFunc         func(string, int) error
+	updateStateFunc            func(string, int) error
 }
 
 func (m *MockWorkflowManager) ResetWorkflow(changeRequestPath string) error {
@@ -156,7 +156,7 @@ func TestGetDirectoryPath(t *testing.T) {
 			want:     "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getDirectoryPath(tt.filePath)
@@ -190,7 +190,7 @@ func TestGetFileName(t *testing.T) {
 			want:     "file.txt",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getFileName(tt.filePath)
@@ -205,20 +205,20 @@ func TestGetFileName(t *testing.T) {
 func TestExecuteStep(t *testing.T) {
 	mockFS := &mockFileSystem{}
 	mockIO := &mockUserOutput{}
-	
+
 	// Configure the mock filesystem
 	mockFS.existsFn = func(path string) bool {
 		// Assume the change request file exists
 		return path == "/path/to/change-request.blueprint.md"
 	}
-	
+
 	mockFS.readFileFn = func(path string) ([]byte, error) {
 		if path == "/path/to/change-request.blueprint.md" {
 			return []byte("Test content"), nil
 		}
 		return nil, errors.New("file not found")
 	}
-	
+
 	// Create a test step
 	step := workflow.WorkflowStep{
 		ID:          "01-laying-the-foundation",
@@ -226,19 +226,19 @@ func TestExecuteStep(t *testing.T) {
 		Prompt:      "Test prompt with ${change_request_file_path}",
 		OutputFile:  "%s.01-laying-the-foundation.md",
 	}
-	
+
 	// Call the function
 	success, err := executeStep("/path/to/change-request.blueprint.md", step, "/path/to/output.md", mockFS, mockIO)
-	
+
 	// Verify results
 	if err != nil {
 		t.Errorf("executeStep() error = %v, want nil", err)
 	}
-	
+
 	if !success {
 		t.Errorf("executeStep() success = %v, want true", success)
 	}
-	
+
 	// Check that the expected message was printed
 	expectedMsg := "Test prompt with /path/to/change-request.blueprint.md"
 	messagePrinted := false
@@ -248,7 +248,7 @@ func TestExecuteStep(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !messagePrinted {
 		t.Errorf("Expected message not printed: %s", expectedMsg)
 	}
@@ -263,4 +263,4 @@ func TestCodeCmd_FileNotFound(t *testing.T) {
 }
 
 // Override os.Exit for testing
-var osExit = os.Exit 
+var osExit = os.Exit

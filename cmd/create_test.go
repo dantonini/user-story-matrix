@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -83,12 +82,12 @@ func (m *mockSelectionUI) GetSelected() []int {
 func TestImplementationStatusFilter(t *testing.T) {
 	// Save original UI creator to restore it after the test
 	originalSelectionUI := ui.CurrentNewSelectionUI
-	
+
 	// Restore UI creator after the test to avoid affecting other tests
 	defer func() {
 		ui.CurrentNewSelectionUI = originalSelectionUI
 	}()
-	
+
 	// Test data with a mix of implemented and unimplemented stories
 	userStories := []models.UserStory{
 		{Title: "Unimplemented Story 1", FilePath: "story1.md", IsImplemented: false},
@@ -96,55 +95,55 @@ func TestImplementationStatusFilter(t *testing.T) {
 		{Title: "Unimplemented Story 2", FilePath: "story3.md", IsImplemented: false},
 		{Title: "Implemented Story 2", FilePath: "story4.md", IsImplemented: true},
 	}
-	
+
 	// Test case 1: Default behavior (--show-all=false)
 	// According to acceptance criteria: "By default, only show unimplemented user stories"
 	t.Run("Default shows only unimplemented stories", func(t *testing.T) {
 		var capturedShowAll bool
-		
+
 		// Mock selection UI creator to capture the showAll flag value
 		ui.CurrentNewSelectionUI = func(stories []models.UserStory, showAll bool) tea.Model {
 			// Capture the value of showAll flag passed to the UI
 			capturedShowAll = showAll
-			
+
 			// Create a mock UI that returns some selected items
 			return &mockSelectionUI{
 				selected: []int{0}, // Select the first story
 			}
 		}
-		
+
 		// Reset the flag to ensure test isolation
 		showAll = false
-		
+
 		// Directly test that the UI receives the correct showAll value
 		_ = ui.CurrentNewSelectionUI(userStories, showAll)
-		
+
 		// Verify that showAll flag was set to false, meaning only unimplemented stories are shown
 		assert.False(t, capturedShowAll)
 	})
-	
+
 	// Test case 2: With --show-all flag
 	// According to acceptance criteria: "Provide a flag `--show-all` to display all user stories regardless of implementation status"
 	t.Run("Show-all flag shows all stories", func(t *testing.T) {
 		var capturedShowAll bool
-		
+
 		// Mock selection UI creator to capture the showAll flag value
 		ui.CurrentNewSelectionUI = func(stories []models.UserStory, showAll bool) tea.Model {
 			// Capture the value of showAll flag passed to the UI
 			capturedShowAll = showAll
-			
+
 			// Create a mock UI that returns some selected items
 			return &mockSelectionUI{
 				selected: []int{0, 1}, // Select the first two stories
 			}
 		}
-		
+
 		// Set the flag to true
 		showAll = true
-		
+
 		// Directly test that the UI receives the correct showAll value
 		_ = ui.CurrentNewSelectionUI(userStories, showAll)
-		
+
 		// Verify that showAll flag was set to true, meaning all stories are shown regardless of implementation status
 		assert.True(t, capturedShowAll)
 	})

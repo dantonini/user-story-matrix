@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package lint
 
 import (
@@ -88,10 +87,10 @@ func TestLintCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to read Makefile: %v", err)
 		}
-		
+
 		makefileStr := string(makefileContent)
 		lintTarget := extractTargetContent(makefileStr, "lint")
-		
+
 		if !strings.Contains(lintTarget, "golangci-lint") {
 			t.Error("lint target in Makefile should call golangci-lint")
 		} else {
@@ -162,8 +161,8 @@ func TestBuildFullCommand(t *testing.T) {
 
 	// Don't fail on command error, just check output for evidence of actions
 	// This handles cases where linting fails but the process ran correctly
-	if !strings.Contains(output, "Running linter") && 
-	   !strings.Contains(output, "Running linters") {
+	if !strings.Contains(output, "Running linter") &&
+		!strings.Contains(output, "Running linters") {
 		t.Error("build-full output should mention running linters")
 	}
 
@@ -215,4 +214,4 @@ func findRootDir() (string, error) {
 	}
 
 	return wd, nil
-} 
+}

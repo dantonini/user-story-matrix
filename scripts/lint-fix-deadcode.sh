@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # USM dead code removal script
-# This helper script identifies and optionally removes dead code using golangci-lint
+# This script identifies and removes unused code
 
 # Define colors for output
 RED='\033[0;31m'
@@ -33,7 +33,7 @@ while getopts "if" opt; do
   esac
 done
 
-# Check if golangci-lint is installed
+# Check if needed tools are installed
 if ! command -v golangci-lint &> /dev/null; then
     echo -e "${RED}Error: golangci-lint not installed${NC}"
     echo "Please install with:"
@@ -41,86 +41,59 @@ if ! command -v golangci-lint &> /dev/null; then
     exit 1
 fi
 
-# Get golangci-lint version
-VERSION=$(golangci-lint --version)
-echo -e "${BLUE}Detected golangci-lint version: $VERSION${NC}"
-
-# Determine which linter to use based on version
-# Since version 1.49.0, deadcode is deprecated in favor of unused
-if [[ "$VERSION" =~ v1\.([5-9][0-9]|[0-9]{3,}) ]]; then
-    LINTER="unused"
-    echo -e "${BLUE}Using linter: $LINTER (newer version)${NC}"
-else
-    LINTER="deadcode"
-    echo -e "${BLUE}Using linter: $LINTER${NC}"
-fi
-
 # Create timestamp for backup
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 BACKUP_DIR="output/deadcode-backup-$TIMESTAMP"
 
-# Common args for linting commands
-COMMON_ARGS="--no-config --disable-all --enable=$LINTER --skip-dirs=output"
+# Find unused declarations with golangci-lint
+echo -e "${BLUE}Finding unused code...${NC}"
 
-# Find dead code
-echo -e "${BLUE}Checking for dead code...${NC}"
-LINT_OUTPUT=$(golangci-lint run $COMMON_ARGS ./... 2>&1) || true
+# Use golangci-lint direct fix mode instead of trying to parse and modify ourselves
+# This is the most reliable way to remove dead code without breaking code structure
+LINT_OUTPUT=$(golangci-lint run --no-config --disable-all --enable=unused --skip-dirs=output --fix ./... 2>&1 || true)
+ISSUES_FILE=$(mktemp)
+echo "$LINT_OUTPUT" | grep "is unused" > "$ISSUES_FILE"
 
-if ! echo "$LINT_OUTPUT" | grep -q "$LINTER\|is unused"; then
-    echo -e "${GREEN}No dead code found!${NC}"
+# Process the results
+if [ ! -s "$ISSUES_FILE" ]; then
+    echo -e "${GREEN}No dead code found or all issues were automatically fixed!${NC}"
+    rm "$ISSUES_FILE"
     exit 0
 fi
 
-# Print the findings
-echo -e "${YELLOW}Dead code findings:${NC}"
-echo "$LINT_OUTPUT" | grep -E "$LINTER|is unused" | while read -r line; do
+# Print any remaining findings after automatic fixing
+echo -e "${YELLOW}Remaining dead code findings (these may require manual inspection):${NC}"
+cat "$ISSUES_FILE" | while read -r line; do
     echo " - $line"
 done
 
-# Get affected files
-FILES_WITH_ISSUES=$(echo "$LINT_OUTPUT" | grep -o '^.*\.go:[0-9]\+:' | sed 's/:[0-9]\+:$//' | sort -u)
-
 # Count issues
-ISSUE_COUNT=$(echo "$LINT_OUTPUT" | grep -c "is unused" || echo 0)
-echo -e "${YELLOW}Found $ISSUE_COUNT dead code issues in $(echo "$FILES_WITH_ISSUES" | wc -l | tr -d ' ') files.${NC}"
+ISSUE_COUNT=$(wc -l < "$ISSUES_FILE")
+echo -e "${YELLOW}Found $ISSUE_COUNT dead code issues that couldn't be automatically fixed.${NC}"
 
-# Ask for confirmation if not forced
-if [ "$FORCE" = false ] && [ "$INTERACTIVE" = true ]; then
-    read -p "Do you want to fix these issues automatically? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Aborting. To fix issues, re-run with -f flag.${NC}"
-        exit 0
-    fi
-fi
-
-# Create backup directory and backup files
-mkdir -p "$BACKUP_DIR"
-echo -e "${BLUE}Created backup directory: $BACKUP_DIR${NC}"
-
-# Backup affected files
-for file in $FILES_WITH_ISSUES; do
-    if [ -f "$file" ]; then
-        dir=$(dirname "$file")
-        mkdir -p "$BACKUP_DIR/$dir"
-        cp "$file" "$BACKUP_DIR/$file"
-        echo -e "${BLUE}Backed up: $file${NC}"
-    fi
-done
-
-# Run the fix command
-echo -e "${YELLOW}Applying fixes...${NC}"
-FIX_CMD="golangci-lint run $COMMON_ARGS --fix ./..."
-echo -e "${BLUE}Running: $FIX_CMD${NC}"
-
-if golangci-lint run $COMMON_ARGS --fix ./...; then
-    echo -e "${GREEN}Successfully fixed dead code issues.${NC}"
+# Create backup directory if we have any files modified
+if [ -n "$(git diff --name-only)" ]; then
+    mkdir -p "$BACKUP_DIR"
+    echo -e "${BLUE}Created backup directory: $BACKUP_DIR${NC}"
+    
+    # Backup all modified files
+    git diff --name-only | while read -r file; do
+        if [ -f "$file" ]; then
+            dir=$(dirname "$file")
+            mkdir -p "$BACKUP_DIR/$dir"
+            cp "$file" "$BACKUP_DIR/$file"
+            echo -e "${BLUE}Backed up: $file${NC}"
+        fi
+    done
+    
+    echo -e "${GREEN}Dead code fix complete. Backup files are stored in: ${BACKUP_DIR}${NC}"
 else
-    echo -e "${YELLOW}Some issues may remain. Please check manually.${NC}"
+    echo -e "${YELLOW}No files were modified. Manual inspection may be required.${NC}"
 fi
 
-echo -e "${GREEN}Dead code fix complete.${NC}"
-echo -e "${BLUE}Backup files are stored in: ${BACKUP_DIR}${NC}"
 echo -e "${BLUE}Run 'make test' to verify the changes.${NC}"
+
+# Clean up
+rm -f "$ISSUES_FILE"
 
 exit 0 

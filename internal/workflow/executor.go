@@ -45,12 +45,12 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 		e.io.PrintError(fmt.Sprintf(ErrFileNotFound, changeRequestPath))
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
-	
+
 	// Process the prompt with variable interpolation
 	processedPrompt, missingVars := InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
 	})
-	
+
 	// Warn about missing variables
 	if len(missingVars) > 0 {
 		e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
@@ -70,7 +70,7 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 	// Step-specific structure based on the phase
 	var phaseTitle, phaseIntro string
 	isTestPhase := strings.Contains(step.ID, "-test")
-	
+
 	// Determine if this is a foundation, MVI, extension, or final phase
 	phaseType := ""
 	if strings.HasPrefix(step.ID, "01-") {
@@ -82,7 +82,7 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 	} else if strings.HasPrefix(step.ID, "04-") {
 		phaseType = "final"
 	}
-	
+
 	// Set phase title and intro based on phase type and whether it's a test phase
 	switch {
 	case phaseType == "foundation" && !isTestPhase:
@@ -112,10 +112,10 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 	default:
 		return "", fmt.Errorf("unknown step ID format: %s", step.ID)
 	}
-	
+
 	// Create structure section
 	structureSection := fmt.Sprintf("## %s\n\n%s\n\n", phaseTitle, phaseIntro)
-	
+
 	// Generate prompt-based instructions section
 	var instructionsTitle string
 	if isTestPhase {
@@ -124,7 +124,7 @@ func (e *StepExecutor) generateStepContent(changeRequestContent string, step Wor
 		instructionsTitle = "### Key Activities"
 	}
 	instructionsSection := fmt.Sprintf("%s\n\n%s\n", instructionsTitle, formatPromptAsInstructions(prompt))
-	
+
 	// Add change request context and prompt
 	context := fmt.Sprintf("## Change Request Context\n\n"+
 		"This step was executed for change request:\n%s\n\n"+
@@ -145,41 +145,41 @@ func formatPromptAsInstructions(prompt string) string {
 	if prompt == "" {
 		return "No specific instructions provided."
 	}
-	
+
 	// Handle special case for invalid sentences
 	trimmedPrompt := strings.TrimSpace(prompt)
 	if isInvalidSentence(trimmedPrompt) {
 		return "No specific instructions provided."
 	}
-	
+
 	// Extract key points from the prompt
 	sentences := extractSentences(prompt)
-	
+
 	// Handle the case where no valid sentences were found
 	if len(sentences) == 0 {
 		return "No specific instructions provided."
 	}
-	
+
 	// Format sentences as numbered instructions
 	var result strings.Builder
 	instructionCount := 0
-	
+
 	for _, sentence := range sentences {
 		sentence = strings.TrimSpace(sentence)
 		if sentence == "" || isInvalidSentence(sentence) {
 			continue
 		}
-		
+
 		instructionCount++
 		// Add numbered point
 		result.WriteString(fmt.Sprintf("%d. %s\n", instructionCount, sentence))
 	}
-	
+
 	// If no valid instructions were created, provide a fallback
 	if instructionCount == 0 {
 		return "No specific instructions provided."
 	}
-	
+
 	return result.String()
 }
 
@@ -192,7 +192,7 @@ func isInvalidSentence(s string) bool {
 	noPunct = strings.ReplaceAll(noPunct, "?", "")
 	noPunct = strings.ReplaceAll(noPunct, ":", "")
 	noPunct = strings.ReplaceAll(noPunct, ";", "")
-	
+
 	// If the remaining string is just whitespace, it's invalid
 	return strings.TrimSpace(noPunct) == ""
 }
@@ -203,29 +203,29 @@ func extractSentences(text string) []string {
 	if strings.TrimSpace(text) == "" {
 		return []string{}
 	}
-	
+
 	// Clean up text by removing double punctuation
 	text = cleanPunctuation(text)
-	
+
 	// Simple implementation - split on period followed by space or newline
 	var sentences []string
-	
+
 	// Handle special cases where text might not end with punctuation
 	ensureEndingPunctuation := func(t string) string {
 		t = strings.TrimSpace(t)
 		if t == "" {
 			return t
 		}
-		
+
 		lastChar := t[len(t)-1]
 		if lastChar != '.' && lastChar != '?' && lastChar != '!' {
 			return t + "."
 		}
 		return t
 	}
-	
+
 	text = ensureEndingPunctuation(text)
-	
+
 	// Replace common ending punctuation with a special marker
 	text = strings.ReplaceAll(text, ". ", ".|.")
 	text = strings.ReplaceAll(text, ".\n", ".|.")
@@ -233,10 +233,10 @@ func extractSentences(text string) []string {
 	text = strings.ReplaceAll(text, "?\n", "?|.")
 	text = strings.ReplaceAll(text, "! ", "!|.")
 	text = strings.ReplaceAll(text, "!\n", "!|.")
-	
+
 	// Split on the marker
 	parts := strings.Split(text, "|.")
-	
+
 	// Process each part
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
@@ -244,12 +244,12 @@ func extractSentences(text string) []string {
 			sentences = append(sentences, part)
 		}
 	}
-	
+
 	// If we couldn't split properly, just use the whole text
 	if len(sentences) == 0 && text != "" {
 		sentences = append(sentences, strings.TrimSpace(text))
 	}
-	
+
 	return sentences
 }
 
@@ -259,19 +259,19 @@ func cleanPunctuation(text string) string {
 	for strings.Contains(text, "..") {
 		text = strings.ReplaceAll(text, "..", ".")
 	}
-	
+
 	// Replace other excessive punctuation
 	for strings.Contains(text, ",,") {
 		text = strings.ReplaceAll(text, ",,", ",")
 	}
-	
+
 	for strings.Contains(text, "!!") {
 		text = strings.ReplaceAll(text, "!!", "!")
 	}
-	
+
 	for strings.Contains(text, "??") {
 		text = strings.ReplaceAll(text, "??", "?")
 	}
-	
+
 	return text
-} 
+}

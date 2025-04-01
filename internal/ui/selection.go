@@ -21,38 +21,38 @@ import (
 // Styles for the UI components
 var (
 	titleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("205")).
-		Bold(true)
+			Foreground(lipgloss.Color("205")).
+			Bold(true)
 
 	selectedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")). // Bright white
-		Background(lipgloss.Color("63")). // Bright blue
-		Bold(true)
+			Foreground(lipgloss.Color("15")). // Bright white
+			Background(lipgloss.Color("63")). // Bright blue
+			Bold(true)
 
 	implementedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+				Foreground(lipgloss.Color("240"))
 
 	statusBarStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")). // Bright white
-		Background(lipgloss.Color("25")). // Blue background
-		Bold(true).
-		Width(100).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("15")). // Bright white
+			Background(lipgloss.Color("25")). // Blue background
+			Bold(true).
+			Width(100).
+			Padding(0, 1)
 
 	searchBoxStyle = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()). // Use rounded borders for visibility
-		BorderForeground(lipgloss.Color("205")). // Brighter border
-		Padding(0, 1).
-		MarginTop(1).
-		MarginBottom(1).
-		Width(100)
+			BorderStyle(lipgloss.RoundedBorder()).   // Use rounded borders for visibility
+			BorderForeground(lipgloss.Color("205")). // Brighter border
+			Padding(0, 1).
+			MarginTop(1).
+			MarginBottom(1).
+			Width(100)
 
 	// Adding a more prominent label style for the search box
 	searchLabelStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("205")).
-		Bold(true).
-		MarginBottom(0).
-		MarginTop(1)
+				Foreground(lipgloss.Color("205")).
+				Bold(true).
+				MarginBottom(0).
+				MarginTop(1)
 
 	// NewSelectionUIFunc is a function type for creating a new selection UI
 	NewSelectionUIFunc func(stories []models.UserStory, showAll bool) tea.Model
@@ -118,9 +118,9 @@ func (i storyItem) Title() string {
 		checkbox := "[ ]"
 		cursor = checkbox + " "
 	}
-	
+
 	title := i.story.Title
-	
+
 	// Add file path for disambiguation if available, trimming docs/user-stories prefix
 	if i.story.FilePath != "" {
 		path := i.story.FilePath
@@ -129,14 +129,14 @@ func (i storyItem) Title() string {
 		pathInfo := implementedStyle.Render(" (" + path + ")")
 		title = title + pathInfo
 	}
-	
+
 	// Different styling based on selection and implementation status
 	if i.isSelected {
 		title = selectedStyle.Render(title)
 	} else if i.story.IsImplemented {
 		title = implementedStyle.Render(title + " [implemented]")
 	}
-	
+
 	return cursor + title
 }
 
@@ -203,16 +203,16 @@ func NewSelectionUI(stories []models.UserStory, showAll bool) *SelectionUI {
 	delegate := list.NewDefaultDelegate()
 	delegate.SetSpacing(0) // Remove space between items
 	delegate.SetHeight(1)  // Use height of 1 to avoid division by zero
-	
+
 	// Customize the selection indicator to make it more visible
 	delegate.Styles.SelectedTitle = selectedStyle.Copy().Background(lipgloss.Color("63")).Foreground(lipgloss.Color("15"))
 	delegate.Styles.SelectedDesc = selectedStyle
-	
+
 	// Set a custom style for normal items to ensure they're visible
 	delegate.Styles.NormalTitle = lipgloss.NewStyle()
-	
+
 	filteredStories := engine.Filter("")
-	
+
 	// Create list items
 	items := make([]list.Item, len(filteredStories))
 	for i, story := range filteredStories {
@@ -224,21 +224,21 @@ func NewSelectionUI(stories []models.UserStory, showAll bool) *SelectionUI {
 				break
 			}
 		}
-		
+
 		items[i] = storyItem{
-			story: story,
-			index: originalIndex, // Use original index for consistent selection
+			story:      story,
+			index:      originalIndex, // Use original index for consistent selection
 			isSelected: false,
 		}
 	}
-	
+
 	// Set initial size to non-zero values to prevent divide-by-zero error
 	storyList := list.New(items, delegate, 30, 20) // Use safe default dimensions
-	storyList.Title = "" // Remove "User Stories" title
-	storyList.SetShowStatusBar(false) // Hide the status bar with "x items"
-	storyList.SetFilteringEnabled(false) // We'll handle filtering ourselves
-	storyList.SetShowHelp(false) // Hide the navigation help
-	storyList.SetShowPagination(true) // Show pagination to help with navigation
+	storyList.Title = ""                           // Remove "User Stories" title
+	storyList.SetShowStatusBar(false)              // Hide the status bar with "x items"
+	storyList.SetFilteringEnabled(false)           // We'll handle filtering ourselves
+	storyList.SetShowHelp(false)                   // Hide the navigation help
+	storyList.SetShowPagination(true)              // Show pagination to help with navigation
 	storyList.DisableQuitKeybindings()
 
 	// Initialize the UI with a clear status message about filter mode
@@ -248,23 +248,23 @@ func NewSelectionUI(stories []models.UserStory, showAll bool) *SelectionUI {
 	} else {
 		initialStatus += " | FILTER: UNIMPLEMENTED ONLY"
 	}
-	
+
 	// Initialize the UI
 	ui := &SelectionUI{
-		searchBox: searchBox,
-		storyList: storyList,
-		engine:    engine,
-		statusBar: initialStatus,
-		ready:     false,
-		selected:  []int{},
-		keyMap:    DefaultKeyMap(),
-		stories:   stories,
-		showAll:   showAll,
+		searchBox:     searchBox,
+		storyList:     storyList,
+		engine:        engine,
+		statusBar:     initialStatus,
+		ready:         false,
+		selected:      []int{},
+		keyMap:        DefaultKeyMap(),
+		stories:       stories,
+		showAll:       showAll,
 		searchFocused: true, // Start with search mode active by default
-		width:     80, // Ensure width is non-zero initially
-		height:    25, // Ensure height is non-zero initially
+		width:         80,   // Ensure width is non-zero initially
+		height:        25,   // Ensure height is non-zero initially
 	}
-	
+
 	return ui
 }
 
@@ -272,17 +272,17 @@ func NewSelectionUI(stories []models.UserStory, showAll bool) *SelectionUI {
 func (ui *SelectionUI) Init() tea.Cmd {
 	// Initial update to ensure the list is populated
 	ui.updateList()
-	
+
 	// Select the first item to make sure cursor is visible initially
 	if len(ui.storyList.Items()) > 0 {
 		ui.storyList.Select(0)
 	}
-	
+
 	// Start with search box focused
 	ui.searchFocused = true
 	ui.searchBox.Focus()
 	ui.statusBar = "SEARCH MODE: Type to filter stories, press Enter when done"
-	
+
 	return textinput.Blink
 }
 
@@ -300,7 +300,7 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			ui.updateList() // Update the list to reflect the new mode
 			return ui, textinput.Blink
 		}
-		
+
 		// First, check if any typing key is pressed when not in search mode
 		// to automatically enter search mode
 		if !ui.searchFocused {
@@ -310,7 +310,7 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ui.searchFocused = true
 				ui.searchBox.Focus()
 				ui.statusBar = "SEARCH MODE: Type to filter stories, press Enter when done"
-				
+
 				// Forward the typed key to the search box
 				newSearchBox, searchBoxCmd := ui.searchBox.Update(msg)
 				ui.searchBox = newSearchBox
@@ -320,13 +320,13 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ui, searchBoxCmd
 			}
 		}
-		
+
 		// Handle global key presses
 		switch {
 		case key.Matches(msg, ui.keyMap.Quit):
 			ui.quitting = true
 			return ui, tea.Quit
-		
+
 		case key.Matches(msg, ui.keyMap.Done):
 			// If in search mode, Enter returns to list mode
 			if ui.searchFocused {
@@ -349,7 +349,7 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return ui, searchBoxCmd
 			}
-			
+
 			// Only handle selection when in list mode
 			if !ui.searchFocused && ui.storyList.SelectedItem() != nil {
 				item := ui.storyList.SelectedItem().(storyItem)
@@ -369,7 +369,7 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					ui.statusBar = fmt.Sprintf("Selected: %s", item.story.Title)
 					ui.selected = append(ui.selected, item.index)
 				}
-				
+
 				// Update the item in the list
 				items := ui.storyList.Items()
 				for i, listItem := range items {
@@ -381,31 +381,31 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				ui.storyList.SetItems(items)
-				
+
 				// Update status bar with selection status
 				if len(ui.selected) > 0 {
 					ui.statusBar = fmt.Sprintf("%s | %d stories selected", ui.statusBar, len(ui.selected))
 				}
 			}
-            return ui, nil // Return early to prevent list handling this key event
+			return ui, nil // Return early to prevent list handling this key event
 
 		case key.Matches(msg, ui.keyMap.ToggleAll):
 			// Toggle between showing all stories and only unimplemented ones
 			ui.showAll = !ui.showAll
 			ui.engine.SetShowAll(ui.showAll)
-			
+
 			// Update the filter display with animation
 			if ui.showAll {
 				ui.statusBar = "✓ SHOWING ALL STORIES (including implemented)"
 			} else {
 				ui.statusBar = "✓ SHOWING UNIMPLEMENTED STORIES ONLY"
 			}
-			
+
 			// Update the list to reflect the new filter
 			ui.updateList()
-			
+
 			return ui, nil // Return early to prevent list handling this key event
-			
+
 		// Escape always exits search mode
 		case msg.Type == tea.KeyEsc:
 			if ui.searchFocused {
@@ -415,45 +415,45 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ui, nil
 			}
 		}
-	
+
 	case tea.WindowSizeMsg:
 		// Handle window resize
 		ui.width = msg.Width
 		ui.height = msg.Height
 		ui.ready = true
-		
+
 		// Update searchbox width (max 80% of window width)
 		maxWidth := int(float64(msg.Width) * 0.8)
 		if maxWidth < 30 {
 			maxWidth = msg.Width - 4 // For very small windows
 		}
 		ui.searchBox.Width = maxWidth
-		
+
 		// Update list height, accounting for search box height
-		searchBoxHeight := 8 // Search section with borders and padding
-		statusBarHeight := 2 // Status bar + spacing
-		helpHeight := 2     // Help text + spacing
+		searchBoxHeight := 8     // Search section with borders and padding
+		statusBarHeight := 2     // Status bar + spacing
+		helpHeight := 2          // Help text + spacing
 		selectionInfoHeight := 2 // Selected count + spacing
-		
+
 		listHeight := msg.Height - searchBoxHeight - statusBarHeight - helpHeight - selectionInfoHeight
 		if listHeight < 5 {
 			listHeight = 5 // Ensure a minimum visibility
 		}
-		
+
 		// Update the list size
 		ui.storyList.SetSize(msg.Width, listHeight)
 	}
-	
+
 	// Handle searchbox input if it's focused
 	if ui.searchFocused && !ui.quitting {
 		newSearchBox, searchBoxCmd := ui.searchBox.Update(msg)
 		ui.searchBox = newSearchBox
-		
+
 		// If the search query changed, update the list
 		if ui.searchBox.Value() != ui.engine.GetState().SearchQuery {
 			ui.updateList()
 		}
-		
+
 		cmds = append(cmds, searchBoxCmd)
 	} else {
 		// Handle list input if we're not focused on the search box
@@ -461,7 +461,7 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		ui.storyList = newList
 		cmds = append(cmds, listCmd)
 	}
-	
+
 	return ui, tea.Batch(cmds...)
 }
 
@@ -469,14 +469,14 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (ui *SelectionUI) updateList() {
 	// Get filtered stories
 	filteredStories := ui.engine.Filter(ui.searchBox.Value())
-	
+
 	// Create new items
 	items := make([]list.Item, len(filteredStories))
 	for i, story := range filteredStories {
 		// Check if this story is selected
 		isSelected := false
-		originalIndex := -1  // Store the original index in the full stories array
-		
+		originalIndex := -1 // Store the original index in the full stories array
+
 		// Find the story's original index by title (more reliable than position)
 		for j, s := range ui.stories {
 			if s.Title == story.Title {
@@ -484,7 +484,7 @@ func (ui *SelectionUI) updateList() {
 				break
 			}
 		}
-		
+
 		// Check if the original index is in the selected slice
 		for _, idx := range ui.selected {
 			if idx == originalIndex {
@@ -492,40 +492,40 @@ func (ui *SelectionUI) updateList() {
 				break
 			}
 		}
-		
+
 		items[i] = storyItem{
 			story:      story,
 			index:      originalIndex, // Use the original index for selection
 			isSelected: isSelected,
 		}
 	}
-	
+
 	ui.storyList.SetItems(items)
-	
+
 	// Update filter status
 	state := ui.engine.GetState()
-	
+
 	// Show number of filtered stories more prominently
 	filterStatus := fmt.Sprintf("FILTER: %d/%d stories", state.FilteredCount, state.TotalCount)
-	
+
 	// Check if we have an active search query and show it
 	if ui.searchBox.Value() != "" {
-		filterStatus = fmt.Sprintf("FILTER: %d/%d stories matching '%s'", 
+		filterStatus = fmt.Sprintf("FILTER: %d/%d stories matching '%s'",
 			state.FilteredCount, state.TotalCount, ui.searchBox.Value())
 	}
-	
+
 	// Add a clear notification when no results match the filter
 	if state.FilteredCount == 0 && ui.searchBox.Value() != "" {
 		filterStatus = fmt.Sprintf("NO RESULTS FOUND for '%s' - try a different search", ui.searchBox.Value())
 	}
-	
+
 	// Add implementation filter status
 	if !state.ShowAll {
 		filterStatus += " [ UNIMPLEMENTED ONLY ]"
 	} else {
 		filterStatus += " [ ALL STORIES ]"
 	}
-	
+
 	// Update status bar based on mode, but always include filter info
 	if ui.searchFocused {
 		ui.statusBar = fmt.Sprintf("MODE: SEARCH | %s", filterStatus)
@@ -539,23 +539,23 @@ func (ui *SelectionUI) View() string {
 	if !ui.ready {
 		return "Initializing..."
 	}
-	
+
 	// Build the UI
 	var b strings.Builder
-	
+
 	// Status bar showing mode and filter info at the very top
 	statusBarText := ui.statusBar
 	if ui.width > 0 { // Make sure we have a valid width
 		statusBarStyle = statusBarStyle.Copy().Width(ui.width)
 	}
 	b.WriteString(statusBarStyle.Render(statusBarText) + "\n\n")
-	
+
 	// Calculate search section width based on terminal width
 	searchWidth := ui.width - 4
 	if searchWidth < 20 {
 		searchWidth = ui.width // For very small terminals, use full width
 	}
-	
+
 	// IMPORTANT: Make search section more visible with background highlight
 	// For small terminals, adjust the layout to be simpler
 	var searchSectionContent string
@@ -564,29 +564,29 @@ func (ui *SelectionUI) View() string {
 		searchSectionContent = searchLabelStyle.Render("🔍 SEARCH:") + "\n" + ui.searchBox.View()
 	} else {
 		// Full search section for larger terminals
-		searchSectionContent = searchLabelStyle.Render("🔍 TYPE TO SEARCH OR PRESS '/' TO SEARCH") + 
+		searchSectionContent = searchLabelStyle.Render("🔍 TYPE TO SEARCH OR PRESS '/' TO SEARCH") +
 			"\n\n" + ui.searchBox.View()
 	}
-	
+
 	searchSection := lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).   // Dark background
-		Border(lipgloss.NormalBorder()).     // Add border
+		Background(lipgloss.Color("236")).       // Dark background
+		Border(lipgloss.NormalBorder()).         // Add border
 		BorderForeground(lipgloss.Color("205")). // Pink border
-		Padding(1, 2).                       // Add padding
-		Margin(1, 0, 1, 0).                  // Add margin top/bottom
-		Width(searchWidth).                  // Use calculated width
-		Align(lipgloss.Center).              // Center the content
+		Padding(1, 2).                           // Add padding
+		Margin(1, 0, 1, 0).                      // Add margin top/bottom
+		Width(searchWidth).                      // Use calculated width
+		Align(lipgloss.Center).                  // Center the content
 		Render(searchSectionContent)
-		
+
 	b.WriteString(searchSection + "\n")
-	
+
 	// Story list right after search box
 	b.WriteString(ui.storyList.View())
-	
+
 	// Footer
 	selected := fmt.Sprintf("\nSelected: %d stories", len(ui.selected))
 	b.WriteString(selected)
-	
+
 	// Help text that changes based on mode
 	var help string
 	if ui.searchFocused {
@@ -595,7 +595,7 @@ func (ui *SelectionUI) View() string {
 		help = "\nSpace: Select/Deselect | / to search | Enter: Done | Ctrl+A: Toggle All/Unimplemented | Ctrl+C: Quit"
 	}
 	b.WriteString(help)
-	
+
 	return b.String()
 }
 
