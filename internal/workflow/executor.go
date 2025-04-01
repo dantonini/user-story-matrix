@@ -28,8 +28,10 @@ func NewStepExecutor(fs FileSystem, io UserOutput) *StepExecutor {
 // The outputFile parameter is only used for backward compatibility with the existing API,
 // but no file is actually written.
 func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, outputFile string) (bool, error) {
-	// Print progress message
-	e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
+	// Print progress message only in debug mode
+	if e.io.IsDebugEnabled() {
+		e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
+	}
 
 	// Validate the prompt for syntax errors
 	if step.Prompt != "" {

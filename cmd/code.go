@@ -48,7 +48,7 @@ Use the --reset flag to start the workflow from the beginning:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create filesystem and IO interfaces
 		fs := io.NewOSFileSystem()
-		term := io.NewTerminalIO()
+		term := io.NewTerminalIOWithDebug(debug)
 
 		// Create workflow manager
 		wm := workflow.NewWorkflowManager(fs, term)
@@ -68,7 +68,7 @@ Use the --reset flag to start the workflow from the beginning:
 				term.PrintError(fmt.Sprintf("Failed to reset workflow: %s", err))
 				os.Exit(1)
 			}
-			term.PrintSuccess(fmt.Sprintf("Workflow for %s has been reset.", changeRequestPath))
+			// Success message is shown by the ResetWorkflow method in debug mode
 		}
 
 		// Check if workflow is already complete
@@ -79,7 +79,10 @@ Use the --reset flag to start the workflow from the beginning:
 		}
 
 		if complete {
-			term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
+			// Only show completion message in debug mode
+			if term.IsDebugEnabled() {
+				term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
+			}
 			os.Exit(0)
 		}
 
@@ -92,7 +95,10 @@ Use the --reset flag to start the workflow from the beginning:
 
 		// Special case: workflow is complete
 		if nextStepIndex == -1 {
-			term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
+			// Only show completion message in debug mode
+			if term.IsDebugEnabled() {
+				term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
+			}
 			os.Exit(0)
 		}
 
@@ -125,14 +131,17 @@ Use the --reset flag to start the workflow from the beginning:
 			os.Exit(1)
 		}
 
-		term.PrintSuccess(fmt.Sprintf("Completed step %d: %s", nextStepIndex+1, currentStep.Description))
+		// Only show success messages if debug is enabled
+		if term.IsDebugEnabled() {
+			term.PrintSuccess(fmt.Sprintf("Completed step %d: %s", nextStepIndex+1, currentStep.Description))
 
-		// Check if we've completed all steps
-		if nextStepIndex+1 >= len(workflow.StandardWorkflowSteps) {
-			term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
-		} else {
-			nextStep := workflow.StandardWorkflowSteps[nextStepIndex+1]
-			term.Print(fmt.Sprintf("\nNext step: %s", nextStep.Description))
+			// Check if we've completed all steps
+			if nextStepIndex+1 >= len(workflow.StandardWorkflowSteps) {
+				term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
+			} else {
+				nextStep := workflow.StandardWorkflowSteps[nextStepIndex+1]
+				term.Print(fmt.Sprintf("\nNext step: %s", nextStep.Description))
+			}
 		}
 	},
 }

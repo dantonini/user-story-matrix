@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
@@ -32,6 +31,7 @@ type UserOutput interface {
 	PrintWarning(message string)
 	PrintProgress(message string)
 	PrintStep(stepNumber int, totalSteps int, description string)
+	IsDebugEnabled() bool
 }
 
 // TerminalIO implements both UserInput and UserOutput interfaces for terminal interactions
@@ -46,11 +46,14 @@ type TerminalIO struct {
 		progress lipgloss.Style
 		step    lipgloss.Style
 	}
+	debugEnabled bool
 }
 
 // NewTerminalIO creates a new instance of TerminalIO
 func NewTerminalIO() *TerminalIO {
-	t := &TerminalIO{}
+	t := &TerminalIO{
+		debugEnabled: false,
+	}
 	
 	// Configure styles
 	t.styles.success = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
@@ -62,6 +65,13 @@ func NewTerminalIO() *TerminalIO {
 	t.styles.progress = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
 	t.styles.step = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
 	
+	return t
+}
+
+// NewTerminalIOWithDebug creates a new instance of TerminalIO with debug setting
+func NewTerminalIOWithDebug(debug bool) *TerminalIO {
+	t := NewTerminalIO()
+	t.debugEnabled = debug
 	return t
 }
 
@@ -219,6 +229,16 @@ func (t *TerminalIO) PrintProgress(message string) {
 func (t *TerminalIO) PrintStep(stepNumber int, totalSteps int, description string) {
 	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
 	fmt.Println(t.styles.step.Render(message))
+}
+
+// IsDebugEnabled returns whether debug output is enabled
+func (t *TerminalIO) IsDebugEnabled() bool {
+	return t.debugEnabled
+}
+
+// SetDebugMode enables or disables debug output
+func (t *TerminalIO) SetDebugMode(enabled bool) {
+	t.debugEnabled = enabled
 }
 
 // Mock implementations of models for bubbletea

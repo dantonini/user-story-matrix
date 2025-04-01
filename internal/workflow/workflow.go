@@ -52,6 +52,7 @@ type UserOutput interface {
 	PrintWarning(message string)
 	PrintProgress(message string)
 	PrintStep(stepNumber int, totalSteps int, description string)
+	IsDebugEnabled() bool
 }
 
 // Error message templates
@@ -213,7 +214,7 @@ Your task is to build the **simplest working implementation** for each user stor
 
 - Keep the implementation minimal but correct.
 - Build confidence through verification.
-- Avoid building more than what’s needed to pass the tests and meet the blueprint requirements.
+- Avoid building more than what's needed to pass the tests and meet the blueprint requirements.
 - Defer enhancements and broader handling to future iterations.
 
 ---
@@ -280,7 +281,7 @@ At the end of this phase, you **must run the complete formal test suite**:
 
 ### ✅ Guidelines
 
-- Maintain alignment with the blueprint’s structure.
+- Maintain alignment with the blueprint's structure.
 - Keep the code production-quality: clear, modular, and documented.
 - Refactor as needed to support new logic, but avoid premature optimization.
 - Do not yet focus on performance tuning or polishing—prioritize completeness and correctness.
@@ -439,22 +440,34 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 		return state, nil
 	}
 
-	wm.io.PrintProgress(ProgressValidating)
+	// Only print progress message in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintProgress(ProgressValidating)
+	}
 
 	data, err := wm.fs.ReadFile(stateFilePath)
 	if err != nil {
-		wm.io.PrintWarning(fmt.Sprintf(ErrStateFileCorrupted, changeRequestPath))
+		// Only print warning in debug mode
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf(ErrStateFileCorrupted, changeRequestPath))
+		}
 		return state, err
 	}
 
 	if err := json.Unmarshal(data, &state); err != nil {
-		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		// Only print warning in debug mode
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		}
 		return state, err
 	}
 
 	// Validate the state
 	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(StandardWorkflowSteps) {
-		wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
+		// Only print warning in debug mode
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
+		}
 		state.CurrentStepIndex = 0
 		state.CompletedSteps = []string{}
 	}
@@ -464,7 +477,10 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 
 // SaveState saves the workflow state to the state file
 func (wm *WorkflowManager) SaveState(state WorkflowState) error {
-	wm.io.PrintProgress(ProgressSavingState)
+	// Only print progress message in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintProgress(ProgressSavingState)
+	}
 	
 	state.LastModified = time.Now()
 	
@@ -483,40 +499,58 @@ func (wm *WorkflowManager) SaveState(state WorkflowState) error {
 
 // DetermineNextStep determines the next step to execute based on the state
 func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, error) {
+	// Only print progress message in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintProgress(ProgressValidating)
+	}
+	
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		// Only print warning in debug mode
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		}
 		return 0, nil // Still start from beginning despite the error
 	}
-	
+
 	// If we've completed all steps, return a special indicator
 	if state.CurrentStepIndex >= len(StandardWorkflowSteps) {
-		wm.io.PrintSuccess(fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath))
+		// Only print success in debug mode
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintSuccess(fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath))
+		}
 		return -1, nil
 	}
-	
-	// Print current step information
-	wm.io.PrintStep(state.CurrentStepIndex+1, len(StandardWorkflowSteps), StandardWorkflowSteps[state.CurrentStepIndex].Description)
+
+	// Print current step information only in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintStep(state.CurrentStepIndex+1, len(StandardWorkflowSteps), StandardWorkflowSteps[state.CurrentStepIndex].Description)
+	}
 	
 	return state.CurrentStepIndex, nil
 }
 
 // UpdateState updates the workflow state after completing a step
 func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex int) error {
+	// Only print progress message in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintProgress(ProgressSavingState)
+	}
+	
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
 		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
-	
+
 	// Validate new step index
 	if newStepIndex < 0 {
 		return fmt.Errorf(ErrStateUpdateFailed, ErrNegativeStepIndex)
 	}
-	
+
 	if newStepIndex > len(StandardWorkflowSteps) {
 		return fmt.Errorf(ErrStateUpdateFailed, ErrExceedingStepIndex)
 	}
-	
+
 	// Update the state
 	state.CurrentStepIndex = newStepIndex
 	
@@ -527,13 +561,15 @@ func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex in
 			state.CompletedSteps = append(state.CompletedSteps, StandardWorkflowSteps[i].ID)
 		}
 	}
-	
-	// Print success message for the completed step
-	if newStepIndex > 0 && newStepIndex <= len(StandardWorkflowSteps) {
-		completedStep := StandardWorkflowSteps[newStepIndex-1]
-		wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(StandardWorkflowSteps), completedStep.Description))
+		
+	// Print success message for the completed step only in debug mode
+	if wm.io.IsDebugEnabled() {
+		if newStepIndex > 0 && newStepIndex <= len(StandardWorkflowSteps) {
+			completedStep := StandardWorkflowSteps[newStepIndex-1]
+			wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(StandardWorkflowSteps), completedStep.Description))
+		}
 	}
-	
+
 	// Save the updated state
 	return wm.SaveState(state)
 }
@@ -552,13 +588,13 @@ func (wm *WorkflowManager) GenerateOutputFilename(changeRequestPath string, step
 	return filepath.Join(dir, filename)
 }
 
-// IsWorkflowComplete checks if the workflow is complete
+// IsWorkflowComplete checks if all workflow steps have been completed
 func (wm *WorkflowManager) IsWorkflowComplete(changeRequestPath string) (bool, error) {
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		return false, fmt.Errorf(ErrFailedToLoadState, err)
+		return false, fmt.Errorf("failed to load state: %w", err)
 	}
-	
+
 	return state.CurrentStepIndex >= len(StandardWorkflowSteps), nil
 }
 
@@ -575,7 +611,10 @@ func (wm *WorkflowManager) ResetWorkflow(changeRequestPath string) error {
 		return err
 	}
 	
-	wm.io.PrintSuccess(fmt.Sprintf(SuccessStateReset, changeRequestPath))
+	// Only show success message in debug mode
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintSuccess(fmt.Sprintf(SuccessStateReset, changeRequestPath))
+	}
 	return nil
 }
 
