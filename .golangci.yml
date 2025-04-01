@@ -65,6 +65,12 @@ issues:
         - errcheck
         - staticcheck
     
+    # Exclude mock files from type checking
+    - path: mock_.*\.go
+      linters:
+        - typecheck
+        - unused
+    
     # Exclude known false positives or acceptable patterns
     # TODO: Add specific exclusion rules if needed after initial run
     # - text: "should have comment or be unexported"
