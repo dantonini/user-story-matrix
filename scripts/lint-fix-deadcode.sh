@@ -41,16 +41,29 @@ if ! command -v golangci-lint &> /dev/null; then
     exit 1
 fi
 
+# Detect golangci-lint version to handle deadcode deprecation
+LINT_VERSION=$(golangci-lint --version | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | sed 's/v//g')
+DEADCODE_LINTER="deadcode"
+
+# Check if version is >= 1.49.0 (where deadcode was deprecated)
+if [ "$(printf '%s\n' "1.49.0" "$LINT_VERSION" | sort -V | head -n1)" = "1.49.0" ] || \
+   [ "$LINT_VERSION" \> "1.49.0" ]; then
+    echo -e "${YELLOW}Detected golangci-lint v${LINT_VERSION} - using 'unused' linter (deadcode is deprecated since v1.49.0)${NC}"
+    DEADCODE_LINTER="unused"
+else
+    echo -e "${BLUE}Detected golangci-lint v${LINT_VERSION} - using 'deadcode' linter${NC}"
+fi
+
 # Create timestamp for backup
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 BACKUP_DIR="output/deadcode-backup-$TIMESTAMP"
 
 # Find unused declarations with golangci-lint
-echo -e "${BLUE}Finding unused code...${NC}"
+echo -e "${BLUE}Finding unused code using ${DEADCODE_LINTER} linter...${NC}"
 
 # Use golangci-lint direct fix mode instead of trying to parse and modify ourselves
 # This is the most reliable way to remove dead code without breaking code structure
-LINT_OUTPUT=$(golangci-lint run --no-config --disable-all --enable=unused --skip-dirs=output --fix ./... 2>&1 || true)
+LINT_OUTPUT=$(golangci-lint run --no-config --disable-all --enable=${DEADCODE_LINTER} --skip-dirs=output --fix ./... 2>&1 || true)
 ISSUES_FILE=$(mktemp)
 echo "$LINT_OUTPUT" | grep "is unused" > "$ISSUES_FILE"
 
