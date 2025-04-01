@@ -6,7 +6,9 @@ run:
   timeout: 2m
   # Include test files
   tests: true
-  # Skip directories
+  # Define Go version
+  go: "1.22"
+  # Skip directories (deprecated, but kept for backward compatibility)
   skip-dirs:
     - .git
     - .github
@@ -17,45 +19,68 @@ run:
 
 # Define output configuration
 output:
-  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml
+  # Format (deprecated but kept for backward compatibility)
   format: colored-line-number
   # Print lines of code with issues
   print-issued-lines: true
   # Print linter name in the end of issue text
   print-linter-name: true
+  # Modern format configuration - removed invalid format
 
 # Enable only a subset of high-signal linters
 linters:
   disable-all: true
   enable:
     # Essential linters as per acceptance criteria
-    - unused      # Finds unused code (Replacing deprecated 'deadcode')
-    - errcheck    # Checks for unchecked errors
-    - govet       # Reports suspicious constructs
-    - staticcheck # Applies static analysis checks
-    # - deadcode  # Legacy linter, deprecated since v1.49.0 - using 'unused' instead
+    - unused        # Finds unused code (Replacing deprecated 'deadcode')
+    - errcheck      # Checks for unchecked errors
+    - govet         # Reports suspicious constructs
+    - staticcheck   # Applies static analysis checks
+    # Additional bug-preventing linters
+    - gosimple      # Simplifies code
+    - ineffassign   # Detects ineffectual assignments
+    - bodyclose     # Checks whether HTTP response bodies are closed
+    - noctx         # Finds HTTP requests without context.Context
+    - misspell      # Finds commonly misspelled English words
+    - err113        # Checks error handling practices (renamed from goerr113)
+    - gosec         # Security problems
+    - prealloc      # Finds slice declarations that could be preallocated
+    # - deadcode    # Legacy linter, deprecated since v1.49.0 - using 'unused' instead
 
 linters-settings:
   # Specific linter settings can be added here
-  # Keep minimal for now as per acceptance criteria
   govet:
     # Report about shadowed variables
     check-shadowing: true
   errcheck:
     # Report about not checking errors in type assertions
     check-type-assertions: true
+    check-blank: true
   unused:
     # Check for unused constants, variables, functions, types, etc.
     check-exported: false  # Only check unexported for minimal intrusiveness
   staticcheck:
     # Enable various staticcheck analyzers
     checks: ["all"]
+  gosec:
+    excludes:
+      - G104 # Ignore audit logging of errors
 
 issues:
   # Maximum count of issues with the same text
   max-same-issues: 0
   # Maximum issues count per one linter
   max-issues-per-linter: 0
+  # Excluding directories (modern approach)
+  exclude-dirs:
+    - .git
+    - .github
+    - .vscode
+    - .idea
+    - vendor
+    - output
+    - output/.*
+    - ".*/output/.*"
 
   # Excluding configuration per-path, per-linter or per-text
   exclude-rules:

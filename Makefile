@@ -49,30 +49,28 @@ build:
 	go build -o $(BINARY_NAME) -v
 
 # Lint the code without building
-lint:
-	@echo "Running linters..."
-	$(call ensure_golangci_lint)
-	@golangci-lint run --fast --no-config --disable-all --enable=errcheck,govet $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues, but continuing"
+lint: lint-clean
+	@echo "Linting completed"
 
 # Lint only test files
 lint-tests:
 	@echo "Running linters on test files only..."
 	$(call ensure_golangci_lint)
-	@echo "Command: golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files=\"^[^_]*\.go$$\" $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./..."
-	@golangci-lint run --no-config --disable-all --enable=errcheck,govet --tests=true --skip-files="^[^_]*\.go$$" $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues in test files, but continuing"
+	@cd cmd && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./...
+	@cd internal && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./...
 
 # Lint for CI environments
 lint-ci:
 	@echo "Running linters for CI..."
 	$(call ensure_golangci_lint)
-	@golangci-lint run --timeout=5m --out-format=github-actions $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... || echo "Linting found issues in CI, but continuing"
+	@golangci-lint run --timeout=5m --out-format=github-actions $(CACHE_FLAG) ./... || echo "Linting found issues in CI, but continuing"
 
 # Generate lint report
 lint-report:
 	@echo "Generating lint report..."
 	$(call ensure_golangci_lint)
 	@mkdir -p output/reports
-	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) $(EXCLUDE_OUTPUT) ./... > output/reports/lint-report.json || true
+	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) ./... > output/reports/lint-report.json || true
 	@echo "Report saved to output/reports/lint-report.json"
 	@echo "Summary of issues:"
 	@cat output/reports/lint-report.json | grep -o '"Pos":{"Filename":"[^"]*"' | sort | uniq -c | sort -nr || true
@@ -81,8 +79,8 @@ lint-report:
 build-full: 
 	@echo "Running linters..."
 	$(call ensure_golangci_lint)
-	@echo "Using linters compatible with Go $(GO_VERSION): $(SAFE_LINTERS)"
-	@golangci-lint run $(CACHE_FLAG) --timeout=2m --no-config --disable-all --enable=$(SAFE_LINTERS) $(EXCLUDE_OUTPUT) ./... || true
+	@echo "Using configuration from .golangci.yml"
+	@golangci-lint run $(CACHE_FLAG) --timeout=2m ./... || true
 	@echo "Running full build with linting..."
 	go build -o $(BINARY_NAME) -v
 
@@ -148,6 +146,14 @@ install-hooks:
 demo-tui:
 	@echo "Building and running TUI demo..."
 	@go run internal/ui/pages/cmd/main.go
+
+# Special lint command that explicitly only lints specified directories
+lint-clean:
+	@echo "Running linters on main source code only..."
+	$(call ensure_golangci_lint)
+	@cd cmd && golangci-lint run $(CACHE_FLAG) ./...
+	@cd internal && golangci-lint run $(CACHE_FLAG) ./...
+	@golangci-lint run $(CACHE_FLAG) main.go
 
 # Default target
 all: clean build 
