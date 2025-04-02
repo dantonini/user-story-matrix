@@ -8,7 +8,6 @@ package workflow
 import (
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -309,11 +308,6 @@ func TestStepExecutor_ExecuteStep_PromptValidation(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
 
 // Test formatPromptAsInstructions function
