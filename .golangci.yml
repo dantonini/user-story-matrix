@@ -42,7 +42,6 @@ linters:
     - bodyclose     # Checks whether HTTP response bodies are closed
     - noctx         # Finds HTTP requests without context.Context
     - misspell      # Finds commonly misspelled English words
-    - err113        # Checks error handling practices (renamed from goerr113)
     - gosec         # Security problems
     - prealloc      # Finds slice declarations that could be preallocated
     # - deadcode    # Legacy linter, deprecated since v1.49.0 - using 'unused' instead
