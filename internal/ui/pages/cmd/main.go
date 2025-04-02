@@ -75,7 +75,12 @@ func main() {
 	}
 
 	// Get selected stories
-	selected := model.(*pages.SelectionPage).GetSelected()
+	selectionPage, ok := model.(*pages.SelectionPage)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: Could not convert model to SelectionPage\n")
+		os.Exit(1)
+	}
+	selected := selectionPage.GetSelected()
 	
 	// Print selected stories
 	fmt.Println("\nSelected stories:")

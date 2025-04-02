@@ -20,32 +20,21 @@ import (
 
 // Styles for the UI components
 var (
-	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")).
-			Bold(true)
-
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")). // Bright white
-			Background(lipgloss.Color("63")). // Bright blue
-			Bold(true)
-
+	// For compatibility with existing code
 	implementedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240"))
+		Foreground(lipgloss.Color("240"))
+		
+	selectedStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // Bright white
+		Background(lipgloss.Color("63")). // Bright blue
+		Bold(true)
 
 	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")). // Bright white
-			Background(lipgloss.Color("25")). // Blue background
-			Bold(true).
-			Width(100).
-			Padding(0, 1)
-
-	searchBoxStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).   // Use rounded borders for visibility
-			BorderForeground(lipgloss.Color("205")). // Brighter border
-			Padding(0, 1).
-			MarginTop(1).
-			MarginBottom(1).
-			Width(100)
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#333333")).
+		Bold(true).
+		PaddingLeft(1).
+		PaddingRight(1)
 
 	// Adding a more prominent label style for the search box
 	searchLabelStyle = lipgloss.NewStyle().
@@ -352,13 +341,18 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Only handle selection when in list mode
 			if !ui.searchFocused && ui.storyList.SelectedItem() != nil {
-				item := ui.storyList.SelectedItem().(storyItem)
+				selectedItem, ok := ui.storyList.SelectedItem().(storyItem)
+				if !ok {
+					ui.statusBar = "Error: Selected item has invalid type"
+					return ui, nil
+				}
+				
 				// Check if the item is already selected
 				found := false
 				for i, idx := range ui.selected {
-					if idx == item.index {
+					if idx == selectedItem.index {
 						// Remove from selection
-						ui.statusBar = fmt.Sprintf("Deselected: %s", item.story.Title)
+						ui.statusBar = fmt.Sprintf("Deselected: %s", selectedItem.story.Title)
 						ui.selected = append(ui.selected[:i], ui.selected[i+1:]...)
 						found = true
 						break
@@ -366,15 +360,18 @@ func (ui *SelectionUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				if !found {
 					// Add to selection
-					ui.statusBar = fmt.Sprintf("Selected: %s", item.story.Title)
-					ui.selected = append(ui.selected, item.index)
+					ui.statusBar = fmt.Sprintf("Selected: %s", selectedItem.story.Title)
+					ui.selected = append(ui.selected, selectedItem.index)
 				}
 
 				// Update the item in the list
 				items := ui.storyList.Items()
 				for i, listItem := range items {
-					currentItem := listItem.(storyItem)
-					if currentItem.index == item.index {
+					currentItem, ok := listItem.(storyItem)
+					if !ok {
+						continue // Skip invalid items
+					}
+					if currentItem.index == selectedItem.index {
 						currentItem.isSelected = !found
 						items[i] = currentItem
 						break

@@ -43,7 +43,6 @@ type UserStoryForm struct {
 	focused           bool
 	width             int
 	height            int
-	err               error
 }
 
 // NewUserStoryForm creates a new user story form

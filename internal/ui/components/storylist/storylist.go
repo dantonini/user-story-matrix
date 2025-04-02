@@ -366,7 +366,6 @@ func (l StoryList) View() string {
 	
 	// Cache the rendered view
 	l.lastRender = sb.String()
-	l.needsRender = false
 	
 	return l.lastRender
 }

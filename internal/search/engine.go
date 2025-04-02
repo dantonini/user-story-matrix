@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package search
 
 import (
@@ -99,7 +98,7 @@ func (e *Engine) Filter(query string) []models.UserStory {
 	}
 
 	// Prepare data for fuzzy search
-	var searchStrings []string
+	searchStrings := make([]string, 0, len(filtered))
 	for _, story := range filtered {
 		// Combine searchable fields with weights
 		searchStr := strings.Join([]string{

@@ -50,7 +50,6 @@ type FeatureForm struct {
 	focused              bool
 	width                int
 	height               int
-	err                  error
 }
 
 // NewFeatureForm creates a new feature request form

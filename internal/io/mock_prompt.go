@@ -150,7 +150,18 @@ func (m *MockUserIO) Select(message string, options []string) (int, error) {
 // MultiSelect mocks the MultiSelect method
 func (m *MockUserIO) MultiSelect(message string, options []string) ([]int, error) {
 	args := m.Called(message, options)
-	return args.Get(0).([]int), args.Error(1)
+	if args.Error(1) != nil {
+		return nil, args.Error(1)
+	}
+	val := args.Get(0)
+	if val == nil {
+		return []int{}, nil
+	}
+	result, ok := val.([]int)
+	if !ok {
+		return nil, fmt.Errorf("could not cast %v to []int", val)
+	}
+	return result, nil
 }
 
 // Print mocks the Print method

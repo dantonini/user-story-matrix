@@ -204,18 +204,3 @@ func extractTargetContent(makefileContent, targetName string) string {
 
 	return targetContent.String()
 }
-
-// Helper function to find the root directory of the project
-func findRootDir() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// If we're in internal/lint, move up to the project root
-	if filepath.Base(wd) == "lint" {
-		return filepath.Join(wd, "..", ".."), nil
-	}
-
-	return wd, nil
-}
