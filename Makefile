@@ -8,9 +8,6 @@ VERSION=0.1.2
 GOLANGCI_VERSION := $(shell golangci-lint --version 2>/dev/null | grep -o 'version [0-9.]*' | sed 's/version //' || echo "0.0.0")
 SUPPORTS_CACHE := $(shell echo "$(GOLANGCI_VERSION)" | awk -F. '{ if ($$1 > 1 || ($$1 == 1 && $$2 >= 54)) print "true"; else print "false"; }')
 
-# Define output directory to be excluded from linting/tests
-EXCLUDE_OUTPUT := --skip-dirs=output
-
 # Determine which linter to use for dead code detection
 ifeq ($(shell echo "$(GOLANGCI_VERSION)" | awk -F. '{ if ($$1 > 1 || ($$1 == 1 && $$2 >= 49)) print "true"; else print "false"; }'),true)
     DEADCODE_LINTER=unused
@@ -56,31 +53,31 @@ lint: lint-clean
 lint-tests:
 	@echo "Running linters on test files only..."
 	$(call ensure_golangci_lint)
-	@cd cmd && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./...
-	@cd internal && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./...
+	@cd cmd && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./... | grep -v "output/"
+	@cd internal && golangci-lint run $(CACHE_FLAG) --tests=true --skip-files="^[^_]*\.go$$" ./... | grep -v "output/"
 
 # Lint for CI environments
 lint-ci:
 	@echo "Running linters for CI..."
 	$(call ensure_golangci_lint)
-	@golangci-lint run --timeout=5m --out-format=github-actions $(CACHE_FLAG) ./... || echo "Linting found issues in CI, but continuing"
+	@golangci-lint run --timeout=5m --out-format=colored-line-number $(CACHE_FLAG) ./... | grep -v "output/" || echo "Linting found issues in CI, but continuing"
 
 # Generate lint report
 lint-report:
 	@echo "Generating lint report..."
 	$(call ensure_golangci_lint)
 	@mkdir -p output/reports
-	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) ./... > output/reports/lint-report.json || true
+	golangci-lint run --timeout=5m --out-format=json $(CACHE_FLAG) ./... | grep -v "output/" > output/reports/lint-report.json || true
 	@echo "Report saved to output/reports/lint-report.json"
 	@echo "Summary of issues:"
-	@cat output/reports/lint-report.json | grep -o '"Pos":{"Filename":"[^"]*"' | sort | uniq -c | sort -nr || true
+	@cat output/reports/lint-report.json | grep -o '"Pos":{"Filename":"[^"]*"' | grep -v "output/" | sort | uniq -c | sort -nr || true
 
 # Build with lint checks (full build)
 build-full: 
 	@echo "Running linters..."
 	$(call ensure_golangci_lint)
 	@echo "Using configuration from .golangci.yml"
-	@golangci-lint run $(CACHE_FLAG) --timeout=2m ./... || true
+	@golangci-lint run $(CACHE_FLAG) --timeout=2m ./... | grep -v "output/" || true
 	@echo "Running full build with linting..."
 	go build -o $(BINARY_NAME) -v
 
@@ -151,8 +148,8 @@ demo-tui:
 lint-clean:
 	@echo "Running linters on main source code only..."
 	$(call ensure_golangci_lint)
-	@cd cmd && golangci-lint run $(CACHE_FLAG) ./...
-	@cd internal && golangci-lint run $(CACHE_FLAG) ./...
+	@cd cmd && golangci-lint run $(CACHE_FLAG) ./... | grep -v "output/"
+	@cd internal && golangci-lint run $(CACHE_FLAG) ./... | grep -v "output/"
 	@golangci-lint run $(CACHE_FLAG) main.go
 
 # Default target

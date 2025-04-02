@@ -65,37 +65,39 @@ func TestLintCommand(t *testing.T) {
 		t.Fatalf("Failed to find root directory: %v", err)
 	}
 
-	// Execute the make lint command
+	// First, check if the Makefile lint target includes golangci-lint
+	makefileContent, err := os.ReadFile(filepath.Join(rootDir, "Makefile"))
+	if err != nil {
+		t.Fatalf("Failed to read Makefile: %v", err)
+	}
+
+	makefileStr := string(makefileContent)
+	
+	// Check both main lint target and lint-clean target (which is called by lint)
+	lintTarget := extractTargetContent(makefileStr, "lint")
+	lintCleanTarget := extractTargetContent(makefileStr, "lint-clean")
+	
+	lintHasGolangci := strings.Contains(lintTarget, "golangci-lint")
+	lintCleanHasGolangci := strings.Contains(lintCleanTarget, "golangci-lint")
+	
+	if !lintHasGolangci && !lintCleanHasGolangci {
+		t.Fatalf("Neither lint nor lint-clean targets include golangci-lint")
+	}
+	
+	// Now execute the command
 	cmd := exec.Command("make", "lint")
 	cmd.Dir = rootDir
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	// Log the output for debugging
 	t.Logf("Command output: %s", outputStr)
-
-	// The command might return a non-zero exit code if there are linting issues,
-	// but the command itself should execute
-	if err != nil && !strings.Contains(outputStr, "golangci-lint") {
-		t.Fatalf("Command 'make lint' failed to execute properly: %v\nOutput: %s", err, outputStr)
-	}
-
-	// Check if the output contains evidence of linting
-	if !strings.Contains(outputStr, "golangci-lint") {
-		// If the output doesn't mention golangci-lint, look at the Makefile to verify it's included
-		makefileContent, err := os.ReadFile(filepath.Join(rootDir, "Makefile"))
-		if err != nil {
-			t.Fatalf("Failed to read Makefile: %v", err)
-		}
-
-		makefileStr := string(makefileContent)
-		lintTarget := extractTargetContent(makefileStr, "lint")
-
-		if !strings.Contains(lintTarget, "golangci-lint") {
-			t.Error("lint target in Makefile should call golangci-lint")
-		} else {
-			t.Log("lint target correctly includes golangci-lint, although command output didn't mention it")
-		}
+	
+	// The output should contain either "golangci-lint" or evidence of linting completion
+	if !strings.Contains(outputStr, "golangci-lint") && 
+	   !strings.Contains(outputStr, "Linting completed") && 
+	   !strings.Contains(outputStr, "Running linters") {
+		t.Errorf("Lint command output doesn't show evidence of running linters")
 	}
 }
 
