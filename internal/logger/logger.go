@@ -1,6 +1,14 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package logger
 
 import (
+	"strings"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -65,7 +73,13 @@ func Fatal(msg string, fields ...zap.Field) {
 // Sync flushes any buffered log entries
 func Sync() error {
 	if log != nil {
-		return log.Sync()
+		err := log.Sync()
+		// Ignore "inappropriate ioctl for device" errors which commonly happen
+		// when stderr is a terminal device
+		if err != nil && !strings.Contains(err.Error(), "inappropriate ioctl for device") {
+			return err
+		}
+		return nil
 	}
 	return nil
 } 
