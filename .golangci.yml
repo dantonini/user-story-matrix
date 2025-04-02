@@ -8,24 +8,14 @@ run:
   tests: true
   # Define Go version
   go: "1.22"
-  # Skip directories (deprecated, but kept for backward compatibility)
-  skip-dirs:
-    - .git
-    - .github
-    - .vscode
-    - .idea
-    - vendor
-    - output
 
 # Define output configuration
 output:
-  # Format (deprecated but kept for backward compatibility)
-  format: colored-line-number
+  # Don't specify format/formats to avoid deprecation warnings
   # Print lines of code with issues
   print-issued-lines: true
   # Print linter name in the end of issue text
   print-linter-name: true
-  # Modern format configuration - removed invalid format
 
 # Enable only a subset of high-signal linters
 linters:
@@ -36,6 +26,7 @@ linters:
     - errcheck      # Checks for unchecked errors
     - govet         # Reports suspicious constructs
     - staticcheck   # Applies static analysis checks
+    - predeclared   # Finds code that shadows Go's predeclared identifiers
     # Additional bug-preventing linters
     - gosimple      # Simplifies code
     - ineffassign   # Detects ineffectual assignments
@@ -49,8 +40,9 @@ linters:
 linters-settings:
   # Specific linter settings can be added here
   govet:
-    # Report about shadowed variables
-    check-shadowing: true
+    # Report about not checking errors in type assertions
+    check-type-assertions: true
+    check-blank: true
   errcheck:
     # Report about not checking errors in type assertions
     check-type-assertions: true
