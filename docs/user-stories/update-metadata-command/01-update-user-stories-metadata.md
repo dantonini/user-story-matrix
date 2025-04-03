@@ -37,4 +37,3 @@ so that I can track when files were created, last modified, and detect content c
 - The command prints a summary of processed files, showing which were updated and which had no changes.
 - The command supports a `--debug` flag to show detailed information about the processing.
 - The command is idempotent (running it multiple times without content changes won't modify files).
-- Comprehensive tests are included to verify all functionality. 
