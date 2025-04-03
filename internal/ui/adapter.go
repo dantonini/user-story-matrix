@@ -11,6 +11,11 @@ import (
 	"github.com/user-story-matrix/usm/internal/ui/pages"
 )
 
+// CurrentNewSelectionUI is a function type for creating a selection UI
+var CurrentNewSelectionUI = func(stories []models.UserStory, showAll bool) tea.Model {
+	return NewSelectionAdapter(stories, showAll)
+}
+
 // SelectionAdapter adapts the new POM-based selection page to the existing interface
 type SelectionAdapter struct {
 	page *pages.SelectionPage
@@ -48,17 +53,9 @@ func (a *SelectionAdapter) GetSelected() []int {
 	return a.page.GetSelected()
 }
 
-// RegisterNewSelectionUIMaker registers a function to create a new selection UI
-// This function allows us to switch between the old and new implementations
+// RegisterNewSelectionUIMaker registers the new selection UI implementation
+// For backward compatibility - this function now does nothing since we
+// permanently use the new implementation
 func RegisterNewSelectionUIMaker() {
-	// Store the current implementation
-	OldNewSelectionUI := CurrentNewSelectionUI
-	
-	// Register the new implementation
-	CurrentNewSelectionUI = func(stories []models.UserStory, showAll bool) tea.Model {
-		return NewSelectionAdapter(stories, showAll)
-	}
-	
-	// Save the old implementation for reference
-	DefaultNewSelectionUI = OldNewSelectionUI
+	// The new implementation is already set as default in CurrentNewSelectionUI
 } 
