@@ -68,23 +68,23 @@ func New(stories []models.UserStory, showAll bool) *SelectionPage {
 	keyMap := uimodels.DefaultKeyMap()
 	
 	// Create components
-	sbox := searchbox.New(styleSet)
-	slist := storylist.New(styleSet)
-	sbar := statusbar.New(styleSet, keyMap)
+	searchbox := searchbox.New(styleSet)
+	storylist := storylist.New(styleSet)
+	statusbar := statusbar.New(styleSet, keyMap)
 	
 	// Set initial focus
 	if state.SearchFocused {
-		sbox = sbox.Focus()
-		slist = slist.Blur()
+		searchbox = searchbox.Focus()
+		storylist = storylist.Blur()
 	} else {
-		sbox = sbox.Blur()
-		slist = slist.Focus()
+		searchbox = searchbox.Blur()
+		storylist = storylist.Focus()
 	}
 	
 	return &SelectionPage{
-		searchBox: sbox,
-		storyList: slist,
-		statusBar: sbar,
+		searchBox: searchbox,
+		storyList: storylist,
+		statusBar: statusbar,
 		state:     state,
 		keyMap:    keyMap,
 		styles:    styleSet,
