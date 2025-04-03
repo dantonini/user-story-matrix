@@ -8,12 +8,13 @@ package searchbox
 import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/user-story-matrix/usm/internal/ui/styles"
 )
 
 // SearchBox represents a search input component
 type SearchBox struct {
-	textInput textinput.Model
+		textInput textinput.Model
 	styles    *styles.Styles
 	focused   bool
 	width     int
@@ -23,7 +24,7 @@ type SearchBox struct {
 // New creates a new SearchBox component
 func New(styles *styles.Styles) SearchBox {
 	ti := textinput.New()
-	ti.Placeholder = "Type to search user stories..."
+	ti.Placeholder = "Type to search user stories, CTRL+a to toggle all/unimplemented ..."
 	ti.CharLimit = 100
 	ti.Width = 50
 	
@@ -131,28 +132,55 @@ func (s SearchBox) Update(msg tea.Msg) (SearchBox, tea.Cmd) {
 // View renders the search box
 func (s SearchBox) View() string {
 	// Create a label based on focus state
+	labelContent := "Search:"
+	
+	// Apply different styles based on focus state
 	var label string
+	var textView string
+	
 	if s.focused {
-		label = s.styles.SearchLabel.Render("🔍 Search [typing]:")
+		// Focused state - bright/highlight colors
+		label = s.styles.SearchLabel.Copy().
+			PaddingRight(1).
+			Render(labelContent)
+			
+		// Show active text input
+		textView = s.textInput.View()
 	} else {
-		label = s.styles.SearchLabel.Render("🔍 Search:")
+		// Unfocused state - muted colors
+		label = s.styles.SearchLabel.Copy().
+			PaddingRight(1).
+			Foreground(lipgloss.Color("240")). // Dimmer color when unfocused
+			Render(labelContent)
+			
+		// Create a dimmed version of the text input
+		// Get current value to display
+		value := s.textInput.Value()
+		
+		// Create a custom dimmed version when unfocused
+		if value != "" {
+			// Show the value in a dimmed style with tag hints
+			textView = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")). // Dimmer color
+				Render(s.textInput.Prompt + value + " (tab to edit, CTRL+a to toggle)")
+		} else {
+			// Show instruction instead of placeholder when unfocused and empty
+			textView = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("237")). // Even dimmer for instruction
+				Render(s.textInput.Prompt + "Tab to search user stories")
+		}
 	}
 	
-	// Create search input with styled border
-	var searchStyle = s.styles.SearchBox
-	if s.focused {
-		// Highlight the search box when focused
-		searchStyle = searchStyle.Copy().BorderForeground(s.styles.Selected.GetForeground())
+	// Calculate width for the input field portion
+	labelWidth := lipgloss.Width(label)
+	inputWidth := s.width - labelWidth - 2 // Account for spacing
+	if inputWidth < 40 {
+		inputWidth = 40 // Minimum reasonable width
 	}
 	
-	searchView := searchStyle.Copy().Width(s.width).Render(s.textInput.View())
+	// Set width for text input that will be used when focused
+	s.textInput.Width = inputWidth
 	
-	// Add filter toggle hint
-	filterHint := ""
-	if s.focused {
-		filterHint = s.styles.Normal.Render("   (CTRL+a to toggle all/unimplemented)")
-	}
-	
-	// Combine the label and input
-	return label + filterHint + "\n" + searchView
+	// Join components horizontally with proper alignment
+	return lipgloss.JoinHorizontal(lipgloss.Center, label, textView)
 } 

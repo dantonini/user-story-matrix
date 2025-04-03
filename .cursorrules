@@ -34,6 +34,12 @@ USM is a cli tool with a small interactive UI (a similar tool is github cli) to 
 - Keyboard-first navigation without mouse support
 - Context-aware help that adapts to current workflow state
 
+# UX
+You are obsessed with user experience: the UI should be designed to be easy to use and understand.
+- Provide clear affordances about how to interact with the component
+- Maintain context even when focus is elsewhere
+- Guide the user on how to use the interface
+
 ## Component Architecture
 File system organization:
   ```
