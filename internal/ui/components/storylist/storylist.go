@@ -303,6 +303,64 @@ func (l StoryList) Update(msg tea.Msg) (StoryList, tea.Cmd) {
 	return l, nil
 }
 
+// calculateCommonPrefix finds the common directory prefix across a set of paths
+func calculateCommonPrefix(paths []string) string {
+	if len(paths) == 0 {
+		return ""
+	}
+	
+	// Start with the first path as the reference
+	reference := strings.Split(paths[0], "/")
+	
+	// Compare with all other paths
+	for _, path := range paths[1:] {
+		parts := strings.Split(path, "/")
+		
+		// Find how many segments match
+		var i int
+		for i = 0; i < len(reference) && i < len(parts); i++ {
+			if reference[i] != parts[i] {
+				break
+			}
+		}
+		
+		// Update reference to only keep matching parts
+		reference = reference[:i]
+		if len(reference) == 0 {
+			break
+		}
+	}
+	
+	// Convert back to path string
+	if len(reference) == 0 {
+		return ""
+	}
+	
+	return strings.Join(reference, "/")
+}
+
+// shortenPath removes common prefix from a path
+func shortenPath(path string, commonPrefix string) string {
+	if commonPrefix == "" {
+		return path
+	}
+	
+	// If path starts with common prefix, remove it
+	if strings.HasPrefix(path, commonPrefix) {
+		shortened := path[len(commonPrefix):]
+		// Remove leading slash if present
+		if strings.HasPrefix(shortened, "/") {
+			shortened = shortened[1:]
+		}
+		if shortened == "" {
+			return path // Don't return empty paths
+		}
+		return "…/" + shortened
+	}
+	
+	return path
+}
+
 // View renders the story list
 func (l StoryList) View() string {
 	if len(l.items) == 0 {
@@ -315,6 +373,15 @@ func (l StoryList) View() string {
 	}
 	
 	var sb strings.Builder
+	
+	// Calculate common prefix for all visible items with paths
+	var paths []string
+	for i := l.visibleStart; i < l.visibleEnd && i < len(l.items); i++ {
+		if path := l.items[i].Story.FilePath; path != "" {
+			paths = append(paths, path)
+		}
+	}
+	commonPrefix := calculateCommonPrefix(paths)
 	
 	// Display only visible items
 	for i := l.visibleStart; i < l.visibleEnd && i < len(l.items); i++ {
@@ -365,9 +432,9 @@ func (l StoryList) View() string {
 		sb.WriteString(renderedLine)
 		sb.WriteString("\n")
 		
-		// Only show filepath on the currently focused item for less visual noise
+		// Only show shortened filepath on the currently focused item for less visual noise
 		if l.focused && i == l.cursor && item.Story.FilePath != "" {
-			filePath := item.Story.FilePath
+			filePath := shortenPath(item.Story.FilePath, commonPrefix)
 			pathLine := fmt.Sprintf("       %s", filePath)
 			sb.WriteString(l.styles.Implemented.Render(pathLine))
 			sb.WriteString("\n")
