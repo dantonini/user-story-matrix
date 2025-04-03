@@ -34,6 +34,7 @@ type Styles struct {
 	// Containers
 	Container    lipgloss.Style
 	Border       lipgloss.Style
+	FocusedBorder lipgloss.Style
 }
 
 // DefaultStyles returns the default styles
@@ -113,6 +114,9 @@ func DefaultStyles() *Styles {
 		Border: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("205")),
+			
+		FocusedBorder: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")), // Pink color to match search focus
 	}
 }
 

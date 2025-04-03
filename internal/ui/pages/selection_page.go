@@ -325,8 +325,15 @@ func (p *SelectionPage) View() string {
 	sb.WriteString(p.searchBox.View())
 	sb.WriteString("\n")
 	
-	// Render divider
-	divider := strings.Repeat("─", p.width)
+	// Render divider with different styling based on focus
+	var divider string
+	if p.state.SearchFocused {
+		// Default divider when search is focused
+		divider = strings.Repeat("─", p.width)
+	} else {
+		// Highlighted divider when story list is focused
+		divider = p.styles.FocusedBorder.Render(strings.Repeat("─", p.width))
+	}
 	sb.WriteString(divider)
 	sb.WriteString("\n")
 	
@@ -341,8 +348,14 @@ func (p *SelectionPage) View() string {
 	}
 	sb.WriteString("\n")
 	
-	// Render divider
-	sb.WriteString(divider)
+	// Render bottom divider - also highlight when list is focused
+	var bottomDivider string
+	if p.state.SearchFocused {
+		bottomDivider = strings.Repeat("─", p.width)
+	} else {
+		bottomDivider = p.styles.FocusedBorder.Render(strings.Repeat("─", p.width))
+	}
+	sb.WriteString(bottomDivider)
 	sb.WriteString("\n")
 	
 	// Render status bar
