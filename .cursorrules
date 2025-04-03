@@ -19,6 +19,45 @@ Build the CLI tool using the following frameworks:
 - `github.com/charmbracelet/lipgloss` - For terminal styling
 - `github.com/charmbracelet/bubbles` - For interactive terminal UI components
 
+# Coding style
+- Never use hardcoded values, always refer to environment variables or configuration properties or constants.
+- If you need to comment an hardcoded value, then it's a good candidate for a constant.
+- Never use hardcoded paths, always use relative paths.
+- Use high cohesive functions, avoid functions that do too many things.
+- Use meaningful names for functions, variables and comments.
+- Avoid to comment what is obvious, a comment should explain why and how, not what.
+- Use a consistent naming convention for variables, functions.
+
+# TUI 
+USM is a cli tool with a small interactive UI (a similar tool is github cli) to guide the user through the user story creation and management efficiently:
+- Progressive disclosure - Show simple UI by default, advanced features on demand
+- Keyboard-first navigation without mouse support
+- Context-aware help that adapts to current workflow state
+
+## Component Architecture
+File system organization:
+  ```
+  ui/
+  ├── models/      // State management
+  ├── components/  // Reusable UI elements
+  ├── pages/       // Screen compositions
+  └── styles/      // Centralized styling
+  ```
+## Simple components
+When to use simple components:
+- Pure presentation (no internal state)
+- Text formatting helpers
+- Small reusable style blocks
+- Composition with existing Bubble Tea models
+
+## Complex components
+- Max 3 public methods per component
+    - Forced encapsulation - Complex internal state stays hidden
+    - Interface segregation - Components become more composable
+    - Cognitive load reduction - Easier to understand at a glance
+    - Exception: Core framework components (like base models) can have more methods when absolutely necessary.
+- Use interfaces for cross-component communication
+
 # Testing
 Ensure to include tests for all the code you write.
 
@@ -32,6 +71,12 @@ Ensure to include tests for all the code you write.
 # Error messages
 You are obsessed with both user and developer experience. 
 Your error messages should state the problem in a way that is easy to understand and suggest concrete steps to the user to fix the problem autonomously, when possibile a step by step guide, when not possible a more generic way to fix the problem.
+
+# Code polishing
+- When you are done with a task, take a step back and polish the code to make it more readable and maintainable then use git to review the changes. Striclty keep the minimum amount of changes to the code to fix the issue or to add the new feature.
+- Don't leave dead code, if you don't use it, remove it.
+
+
 
 # Documentation
 Ensure the main README.md file is updated with the latest commands, features, and information about the project.
