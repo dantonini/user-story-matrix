@@ -19,6 +19,8 @@ type Styles struct {
 	Implemented  lipgloss.Style
 	Unimplemented lipgloss.Style
 	Error        lipgloss.Style
+	Subtle       lipgloss.Style
+	Success      lipgloss.Style
 	
 	// Component styles
 	SearchBox    lipgloss.Style
@@ -47,12 +49,13 @@ func DefaultStyles() *Styles {
 			
 		Selected: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("15")). // Bright white
-			Background(lipgloss.Color("63")). // Bright blue
+			Background(lipgloss.Color("4")). // Dark blue
 			Bold(true),
 			
 		Highlighted: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")). // Bright white
-			Background(lipgloss.Color("57")), // Darker blue
+			Foreground(lipgloss.Color("15")). // White text
+			Background(lipgloss.Color("8")). // Dark gray background
+			Bold(false),
 			
 		Normal: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")),
@@ -66,7 +69,13 @@ func DefaultStyles() *Styles {
 		Error: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")). // Bright red
 			Bold(true),
-		
+			
+		Subtle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")), // Dim gray
+			
+		Success: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("78")), // Green
+			
 		// Component styles
 		SearchBox: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()). // Use rounded borders
@@ -128,7 +137,7 @@ func (s *Styles) ItemStyles(selected, implemented, focused bool) lipgloss.Style 
 	case focused:
 		return s.Highlighted
 	case selected:
-		return s.Selected.Copy().Background(lipgloss.Color("25"))
+		return s.Selected
 	case implemented:
 		return s.Implemented
 	default:
@@ -139,15 +148,15 @@ func (s *Styles) ItemStyles(selected, implemented, focused bool) lipgloss.Style 
 // GetCheckbox returns a styled checkbox based on state
 func (s *Styles) GetCheckbox(checked bool) string {
 	if checked {
-		return s.CheckboxChecked.Render("[✓]")
+		return "[✓]"
 	}
-	return s.Checkbox.Render("[ ]")
+	return "[ ]"
 }
 
 // GetImplementationStatus returns a styled implementation status
 func (s *Styles) GetImplementationStatus(implemented bool) string {
 	if implemented {
-		return s.Implemented.Render("[I]")
+		return "I"
 	}
-	return s.Unimplemented.Render("[U]")
+	return "U"
 } 

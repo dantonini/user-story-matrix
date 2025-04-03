@@ -306,7 +306,7 @@ func (l StoryList) Update(msg tea.Msg) (StoryList, tea.Cmd) {
 // View renders the story list
 func (l StoryList) View() string {
 	if len(l.items) == 0 {
-		return "No stories to display."
+		return l.styles.Normal.Render("No stories to display.")
 	}
 	
 	// Return cached view if nothing has changed
@@ -320,52 +320,68 @@ func (l StoryList) View() string {
 	for i := l.visibleStart; i < l.visibleEnd && i < len(l.items); i++ {
 		item := l.items[i]
 		
-		// Create the checkbox
-		checkbox := l.styles.GetCheckbox(item.IsSelected)
+		// Build the raw line content without any styling first
+		checkbox := "[ ]"
+		if item.IsSelected {
+			checkbox = "[✓]"
+		}
 		
-		// Create the implementation status
-		impStatus := l.styles.GetImplementationStatus(item.Story.IsImplemented)
+		impStatus := "U"
+		if item.Story.IsImplemented {
+			impStatus = "I"
+		}
 		
 		// Create the title (truncate if too long)
 		title := item.Story.Title
-		if len(title) > l.width - 30 {
-			title = title[:l.width-33] + "..."
+		maxTitleWidth := l.width - 15
+		if len(title) > maxTitleWidth {
+			title = title[:maxTitleWidth-3] + "..."
 		}
 		
-		// Create the file path (truncate and show only relevant parts)
-		filePath := item.Story.FilePath
-		if len(filePath) > 30 {
-			parts := strings.Split(filePath, "/")
-			if len(parts) > 2 {
-				// Show last two parts only
-				filePath = ".../" + strings.Join(parts[len(parts)-2:], "/")
-			}
+		// Create the full raw line
+		rawLine := fmt.Sprintf(" %s %s %s", checkbox, impStatus, title)
+		
+		// Simple style selection based on conditions
+		var renderedLine string
+		switch {
+		case l.focused && i == l.cursor && item.IsSelected:
+			// Selected and focused item (cursor)
+			renderedLine = l.styles.Selected.Render(rawLine)
+		case l.focused && i == l.cursor:
+			// Focused but not selected item (cursor)
+			renderedLine = l.styles.Highlighted.Render(rawLine)
+		case item.IsSelected:
+			// Selected but not focused item
+			renderedLine = l.styles.Selected.Render(rawLine)
+		case item.Story.IsImplemented:
+			// Implemented item
+			renderedLine = l.styles.Implemented.Render(rawLine)
+		default:
+			// Default case
+			renderedLine = l.styles.Normal.Render(rawLine)
 		}
 		
-		// Determine style based on selection and cursor
-		var style = l.styles.ItemStyles(
-			item.IsSelected,
-			item.Story.IsImplemented,
-			l.focused && i == l.cursor,
-		)
-		
-		// Create the full line
-		line := fmt.Sprintf("%s %s %s (%s)", checkbox, impStatus, title, filePath)
-		
-		// Apply style to line
-		sb.WriteString(style.Width(l.width).Render(line))
+		// Add the rendered line to output
+		sb.WriteString(renderedLine)
 		sb.WriteString("\n")
+		
+		// Only show filepath on the currently focused item for less visual noise
+		if l.focused && i == l.cursor && item.Story.FilePath != "" {
+			filePath := item.Story.FilePath
+			pathLine := fmt.Sprintf("       %s", filePath)
+			sb.WriteString(l.styles.Implemented.Render(pathLine))
+			sb.WriteString("\n")
+		}
 	}
 	
-	// Add scrolling indicator if needed
+	// Show simple indicator for navigation
 	if len(l.items) > l.height {
-		indicator := fmt.Sprintf("Showing %d-%d of %d", 
-			l.visibleStart+1, l.visibleEnd, len(l.items))
-		sb.WriteString(l.styles.Normal.Render(indicator))
+		sb.WriteString(l.styles.Implemented.Render(" ↑/↓ to navigate"))
 	}
 	
 	// Cache the rendered view
 	l.lastRender = sb.String()
+	l.needsRender = false
 	
 	return l.lastRender
 }
