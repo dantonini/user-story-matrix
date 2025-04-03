@@ -341,7 +341,12 @@ func calculateCommonPrefix(paths []string) string {
 
 // shortenPath removes common prefix from a path
 func shortenPath(path string, commonPrefix string) string {
-	if commonPrefix == "" {
+	if commonPrefix == "" || path == "" {
+		return path
+	}
+	
+	// If the commonPrefix is the entire path, don't shorten
+	if path == commonPrefix || commonPrefix == path+"/" {
 		return path
 	}
 	
@@ -352,8 +357,9 @@ func shortenPath(path string, commonPrefix string) string {
 		if strings.HasPrefix(shortened, "/") {
 			shortened = shortened[1:]
 		}
+		// Special case: if the path is exactly the common prefix
 		if shortened == "" {
-			return path // Don't return empty paths
+			return "…/"
 		}
 		return "…/" + shortened
 	}
