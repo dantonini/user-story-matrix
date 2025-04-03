@@ -148,9 +148,14 @@ demo-tui:
 lint-clean:
 	@echo "Running linters on main source code only..."
 	$(call ensure_golangci_lint)
-	@cd cmd && golangci-lint run $(CACHE_FLAG) ./... | grep -v "output/"
-	@cd internal && golangci-lint run $(CACHE_FLAG) ./... | grep -v "output/"
-	@golangci-lint run $(CACHE_FLAG) main.go
+	@set -e; \
+	echo "Checking cmd directory..."; \
+	(cd cmd && golangci-lint run $(CACHE_FLAG) ./...); \
+	echo "Checking internal directory..."; \
+	(cd internal && golangci-lint run $(CACHE_FLAG) ./...); \
+	echo "Checking main.go..."; \
+	golangci-lint run $(CACHE_FLAG) main.go; \
+	echo "All linting checks passed!"
 
 # Default target
 all: clean build 

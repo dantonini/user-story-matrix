@@ -354,9 +354,7 @@ func shortenPath(path string, commonPrefix string) string {
 	if strings.HasPrefix(path, commonPrefix) {
 		shortened := path[len(commonPrefix):]
 		// Remove leading slash if present
-		if strings.HasPrefix(shortened, "/") {
-			shortened = shortened[1:]
-		}
+		shortened = strings.TrimPrefix(shortened, "/")
 		// Special case: if the path is exactly the common prefix
 		if shortened == "" {
 			return "…/"
@@ -454,7 +452,6 @@ func (l StoryList) View() string {
 	
 	// Cache the rendered view
 	l.lastRender = sb.String()
-	l.needsRender = false
 	
 	return l.lastRender
 }
@@ -468,7 +465,7 @@ func (l StoryList) SetCursor(position int) StoryList {
 	// Set the cursor to the specified position
 	if l.cursor != position {
 		l.cursor = position
-		l.needsRender = true
+		// needsRender is set in updateVisibleRange
 		
 		// Ensure the cursor is within bounds
 		if l.cursor < 0 {
