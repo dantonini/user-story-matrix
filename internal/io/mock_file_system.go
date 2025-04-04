@@ -123,6 +123,9 @@ func (fs *MockFileSystem) AddDirectory(path string) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+
 	fs.DirItems[path] = []os.DirEntry{}
 	fs.DirInfo[path] = MockFileInfo{
 		name:    filepath.Base(path),
@@ -144,6 +147,9 @@ func (fs *MockFileSystem) AddDirectory(path string) {
 func (fs *MockFileSystem) AddFile(path string, content []byte) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
 
 	// Make a copy of the content to avoid unexpected modifications
 	contentCopy := make([]byte, len(content))
@@ -179,7 +185,7 @@ func (fs *MockFileSystem) AddFile(path string, content []byte) {
 		fs.DirItems[dir] = append(fs.DirItems[dir], fileEntry)
 	}
 	
-	// Add file info
+	// Add or update file info
 	fs.FileInfo[path] = MockFileInfo{
 		name:    filepath.Base(path),
 		size:    int64(len(contentCopy)),
@@ -202,6 +208,9 @@ func (fs *MockFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+
 	if entries, exists := fs.DirItems[path]; exists {
 		return entries, nil
 	}
@@ -212,6 +221,9 @@ func (fs *MockFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
 func (fs *MockFileSystem) ReadFile(path string) ([]byte, error) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
+
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
 
 	if content, exists := fs.Files[path]; exists {
 		// Return a copy of the content to avoid unexpected modifications
@@ -224,13 +236,83 @@ func (fs *MockFileSystem) ReadFile(path string) ([]byte, error) {
 
 // WriteFile writes data to a file named by filename
 func (fs *MockFileSystem) WriteFile(path string, data []byte, perm os.FileMode) error {
-	// Simply delegate to AddFile which handles everything we need
-	fs.AddFile(path, data)
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+
+	// We need to do this in multiple steps with proper locking
+	fs.mu.Lock()
+	
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	needCreateDir := false
+	if _, exists := fs.DirItems[dir]; !exists {
+		needCreateDir = true
+	}
+	
+	// First release the lock if we need to create a directory
+	if needCreateDir {
+		fs.mu.Unlock()
+		err := fs.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+		fs.mu.Lock()
+	}
+	
+	// Make a copy of the data to avoid unexpected modifications
+	contentCopy := make([]byte, len(data))
+	copy(contentCopy, data)
+	
+	// Update the file content
+	fs.Files[path] = contentCopy
+	
+	// Create or update file info
+	fs.FileInfo[path] = MockFileInfo{
+		name:    filepath.Base(path),
+		size:    int64(len(contentCopy)),
+		mode:    perm,
+		modTime: time.Now(),
+		isDir:   false,
+	}
+	
+	// Add file to directory entries if not already there
+	fileEntry := MockFileEntry{
+		name:  filepath.Base(path),
+		isDir: false,
+	}
+	
+	// Check if this file already exists in the directory entries
+	var exists bool
+	dirEntries := fs.DirItems[dir]
+	for _, entry := range dirEntries {
+		if entry.Name() == fileEntry.Name() {
+			exists = true
+			break
+		}
+	}
+	
+	// Only add to directory entries if it doesn't already exist
+	if !exists {
+		fs.DirItems[dir] = append(dirEntries, fileEntry)
+	}
+	
+	// Track this write operation
+	fs.WriteOps = append(fs.WriteOps, FileWriteOperation{
+		Path:    path,
+		Content: contentCopy,
+		Mode:    perm,
+		Time:    time.Now(),
+	})
+	
+	fs.mu.Unlock()
 	return nil
 }
 
 // MkdirAll creates a directory named path, along with any necessary parents
 func (fs *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+	
 	// Create all parent directories
 	parts := strings.Split(path, string(filepath.Separator))
 	current := ""
@@ -268,6 +350,9 @@ func (fs *MockFileSystem) Exists(path string) bool {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+	
 	_, fileExists := fs.Files[path]
 	_, dirExists := fs.DirItems[path]
 	return fileExists || dirExists
@@ -278,6 +363,9 @@ func (fs *MockFileSystem) Stat(path string) (os.FileInfo, error) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+	
 	// Check if it's a file
 	if info, exists := fs.FileInfo[path]; exists {
 		return info, nil
@@ -296,10 +384,23 @@ func (fs *MockFileSystem) GetLastWrite(path string) (FileWriteOperation, bool) {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+	
 	// Look for the last write operation for this path
 	for i := len(fs.WriteOps) - 1; i >= 0; i-- {
 		if fs.WriteOps[i].Path == path {
-			return fs.WriteOps[i], true
+			// Return a copy to avoid modifications
+			op := fs.WriteOps[i]
+			contentCopy := make([]byte, len(op.Content))
+			copy(contentCopy, op.Content)
+			
+			return FileWriteOperation{
+				Path:    op.Path,
+				Content: contentCopy,
+				Mode:    op.Mode,
+				Time:    op.Time,
+			}, true
 		}
 	}
 	return FileWriteOperation{}, false
@@ -307,25 +408,32 @@ func (fs *MockFileSystem) GetLastWrite(path string) (FileWriteOperation, bool) {
 
 // WalkDir walks the file tree rooted at root, calling fn for each file or directory
 func (fs *MockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
+	// Normalize path to avoid inconsistencies
+	root = filepath.Clean(root)
+	
 	fs.mu.RLock()
-	defer fs.mu.RUnlock()
-
-	// First process the root directory
+	
+	// First check if root exists
 	if !fs.Exists(root) {
+		fs.mu.RUnlock()
 		return fmt.Errorf("root directory not found: %s", root)
 	}
 	
-	// Create a queue for BFS
+	// Create a queue for BFS (breadth-first search)
 	queue := []string{root}
+	fs.mu.RUnlock()
 	
+	// Process the queue
 	for len(queue) > 0 {
 		// Dequeue
 		path := queue[0]
 		queue = queue[1:]
 		
+		fs.mu.RLock()
 		// Get info
 		info, err := fs.Stat(path)
 		if err != nil {
+			fs.mu.RUnlock()
 			if err := fn(path, nil, err); err != nil && err != filepath.SkipDir {
 				return err
 			}
@@ -339,6 +447,7 @@ func (fs *MockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 		}
 		
 		// Process current node
+		fs.mu.RUnlock()
 		err = fn(path, entry, nil)
 		if err != nil {
 			if err == filepath.SkipDir {
@@ -349,12 +458,14 @@ func (fs *MockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 		
 		// Enqueue children if it's a directory
 		if info.IsDir() {
+			fs.mu.RLock()
 			if entries, exists := fs.DirItems[path]; exists {
 				for _, childEntry := range entries {
 					childPath := filepath.Join(path, childEntry.Name())
 					queue = append(queue, childPath)
 				}
 			}
+			fs.mu.RUnlock()
 		}
 	}
 	

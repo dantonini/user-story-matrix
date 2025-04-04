@@ -41,24 +41,33 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 	// Get file info
 	fileInfo, err := fs.Stat(filePath)
 	if err != nil {
-		return false, hashMap, fmt.Errorf("failed to get file info: %w", err)
+		return false, hashMap, fmt.Errorf("failed to get file info for %s: %w", filePath, err)
 	}
 
 	// Read file content
 	content, err := fs.ReadFile(filePath)
 	if err != nil {
-		return false, hashMap, fmt.Errorf("failed to read file: %w", err)
+		return false, hashMap, fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
+	
+	logger.Debug("Read file content", 
+		zap.String("file", filePath),
+		zap.Int("content_length", len(content)))
 
 	// Extract existing metadata
 	existingMetadata, err := ExtractMetadata(string(content))
 	if err != nil {
-		return false, hashMap, fmt.Errorf("failed to extract metadata: %w", err)
+		return false, hashMap, fmt.Errorf("failed to extract metadata from %s: %w", filePath, err)
 	}
 
 	// Calculate content hash
 	contentWithoutMetadata := GetContentWithoutMetadata(string(content))
 	contentHash := CalculateContentHash(contentWithoutMetadata)
+	
+	logger.Debug("Calculated content hash", 
+		zap.String("file", filePath),
+		zap.String("hash", contentHash),
+		zap.String("old_hash", existingMetadata.ContentHash))
 
 	// Store old and new hash in the hash map
 	hashMap.OldHash = existingMetadata.ContentHash
@@ -69,6 +78,10 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 
 	// Generate new metadata
 	newMetadata := GenerateMetadata(filePath, root, fileInfo, existingMetadata, contentHash)
+	
+	logger.Debug("Generated new metadata", 
+		zap.String("file", filePath),
+		zap.String("metadata", newMetadata))
 
 	// Check if metadata has changed (to avoid unnecessary updates)
 	currentMetadataBytes := metadataRegex.Find(content)
@@ -84,9 +97,27 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 
 	// Update the file with new metadata
 	newContent := newMetadata + contentWithoutMetadata
+	
+	logger.Debug("Writing updated content", 
+		zap.String("file", filePath),
+		zap.Int("content_length", len(newContent)))
+	
 	err = fs.WriteFile(filePath, []byte(newContent), fileInfo.Mode())
 	if err != nil {
-		return false, hashMap, fmt.Errorf("failed to write updated file: %w", err)
+		return false, hashMap, fmt.Errorf("failed to write updated file %s: %w", filePath, err)
+	}
+	
+	// Verify the file was updated - read it back for validation
+	verifyContent, verifyErr := fs.ReadFile(filePath)
+	if verifyErr != nil {
+		logger.Warn("Could not verify file update", 
+			zap.String("file", filePath),
+			zap.Error(verifyErr))
+	} else if string(verifyContent) != newContent {
+		logger.Warn("File content verification failed",
+			zap.String("file", filePath),
+			zap.Int("expected_length", len(newContent)),
+			zap.Int("actual_length", len(verifyContent)))
 	}
 
 	logger.Debug("Updated file metadata", 

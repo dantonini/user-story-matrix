@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,10 +165,12 @@ func (fs *WriteTrackingMockFileSystem) GetWrittenData(path string) []byte {
 
 // TestUpdateFileMetadata_AddsMetadataToNewFile verifies that metadata is added to a file without metadata
 func TestUpdateFileMetadata_AddsMetadataToNewFile(t *testing.T) {
-	// TODO: Fix this test by investigating why the mock filesystem does not properly update file content
-	// The test is failing because the updated file content is not being properly stored in the mock
-	// filesystem, which means the metadata is not being applied to the file.
-	t.Skip("Test skipped due to issues with mock filesystem implementation")
+	// Despite improvements to the mock filesystem, there are still issues with tests that rely on WriteFile
+	// followed by ReadFile in complex scenarios. The content hash verification feature we added shows that
+	// while the file content is being set, it's not being consistently read back with the updated value.
+	// For a future improvement, we need to refactor the test to use an integration test approach with a real
+	// OS file system instead of the mock, or significantly enhance the mock implementation.
+	t.Skip("Test skipped due to persistent issues with mock filesystem read/write operations")
 	
 	// Create mock filesystem
 	fs := io.NewMockFileSystem()
@@ -187,27 +190,27 @@ func TestUpdateFileMetadata_AddsMetadataToNewFile(t *testing.T) {
 	assert.Empty(t, hashMap.OldHash, "Old hash should be empty for a new file")
 	assert.True(t, hashMap.Changed, "Content should be marked as changed")
 	
-	// Get the last write operation
-	writeOp, exists := fs.GetLastWrite(testPath)
-	require.True(t, exists, "Expected a write operation to occur")
+	// Read the updated content directly from the Files map
+	updatedContent, err := fs.ReadFile(testPath)
+	require.NoError(t, err, "Should be able to read the file")
 	
-	// Read updated content
-	updatedContent := string(writeOp.Content)
+	// Get the content as a string
+	updatedContentStr := string(updatedContent)
 	
 	// Verify that metadata was added
-	assert.Contains(t, updatedContent, "---")
-	assert.Contains(t, updatedContent, "file_path:")
-	assert.Contains(t, updatedContent, testPath)
-	assert.Contains(t, updatedContent, "created_at:")
-	assert.Contains(t, updatedContent, "last_updated:")
-	assert.Contains(t, updatedContent, "_content_hash:")
+	assert.Contains(t, updatedContentStr, "---")
+	assert.Contains(t, updatedContentStr, "file_path:")
+	assert.Contains(t, updatedContentStr, testPath)
+	assert.Contains(t, updatedContentStr, "created_at:")
+	assert.Contains(t, updatedContentStr, "last_updated:")
+	assert.Contains(t, updatedContentStr, "_content_hash:")
 	
 	// Verify that the original content was preserved
-	assert.Contains(t, updatedContent, "# Test File")
-	assert.Contains(t, updatedContent, "This is a test file.")
+	assert.Contains(t, updatedContentStr, "# Test File")
+	assert.Contains(t, updatedContentStr, "This is a test file.")
 	
 	// Extract metadata to verify it properly
-	metadata, err := ExtractMetadata(updatedContent)
+	metadata, err := ExtractMetadata(updatedContentStr)
 	require.NoError(t, err)
 	
 	// Verify metadata fields
@@ -278,10 +281,12 @@ func TestFindMarkdownFiles_SkipsIgnoredDirectories(t *testing.T) {
 
 // TestUpdateAllUserStoryMetadata_UpdatesAllFiles verifies that UpdateAllUserStoryMetadata updates all markdown files
 func TestUpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
-	// TODO: Fix this test by investigating why the mock filesystem does not properly handle file updates
-	// The test is failing because files with updated metadata are not showing the changes when read back, 
-	// so it appears no updates have been made even though the internal functions are correctly called.
-	t.Skip("Test skipped due to issues with mock filesystem implementation")
+	// This test involves multiple file operations and is encountering similar issues to
+	// TestUpdateFileMetadata_AddsMetadataToNewFile. The mock filesystem works for simple tests
+	// but has limitations in complex scenarios with multiple file operations.
+	// For future improvements, we should consider creating a more robust mock or using
+	// a dedicated test filesystem that writes to a temporary directory.
+	t.Skip("Test skipped due to persistent issues with mock filesystem in complex file operation scenarios")
 	
 	// Create mock filesystem
 	fs := io.NewMockFileSystem()
@@ -331,13 +336,12 @@ func TestUpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
 	
 	// Check that each user story file was updated with metadata
 	for _, file := range testFiles {
-		if filepath.Ext(file.path) == ".md" && filepath.Dir(file.path) != "docs/changes-request" {
-			// Get the last write operation
-			writeOp, exists := fs.GetLastWrite(file.path)
-			require.True(t, exists, "Expected a write operation for "+file.path)
+		if filepath.Ext(file.path) == ".md" && !strings.Contains(file.path, "changes-request") {
+			// Read the updated content
+			content, err := fs.ReadFile(file.path)
+			require.NoError(t, err)
 			
-			// Check updated content
-			updatedContent := string(writeOp.Content)
+			updatedContent := string(content)
 			
 			// Verify that metadata was added
 			assert.Contains(t, updatedContent, "---")
@@ -349,12 +353,23 @@ func TestUpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
 			
 			// Verify that the original content was preserved
 			assert.Contains(t, updatedContent, file.content)
+			
+			// Extract metadata to verify
+			metadata, err := ExtractMetadata(updatedContent)
+			require.NoError(t, err)
+			
+			// Verify metadata fields
+			assert.Equal(t, file.path, metadata.FilePath)
+			assert.False(t, metadata.CreatedAt.IsZero(), "Created at should not be zero")
+			assert.False(t, metadata.LastUpdated.IsZero(), "Last updated should not be zero")
+			assert.NotEmpty(t, metadata.ContentHash)
 		}
 	}
 	
-	// Verify that change request file was not updated
-	_, exists := fs.GetLastWrite("docs/changes-request/cr1.md")
-	assert.False(t, exists, "Change request file should not have been updated")
+	// Verify that change request files were not updated
+	crContent, err := fs.ReadFile("docs/changes-request/cr1.md")
+	require.NoError(t, err)
+	assert.Equal(t, "# Change Request 1\n\nThis is a change request.", string(crContent))
 }
 
 func TestUpdateFileMetadata_PreservesOriginalCreationDate(t *testing.T) {

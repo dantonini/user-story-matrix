@@ -33,8 +33,11 @@ and ensures each has an up-to-date metadata section containing:
 By default, it also updates content hash references in change request files when user story
 content changes. Use the --skip-references flag to disable this behavior.
 
-Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .github are automatically skipped.`,
-	Run: func(cmd *cobra.Command, args []string) {
+Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .github are automatically skipped.
+
+The command preserves original creation dates if they exist, and only updates last_updated dates
+when content has actually changed, making it safe to run as part of automated workflows.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		logger.Info("Updating user story metadata")
 		
 		// Get command options
@@ -50,9 +53,7 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 		// Get the project root directory
 		root, err := os.Getwd()
 		if err != nil {
-			logger.Error("Failed to get current directory", zap.Error(err))
-			fmt.Fprintf(os.Stderr, "Error: Failed to get current directory: %s\n", err)
-			return
+			return fmt.Errorf("failed to get current directory: %w", err)
 		}
 		
 		// Initialize the file system
@@ -62,9 +63,7 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 		var userStoriesDir string
 		testRoot, err := cmd.Flags().GetString("test-root")
 		if err != nil {
-			logger.Error("Failed to get test-root flag", zap.Error(err))
-			fmt.Fprintf(os.Stderr, "Error: Failed to get test-root flag: %s\n", err)
-			return
+			return fmt.Errorf("failed to get test-root flag: %w", err)
 		}
 		if testRoot != "" {
 			// For testing, use the specified directory
@@ -79,6 +78,11 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 			userStoriesDir = filepath.Join(docsDir, "user-stories")
 		}
 		
+		// Verify user stories directory exists
+		if !fs.Exists(userStoriesDir) {
+			return fmt.Errorf("user stories directory not found: %s", userStoriesDir)
+		}
+		
 		logger.Debug("Scanning for user stories", 
 			zap.String("dir", userStoriesDir),
 			zap.String("root", root))
@@ -86,24 +90,21 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 		// Update all user story metadata
 		updatedFiles, unchangedFiles, hashMap, err := metadata.UpdateAllUserStoryMetadata(userStoriesDir, root, fs)
 		if err != nil {
-			logger.Error("Failed to update user story metadata", zap.Error(err))
-			fmt.Fprintf(os.Stderr, "Error: Failed to update user story metadata: %s\n", err)
-			return
+			return fmt.Errorf("failed to update user story metadata: %w", err)
 		}
 		
 		// Print summary of user story updates
 		if len(updatedFiles) > 0 {
 			fmt.Println("📋 Updated user story metadata:")
-			for _, file := range updatedFiles {
-				fmt.Printf("   ✅ %s\n", file)
-			}
+			// Group files by directory for better readability
+			printGroupedFiles(updatedFiles, "  ")
+		} else {
+			fmt.Println("📋 No user story files needed updating")
 		}
 		
 		if debug && len(unchangedFiles) > 0 {
 			fmt.Println("📋 Unchanged user stories:")
-			for _, file := range unchangedFiles {
-				fmt.Printf("   ℹ️ %s\n", file)
-			}
+			printGroupedFiles(unchangedFiles, "  ")
 		}
 		
 		logger.Debug("Processing of user stories complete", 
@@ -112,53 +113,81 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 			zap.Int("unchanged", len(unchangedFiles)))
 		
 		// If references shouldn't be skipped and we have content changes, update references
+		updatedRefs := []string{}
+		unchangedRefs := []string{}
+		referencesUpdated := 0
+		
 		if !skipReferences && len(hashMap) > 0 {
-			logger.Info("Updating change request references")
+			// Only update references if there are actually content changes (not just metadata changes)
+			changedHashMap := metadata.FilterChangedContent(hashMap)
 			
-			// Update change request references
-			updatedRefs, unchangedRefs, referencesUpdated, err := metadata.UpdateAllChangeRequestReferences(root, hashMap, fs)
-			if err != nil {
-				logger.Error("Failed to update change request references", zap.Error(err))
-				fmt.Fprintf(os.Stderr, "Error: Failed to update change request references: %s\n", err)
-			} else {
-				// Print summary of reference updates
-				if len(updatedRefs) > 0 {
-					fmt.Println("📋 Updated change request references:")
-					for _, file := range updatedRefs {
-						fmt.Printf("   ✅ %s\n", file)
-					}
-					fmt.Printf("   📊 Total references updated: %d\n", referencesUpdated)
+			if len(changedHashMap) > 0 {
+				logger.Info("Updating change request references",
+					zap.Int("changed_files", len(changedHashMap)))
+				fmt.Println("🔄 Updating references in change requests...")
+				
+				// Update change request references
+				updatedRefs, unchangedRefs, referencesUpdated, err = metadata.UpdateAllChangeRequestReferences(root, changedHashMap, fs)
+				if err != nil {
+					return fmt.Errorf("failed to update change request references: %w", err)
 				}
 				
-				if len(updatedRefs) > 0 || len(unchangedRefs) > 0 {
-					logger.Debug("Processing of change requests complete", 
-						zap.Int("total", len(updatedRefs) + len(unchangedRefs)), 
-						zap.Int("updated", len(updatedRefs)), 
-						zap.Int("unchanged", len(unchangedRefs)),
-						zap.Int("references_updated", referencesUpdated))
-					
-					fmt.Printf("✨ Processed %d change request files (%d updated, %d unchanged)\n", 
-						len(updatedRefs) + len(unchangedRefs),
-						len(updatedRefs),
-						len(unchangedRefs))
+				// Print summary of reference updates
+				if len(updatedRefs) > 0 {
+					fmt.Println("✅ Updated references in these change requests:")
+					printGroupedFiles(updatedRefs, "  ")
+					fmt.Printf("   📊 Total references updated: %d\n", referencesUpdated)
 				} else {
-					logger.Debug("No change requests were processed")
-					fmt.Println("ℹ️ No change requests needed updating")
+					fmt.Println("ℹ️ No change requests needed reference updates")
 				}
+			} else {
+				logger.Debug("No content changes detected, skipping reference updates")
+				fmt.Println("ℹ️ No content changes detected, skipping reference updates")
 			}
 		} else if skipReferences {
 			logger.Debug("Skipping change request reference updates")
 			fmt.Println("ℹ️ Skipped change request reference updates (--skip-references flag used)")
-		} else if len(hashMap) == 0 {
-			logger.Debug("No content changes detected, skipping reference updates")
-			fmt.Println("ℹ️ No content changes detected, skipping reference updates")
 		}
 		
-		fmt.Printf("✨ Processed %d user story files (%d updated, %d unchanged)\n", 
+		// Print final summary
+		fmt.Println("\n✨ Summary:")
+		fmt.Printf("   User stories: %d processed (%d updated, %d unchanged)\n", 
 			len(updatedFiles) + len(unchangedFiles),
 			len(updatedFiles),
 			len(unchangedFiles))
+		
+		if !skipReferences {
+			fmt.Printf("   Change requests: %d processed (%d updated, %d unchanged, %d references updated)\n", 
+				len(updatedRefs) + len(unchangedRefs),
+				len(updatedRefs),
+				len(unchangedRefs),
+				referencesUpdated)
+		}
+		
+		return nil
 	},
+}
+
+// printGroupedFiles prints files grouped by their directory for better readability
+func printGroupedFiles(files []string, indent string) {
+	if len(files) == 0 {
+		return
+	}
+	
+	// Group files by directory
+	filesByDir := make(map[string][]string)
+	for _, file := range files {
+		dir := filepath.Dir(file)
+		filesByDir[dir] = append(filesByDir[dir], filepath.Base(file))
+	}
+	
+	// Print each directory with its files
+	for dir, fileList := range filesByDir {
+		fmt.Printf("%s📁 %s/\n", indent, dir)
+		for _, file := range fileList {
+			fmt.Printf("%s  • %s\n", indent, file)
+		}
+	}
 }
 
 func init() {
@@ -179,7 +208,7 @@ func resetUpdateUserStoriesCmd() {
 		Use:   "update user-stories metadata",
 		Short: "Update metadata in user story markdown files",
 		Long:  `Update metadata in user story markdown files.`,
-		Run:   func(cmd *cobra.Command, args []string) {},
+		RunE:  func(cmd *cobra.Command, args []string) error { return nil },
 	}
 	// Reinitialize the command with flags
 	rootCmd.AddCommand(updateUserStoriesCmd)
