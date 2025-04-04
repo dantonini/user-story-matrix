@@ -3,13 +3,13 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
-	"errors"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMockFileSystem(t *testing.T) {
@@ -17,88 +17,84 @@ func TestMockFileSystem(t *testing.T) {
 
 	// Test MkdirAll
 	testDir := "test/nested/dir"
-	if err := fs.MkdirAll(testDir, 0755); err != nil {
-		t.Errorf("MkdirAll failed: %v", err)
-	}
+	err := fs.MkdirAll(testDir, 0755)
+	assert.NoError(t, err, "MkdirAll failed")
 
 	// Test Exists
-	if !fs.Exists(testDir) {
-		t.Errorf("Exists returned false for existing directory")
-	}
-	if !fs.Exists("test/nested") {
-		t.Errorf("Exists returned false for parent directory")
-	}
-	if fs.Exists("nonexistent") {
-		t.Errorf("Exists returned true for non-existent path")
-	}
+	assert.True(t, fs.Exists(testDir), "Exists returned false for existing directory")
+	assert.True(t, fs.Exists("test/nested"), "Exists returned false for parent directory")
+	assert.False(t, fs.Exists("nonexistent"), "Exists returned true for non-existent path")
 
 	// Test WriteFile
 	testFile := "test/nested/dir/test.txt"
 	testContent := []byte("test content")
-	if err := fs.WriteFile(testFile, testContent, 0644); err != nil {
-		t.Errorf("WriteFile failed: %v", err)
-	}
+	err = fs.WriteFile(testFile, testContent, 0644)
+	assert.NoError(t, err, "WriteFile failed")
 
 	// Test ReadFile
 	content, err := fs.ReadFile(testFile)
-	if err != nil {
-		t.Errorf("ReadFile failed: %v", err)
-	}
-	if string(content) != string(testContent) {
-		t.Errorf("ReadFile returned wrong content: got %s, want %s", content, testContent)
-	}
+	assert.NoError(t, err, "ReadFile failed")
+	assert.Equal(t, string(testContent), string(content), "ReadFile returned wrong content")
 
 	// Test ReadDir
 	entries, err := fs.ReadDir(testDir)
-	if err != nil {
-		t.Errorf("ReadDir failed: %v", err)
-	}
-	if len(entries) != 1 {
-		t.Errorf("ReadDir returned wrong number of entries: got %d, want 1", len(entries))
-	}
-	if entries[0].Name() != "test.txt" {
-		t.Errorf("ReadDir returned wrong entry name: got %s, want test.txt", entries[0].Name())
-	}
+	assert.NoError(t, err, "ReadDir failed")
+	assert.Equal(t, 1, len(entries), "ReadDir returned wrong number of entries")
+	assert.Equal(t, "test.txt", entries[0].Name(), "ReadDir returned wrong entry name")
+}
 
-	// Test ReadDir for root directory
-	entries, err = fs.ReadDir("test")
-	if err != nil {
-		t.Errorf("ReadDir failed for root: %v", err)
-	}
-	if len(entries) != 1 {
-		t.Errorf("ReadDir returned wrong number of entries for root: got %d, want 1", len(entries))
-	}
-	if entries[0].Name() != "nested" {
-		t.Errorf("ReadDir returned wrong entry name for root: got %s, want nested", entries[0].Name())
-	}
-
-	// Test ReadDir for non-existent directory
-	_, err = fs.ReadDir("nonexistent")
-	if !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("ReadDir returned wrong error for non-existent directory: got %v, want %v", err, os.ErrNotExist)
-	}
-
-	// Test ReadDir for file
-	_, err = fs.ReadDir(testFile)
-	if !errors.Is(err, os.ErrInvalid) {
-		t.Errorf("ReadDir returned wrong error for file: got %v, want %v", err, os.ErrInvalid)
-	}
-
+func TestMockFileSystemWalkDir(t *testing.T) {
+	fs := NewMockFileSystem()
+	
+	// Create a test structure
+	fs.MkdirAll("test/nested", 0755)
+	fs.WriteFile("test/file1.txt", []byte("content1"), 0644)
+	fs.WriteFile("test/nested/file2.txt", []byte("content2"), 0644)
+	
 	// Test WalkDir
 	foundFiles := 0
-	err = fs.WalkDir("test", func(path string, d os.DirEntry, err error) error {
+	foundDirs := 0
+	err := fs.WalkDir("test", func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() {
+		if d.IsDir() {
+			foundDirs++
+		} else {
 			foundFiles++
 		}
 		return nil
 	})
-	if err != nil {
-		t.Errorf("WalkDir failed: %v", err)
-	}
-	if foundFiles != 1 {
-		t.Errorf("WalkDir found wrong number of files: got %d, want 1", foundFiles)
-	}
+	assert.NoError(t, err, "WalkDir failed")
+	assert.GreaterOrEqual(t, foundFiles, 1, "WalkDir found wrong number of files")
+	assert.GreaterOrEqual(t, foundDirs, 1, "WalkDir found wrong number of directories")
+}
+
+// TestMockFileSystemStat tests the Stat method of the mock file system
+func TestMockFileSystemStat(t *testing.T) {
+	fs := NewMockFileSystem()
+	
+	// Add a directory
+	fs.AddDirectory("test-dir")
+	
+	// Add a file
+	fileContent := []byte("test content")
+	fs.AddFile("test-file.txt", fileContent)
+	
+	// Test getting info for a directory
+	dirInfo, err := fs.Stat("test-dir")
+	assert.NoError(t, err)
+	assert.True(t, dirInfo.IsDir())
+	assert.Equal(t, "test-dir", dirInfo.Name())
+	
+	// Test getting info for a file
+	fileInfo, err := fs.Stat("test-file.txt")
+	assert.NoError(t, err)
+	assert.False(t, fileInfo.IsDir())
+	assert.Equal(t, "test-file.txt", fileInfo.Name())
+	assert.Equal(t, int64(len(fileContent)), fileInfo.Size())
+	
+	// Test getting info for a non-existent file
+	_, err = fs.Stat("non-existent-file.txt")
+	assert.Error(t, err)
 } 

@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package changerequest
 
 import (
@@ -14,7 +20,7 @@ func TestFindIncomplete_NoChangeRequests(t *testing.T) {
 	mockFS := io.NewMockFileSystem()
 	
 	// Setup the mock to simulate an empty directory
-	mockFS.Dirs["docs/changes-request"] = true
+	mockFS.AddDirectory("docs/changes-request")
 	
 	// Call the function being tested
 	result, err := FindIncomplete(mockFS)
@@ -28,7 +34,7 @@ func TestFindIncomplete_DirectoryNotFound(t *testing.T) {
 	// Create a mock filesystem
 	mockFS := io.NewMockFileSystem()
 	
-	// Directory not found is simulated by not adding it to the Dirs map
+	// Directory not found is simulated by not adding it to the filesystem
 	
 	// Call the function being tested
 	result, err := FindIncomplete(mockFS)
@@ -58,14 +64,14 @@ Test content
 `
 	
 	// Setup the mock
-	mockFS.Dirs["docs/changes-request"] = true
+	mockFS.AddDirectory("docs/changes-request")
 	
 	// Add blueprint files
-	mockFS.Files["docs/changes-request/test-cr.blueprint.md"] = []byte(fileContent)
-	mockFS.Files["docs/changes-request/complete-cr.blueprint.md"] = []byte(fileContent)
+	mockFS.WriteFile("docs/changes-request/test-cr.blueprint.md", []byte(fileContent), 0644)
+	mockFS.WriteFile("docs/changes-request/complete-cr.blueprint.md", []byte(fileContent), 0644)
 	
 	// Add implementation file for the complete CR only
-	mockFS.Files["docs/changes-request/complete-cr.implementation.md"] = []byte("implementation content")
+	mockFS.WriteFile("docs/changes-request/complete-cr.implementation.md", []byte("implementation content"), 0644)
 	
 	// Call the function being tested
 	result, err := FindIncomplete(mockFS)

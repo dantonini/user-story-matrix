@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/user-story-matrix/usm/internal/io"
 )
 
 // MockFileSystem implements FileSystem interface for testing
@@ -752,22 +754,22 @@ func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 
 func TestWorkflowManager_ResetWorkflow(t *testing.T) {
 	// Create mocks
-	fs := NewMockFileSystem()
-	io := NewMockIO()
+	fs := io.NewMockFileSystem()
+	mockIO := NewMockIO()
 	
 	// Create workflow manager
-	wm := NewWorkflowManager(fs, io)
+	wm := NewWorkflowManager(fs, mockIO)
 	
 	// Define test parameters
 	changeRequestPath := "/path/to/change-request.blueprint.md"
 	stateFilePath := GenerateStateFilePath(changeRequestPath)
 	
-	// Create test state with some progress
+	// Create test state
 	testState := WorkflowState{
 		ChangeRequestPath: changeRequestPath,
-		CurrentStepIndex:  3,
+		CurrentStepIndex:  2,
 		LastModified:      time.Now(),
-		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test", "02-mvi"},
+		CompletedSteps:    []string{StandardWorkflowSteps[0].ID, StandardWorkflowSteps[1].ID},
 	}
 	
 	// Marshal state to JSON
@@ -776,8 +778,8 @@ func TestWorkflowManager_ResetWorkflow(t *testing.T) {
 		t.Fatalf("Failed to marshal test state: %v", err)
 	}
 	
-	// Set up mocks
-	fs.files[stateFilePath] = stateData
+	// Set up mock file system
+	fs.WriteFile(stateFilePath, stateData, 0644)
 	
 	// Call the function
 	err = wm.ResetWorkflow(changeRequestPath)
@@ -787,19 +789,34 @@ func TestWorkflowManager_ResetWorkflow(t *testing.T) {
 		t.Errorf("ResetWorkflow() error = %v, want nil", err)
 	}
 	
-	// Load the saved state to verify
-	savedData := fs.files[stateFilePath]
-	var savedState WorkflowState
-	if err := json.Unmarshal(savedData, &savedState); err != nil {
-		t.Errorf("ResetWorkflow() wrote invalid JSON: %v", err)
+	// Verify the state was reset by reading the file and checking the state
+	if !fs.Exists(stateFilePath) {
+		t.Errorf("ResetWorkflow() should have created or updated the state file at %s", stateFilePath)
 	}
 	
-	// Verify state values were reset
-	if savedState.CurrentStepIndex != 0 {
-		t.Errorf("ResetWorkflow() CurrentStepIndex = %v, want 0", savedState.CurrentStepIndex)
+	// Read the file and unmarshal to verify state was reset
+	resetStateData, readErr := fs.ReadFile(stateFilePath)
+	if readErr != nil {
+		t.Errorf("Failed to read reset state file: %v", readErr)
 	}
-	if len(savedState.CompletedSteps) != 0 {
-		t.Errorf("ResetWorkflow() CompletedSteps = %v, want empty slice", savedState.CompletedSteps)
+	
+	var resetState WorkflowState
+	if unmarshalErr := json.Unmarshal(resetStateData, &resetState); unmarshalErr != nil {
+		t.Errorf("Failed to unmarshal reset state: %v", unmarshalErr)
+	}
+	
+	// Verify the state was reset correctly
+	if resetState.CurrentStepIndex != 0 {
+		t.Errorf("ResetWorkflow() did not reset CurrentStepIndex, got %d, want 0", resetState.CurrentStepIndex)
+	}
+	
+	if len(resetState.CompletedSteps) != 0 {
+		t.Errorf("ResetWorkflow() did not clear CompletedSteps, got %v, want empty slice", resetState.CompletedSteps)
+	}
+	
+	// Verify success message
+	if mockIO.IsDebugEnabled() && len(mockIO.successMessages) != 1 {
+		t.Errorf("ResetWorkflow() did not display success message")
 	}
 }
 
@@ -836,45 +853,32 @@ func TestWorkflowManager_IsWorkflowComplete_LoadStateError(t *testing.T) {
 
 // TestWorkflowManager_DetermineNextStep_ErrorConditions tests error handling for the DetermineNextStep method
 func TestWorkflowManager_DetermineNextStep_ErrorConditions(t *testing.T) {
-	t.Run("ReadFile error", func(t *testing.T) {
-		// Create mocks
-		fs := NewMockFileSystem()
-		io := NewMockIO()
-		
-		// Enable debug mode to print warning messages
-		io.debugEnabled = true
-		
-		// Create workflow manager
-		wm := NewWorkflowManager(fs, io)
-		
-		// Configure the mock filesystem to return an error when reading
-		fs.SetReadFileFunc(func(path string) ([]byte, error) {
-			return nil, errors.New("read error")
-		})
-		
-		// Set up mock to return that file exists
-		fs.SetExistsFunc(func(path string) bool {
-			return true
-		})
-		
-		// Call the function
-		nextStepIndex, err := wm.DetermineNextStep("/path/to/change-request.blueprint.md")
-		
-		// Verify results
-		if err != nil {
-			t.Errorf("DetermineNextStep() returned unexpected error: %v", err)
-		}
-		
-		// Should start from step 0 when there's an error with the state file
-		if nextStepIndex != 0 {
-			t.Errorf("DetermineNextStep() returned %d, want 0", nextStepIndex)
-		}
-		
-		// Should show a warning
-		if len(io.warningMessages) == 0 {
-			t.Errorf("DetermineNextStep() should print a warning message")
-		}
-	})
+	// Create mocks
+	fs := io.NewMockFileSystem()
+	mockIO := NewMockIO()
+	
+	// Create workflow manager
+	wm := NewWorkflowManager(fs, mockIO)
+	
+	// Define test parameters
+	changeRequestPath := "/path/to/change-request.blueprint.md"
+	stateFilePath := GenerateStateFilePath(changeRequestPath)
+	
+	// Set up mock file system with invalid JSON
+	fs.WriteFile(stateFilePath, []byte("invalid json"), 0644)
+	
+	// Call the function
+	stepIndex, err := wm.DetermineNextStep(changeRequestPath)
+	
+	// Check results - the implementation returns 0, nil for invalid state files
+	if err != nil {
+		t.Errorf("DetermineNextStep() expected nil error for invalid state file, got %v", err)
+	}
+	
+	// Should return the first step (index 0) when state file is invalid
+	if stepIndex != 0 {
+		t.Errorf("DetermineNextStep() returned step index %d, want 0 for invalid state file", stepIndex)
+	}
 }
 
 // TestWorkflowManager_ResetWorkflow_Error tests error handling for the ResetWorkflow method

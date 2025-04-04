@@ -11,7 +11,9 @@ import (
 	"io/fs"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/workflow"
 )
 
@@ -28,6 +30,7 @@ type mockFileSystem struct {
 	writeFileFn func(string, []byte, os.FileMode) error
 	mkdirAllFn  func(string, os.FileMode) error
 	walkDirFn   func(string, fs.WalkDirFunc) error
+	statFn      func(string) (os.FileInfo, error)
 }
 
 func (m *mockFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
@@ -52,6 +55,43 @@ func (m *mockFileSystem) MkdirAll(path string, perm os.FileMode) error {
 
 func (m *mockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 	return m.walkDirFn(root, fn)
+}
+
+func (m *mockFileSystem) Stat(path string) (os.FileInfo, error) {
+	return m.statFn(path)
+}
+
+// mockFileInfo implements os.FileInfo for testing
+type mockFileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+	isDir   bool
+}
+
+func (m mockFileInfo) Name() string {
+	return m.name
+}
+
+func (m mockFileInfo) Size() int64 {
+	return m.size
+}
+
+func (m mockFileInfo) Mode() os.FileMode {
+	return m.mode
+}
+
+func (m mockFileInfo) ModTime() time.Time {
+	return m.modTime
+}
+
+func (m mockFileInfo) IsDir() bool {
+	return m.isDir
+}
+
+func (m mockFileInfo) Sys() interface{} {
+	return nil
 }
 
 // mockUserOutput is a simple implementation of the user output interface for testing
@@ -196,21 +236,12 @@ func TestGetFileName(t *testing.T) {
 
 // TestExecuteStep tests the executeStep function
 func TestExecuteStep(t *testing.T) {
-	mockFS := &mockFileSystem{}
+	// Use the full MockFileSystem implementation
+	mockFS := io.NewMockFileSystem()
 	mockIO := &mockUserOutput{}
 
-	// Configure the mock filesystem
-	mockFS.existsFn = func(path string) bool {
-		// Assume the change request file exists
-		return path == "/path/to/change-request.blueprint.md"
-	}
-
-	mockFS.readFileFn = func(path string) ([]byte, error) {
-		if path == "/path/to/change-request.blueprint.md" {
-			return []byte("Test content"), nil
-		}
-		return nil, ErrFileNotFound
-	}
+	// Add the test file to the mock filesystem
+	mockFS.WriteFile("/path/to/change-request.blueprint.md", []byte("Test content"), 0644)
 
 	// Create a test step
 	step := workflow.WorkflowStep{

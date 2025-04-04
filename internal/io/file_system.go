@@ -1,3 +1,9 @@
+// Copyright (c) 2025 User Story Matrix
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+
 package io
 
 import (
@@ -14,6 +20,7 @@ type FileSystem interface {
 	WriteFile(path string, data []byte, perm os.FileMode) error
 	MkdirAll(path string, perm os.FileMode) error
 	Exists(path string) bool
+	Stat(path string) (os.FileInfo, error)
 }
 
 // OSFileSystem implements FileSystem interface with standard os operations
@@ -48,6 +55,11 @@ func (fs *OSFileSystem) MkdirAll(path string, perm os.FileMode) error {
 func (fs *OSFileSystem) Exists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
+}
+
+// Stat returns file info for the named file
+func (fs *OSFileSystem) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(path)
 }
 
 // WalkDir walks the file tree rooted at root, calling fn for each file or directory

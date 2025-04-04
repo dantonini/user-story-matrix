@@ -32,7 +32,7 @@ func TestDraftManager_GetDraftPath(t *testing.T) {
 	assert.Contains(t, path, ".usm/feature_request_draft.json")
 	
 	// The directory should be created in the mock filesystem
-	fs.Dirs[".usm"] = true
+	fs.AddDirectory(".usm")
 	assert.True(t, fs.Exists(".usm"))
 }
 
@@ -43,7 +43,7 @@ func TestDraftManager_SaveDraft(t *testing.T) {
 	fr.Title = "Test Feature"
 	
 	// Set up the directory in the mock filesystem
-	fs.Dirs[".usm"] = true
+	fs.AddDirectory(".usm")
 	
 	// Test successful save
 	err := dm.SaveDraft(fr)
@@ -67,7 +67,7 @@ func TestDraftManager_LoadDraft(t *testing.T) {
 	dm := NewDraftManager(fs)
 	
 	// Set up the directory in the mock filesystem
-	fs.Dirs[".usm"] = true
+	fs.AddDirectory(".usm")
 	
 	// Test when draft doesn't exist
 	fr, err := dm.LoadDraft()
@@ -81,7 +81,7 @@ func TestDraftManager_LoadDraft(t *testing.T) {
 	data, _ := json.Marshal(testFR)
 	
 	path, _ := dm.GetDraftPath()
-	_ = fs.WriteFile(path, data, 0644)
+	fs.WriteFile(path, data, 0644)
 	
 	fr, err = dm.LoadDraft()
 	
@@ -90,7 +90,7 @@ func TestDraftManager_LoadDraft(t *testing.T) {
 	
 	// Test when unmarshal fails - Manually handle the mock
 	path, _ = dm.GetDraftPath()
-	fs.Files[path] = []byte("invalid json")
+	fs.WriteFile(path, []byte("invalid json"), 0644)
 	
 	fr, loadErr := dm.LoadDraft()
 	
@@ -105,7 +105,7 @@ func TestDraftManager_DeleteDraft(t *testing.T) {
 	dm := NewDraftManager(fs)
 	
 	// Set up the directory in the mock filesystem
-	fs.Dirs[".usm"] = true
+	fs.AddDirectory(".usm")
 	
 	// Test when draft doesn't exist
 	err := dm.DeleteDraft()

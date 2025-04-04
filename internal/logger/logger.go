@@ -34,6 +34,29 @@ func Initialize(debug bool) error {
 	return nil
 }
 
+// SetDebugMode dynamically changes the logger to debug mode
+func SetDebugMode(debug bool) {
+	// If logger is not initialized, initialize it
+	if log == nil {
+		_ = Initialize(debug)
+		return
+	}
+	
+	// If we need to change to debug mode
+	if debug {
+		cfg := zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		
+		// Build a new logger
+		newLog, err := cfg.Build()
+		if err == nil {
+			// Sync the old logger before replacing
+			_ = log.Sync()
+			log = newLog
+		}
+	}
+}
+
 // Debug logs a debug message
 func Debug(msg string, fields ...zap.Field) {
 	if log != nil {
