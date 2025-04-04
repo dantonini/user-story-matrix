@@ -37,3 +37,4 @@ usm-*-amd64*
 output/
 coverage.html
 *.step
+docs/brainstorming/
