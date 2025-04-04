@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package io
 
 import (
@@ -12,15 +11,28 @@ import (
 	"path/filepath"
 )
 
-// FileSystem is an interface that abstracts file system operations.
-// This interface is used for dependency injection and makes testing easier.
+// FileSystem is an interface for file system operations
 type FileSystem interface {
-	ReadDir(path string) ([]os.DirEntry, error)
-	ReadFile(path string) ([]byte, error)
-	WriteFile(path string, data []byte, perm os.FileMode) error
+	// ReadDir reads the named directory and returns a list of directory entries
+	ReadDir(dirname string) ([]os.DirEntry, error)
+	
+	// ReadFile reads the file at the specified path and returns its contents
+	ReadFile(filename string) ([]byte, error)
+	
+	// WriteFile writes data to a file at the specified path
+	WriteFile(filename string, data []byte, perm os.FileMode) error
+	
+	// MkdirAll creates a directory with the specified name and permission, along with any necessary parents
 	MkdirAll(path string, perm os.FileMode) error
+	
+	// Stat returns a FileInfo describing the named file
+	Stat(name string) (os.FileInfo, error)
+	
+	// WalkDir walks the file tree rooted at root, calling fn for each file or directory
+	WalkDir(root string, fn fs.WalkDirFunc) error
+	
+	// Exists checks if a file or directory exists
 	Exists(path string) bool
-	Stat(path string) (os.FileInfo, error)
 }
 
 // OSFileSystem implements FileSystem interface with standard os operations

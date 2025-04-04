@@ -6,10 +6,14 @@
 package metadata
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
@@ -160,45 +164,57 @@ func (fs *WriteTrackingMockFileSystem) GetWrittenData(path string) []byte {
 
 // TestUpdateFileMetadata_AddsMetadataToNewFile verifies that metadata is added to a file without metadata
 func TestUpdateFileMetadata_AddsMetadataToNewFile(t *testing.T) {
-	// TODO: Fix this test to properly verify that metadata is added to files
-	//       The current implementation has issues with the mock filesystem
-	//       This may require updating the mock filesystem implementation
-	t.Skip("Skipping test due to issues with mock filesystem")
+	// TODO: Fix this test by investigating why the mock filesystem does not properly update file content
+	// The test is failing because the updated file content is not being properly stored in the mock
+	// filesystem, which means the metadata is not being applied to the file.
+	t.Skip("Test skipped due to issues with mock filesystem implementation")
 	
-	fs := NewWriteTrackingMockFileSystem()
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
 	
-	// Create a file without metadata
-	initialContent := "# New File\nThis is a new file without metadata.\n"
-	fs.AddFile("new.md", []byte(initialContent))
+	// Create test file
+	testContent := "# Test File\n\nThis is a test file."
+	testPath := "docs/user-stories/test.md"
+	fs.AddFile(testPath, []byte(testContent))
 	
-	// Add a callback to verify the write data
-	writeDataVerified := false
-	fs.AddWriteCallback(func(path string, data []byte) {
-		content := string(data)
-		// Verify metadata was added
-		assert.Contains(t, content, "file_path: new.md")
-		assert.Contains(t, content, "created_at:")
-		assert.Contains(t, content, "last_updated:")
-		assert.Contains(t, content, "_content_hash:")
-		
-		// Verify content was preserved
-		assert.Contains(t, content, "# New File")
-		assert.Contains(t, content, "This is a new file without metadata.")
-		
-		writeDataVerified = true
-	})
+	// Update metadata
+	updated, hashMap, err := UpdateFileMetadata(testPath, ".", fs)
+	require.NoError(t, err)
 	
-	// Update the file metadata
-	updated, hashMap, err := UpdateFileMetadata("new.md", "", fs)
-	assert.NoError(t, err)
-	assert.True(t, updated)
-	assert.Equal(t, "", hashMap.OldHash)
-	assert.True(t, hashMap.Changed)
+	// Verify the function returned the expected values
+	assert.True(t, updated, "The file should have been updated")
+	assert.NotEmpty(t, hashMap.NewHash, "A new hash should have been calculated")
+	assert.Empty(t, hashMap.OldHash, "Old hash should be empty for a new file")
+	assert.True(t, hashMap.Changed, "Content should be marked as changed")
 	
-	// Verify WriteFile was called
-	assert.Equal(t, 1, fs.GetWriteCount())
-	assert.Contains(t, fs.GetWrittenPaths(), "new.md")
-	assert.True(t, writeDataVerified, "Write data was not verified via callback")
+	// Get the last write operation
+	writeOp, exists := fs.GetLastWrite(testPath)
+	require.True(t, exists, "Expected a write operation to occur")
+	
+	// Read updated content
+	updatedContent := string(writeOp.Content)
+	
+	// Verify that metadata was added
+	assert.Contains(t, updatedContent, "---")
+	assert.Contains(t, updatedContent, "file_path:")
+	assert.Contains(t, updatedContent, testPath)
+	assert.Contains(t, updatedContent, "created_at:")
+	assert.Contains(t, updatedContent, "last_updated:")
+	assert.Contains(t, updatedContent, "_content_hash:")
+	
+	// Verify that the original content was preserved
+	assert.Contains(t, updatedContent, "# Test File")
+	assert.Contains(t, updatedContent, "This is a test file.")
+	
+	// Extract metadata to verify it properly
+	metadata, err := ExtractMetadata(updatedContent)
+	require.NoError(t, err)
+	
+	// Verify metadata fields
+	assert.Equal(t, testPath, metadata.FilePath)
+	assert.False(t, metadata.CreatedAt.IsZero(), "Created at should not be zero")
+	assert.False(t, metadata.LastUpdated.IsZero(), "Last updated should not be zero")
+	assert.NotEmpty(t, metadata.ContentHash)
 }
 
 // TestFindMarkdownFiles_FindsAllMarkdownFiles verifies that FindMarkdownFiles finds all markdown files in a directory
@@ -262,41 +278,195 @@ func TestFindMarkdownFiles_SkipsIgnoredDirectories(t *testing.T) {
 
 // TestUpdateAllUserStoryMetadata_UpdatesAllFiles verifies that UpdateAllUserStoryMetadata updates all markdown files
 func TestUpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
-	// TODO: Fix this test to properly verify that all markdown files are updated
-	//       The current implementation has issues with the mock filesystem
-	//       This may require updating the mock filesystem implementation
-	t.Skip("Skipping test due to issues with mock filesystem")
+	// TODO: Fix this test by investigating why the mock filesystem does not properly handle file updates
+	// The test is failing because files with updated metadata are not showing the changes when read back, 
+	// so it appears no updates have been made even though the internal functions are correctly called.
+	t.Skip("Test skipped due to issues with mock filesystem implementation")
 	
-	fs := NewWriteTrackingMockFileSystem()
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
 	
-	// Create test directories
+	// Create directory structure
 	fs.AddDirectory("docs")
 	fs.AddDirectory("docs/user-stories")
+	fs.AddDirectory("docs/user-stories/feature1")
+	fs.AddDirectory("docs/user-stories/feature2")
+	fs.AddDirectory("docs/changes-request")
 	
-	// Add files with test content
-	fs.AddFile("docs/user-stories/story1.md", []byte("# Story 1\nContent for story 1\n"))
-	fs.AddFile("docs/user-stories/story2.md", []byte("# Story 2\nContent for story 2\n"))
+	// Create test files
+	testFiles := []struct {
+		path    string
+		content string
+	}{
+		{
+			path:    "docs/user-stories/feature1/story1.md",
+			content: "# Story 1\n\nThis is story 1.",
+		},
+		{
+			path:    "docs/user-stories/feature1/story2.md",
+			content: "# Story 2\n\nThis is story 2.",
+		},
+		{
+			path:    "docs/user-stories/feature2/story3.md",
+			content: "# Story 3\n\nThis is story 3.",
+		},
+		{
+			path:    "docs/changes-request/cr1.md",
+			content: "# Change Request 1\n\nThis is a change request.",
+		},
+	}
 	
-	// Track that data contains metadata
-	writeDataVerified := false
-	fs.AddWriteCallback(func(path string, data []byte) {
-		content := string(data)
-		assert.Contains(t, content, "file_path:")
-		assert.Contains(t, content, "created_at:")
-		assert.Contains(t, content, "last_updated:")
-		assert.Contains(t, content, "_content_hash:")
-		writeDataVerified = true
-	})
+	for _, file := range testFiles {
+		fs.AddFile(file.path, []byte(file.content))
+	}
 	
-	// Update all user story metadata
-	updatedFiles, unchangedFiles, hashMap, err := UpdateAllUserStoryMetadata("docs/user-stories", "", fs)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(updatedFiles)+len(unchangedFiles))
-	assert.Equal(t, 2, len(hashMap))
+	// Update all metadata
+	updatedFiles, unchangedFiles, hashMap, err := UpdateAllUserStoryMetadata("docs/user-stories", ".", fs)
+	require.NoError(t, err)
 	
-	// Verify WriteFile was called for both files
-	assert.Equal(t, 2, fs.GetWriteCount())
-	assert.Contains(t, fs.GetWrittenPaths(), "docs/user-stories/story1.md")
-	assert.Contains(t, fs.GetWrittenPaths(), "docs/user-stories/story2.md")
-	assert.True(t, writeDataVerified, "Write data was not verified via callback")
+	// Verify results
+	assert.Equal(t, 3, len(updatedFiles), "Expected 3 files to be updated")
+	assert.Equal(t, 0, len(unchangedFiles), "Expected 0 files to be unchanged")
+	assert.Equal(t, 3, len(hashMap), "Expected 3 entries in the hash map")
+	
+	// Check that each user story file was updated with metadata
+	for _, file := range testFiles {
+		if filepath.Ext(file.path) == ".md" && filepath.Dir(file.path) != "docs/changes-request" {
+			// Get the last write operation
+			writeOp, exists := fs.GetLastWrite(file.path)
+			require.True(t, exists, "Expected a write operation for "+file.path)
+			
+			// Check updated content
+			updatedContent := string(writeOp.Content)
+			
+			// Verify that metadata was added
+			assert.Contains(t, updatedContent, "---")
+			assert.Contains(t, updatedContent, "file_path:")
+			assert.Contains(t, updatedContent, file.path)
+			assert.Contains(t, updatedContent, "created_at:")
+			assert.Contains(t, updatedContent, "last_updated:")
+			assert.Contains(t, updatedContent, "_content_hash:")
+			
+			// Verify that the original content was preserved
+			assert.Contains(t, updatedContent, file.content)
+		}
+	}
+	
+	// Verify that change request file was not updated
+	_, exists := fs.GetLastWrite("docs/changes-request/cr1.md")
+	assert.False(t, exists, "Change request file should not have been updated")
+}
+
+func TestUpdateFileMetadata_PreservesOriginalCreationDate(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create time values
+	originalTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	
+	// Create a file with existing metadata
+	existingMetadata := fmt.Sprintf("---\nfile_path: docs/user-stories/test.md\ncreated_at: %s\nlast_updated: %s\n_content_hash: original-hash\n---\n\n",
+		originalTime.Format(time.RFC3339),
+		originalTime.Format(time.RFC3339))
+	
+	content := existingMetadata + "# Test File\n\nThis is a test file."
+	fs.AddFile("docs/user-stories/test.md", []byte(content))
+	
+	// Update metadata
+	updated, hashMap, err := UpdateFileMetadata("docs/user-stories/test.md", ".", fs)
+	require.NoError(t, err)
+	
+	// Verify the function returned the expected values
+	assert.True(t, updated, "The file should have been updated")
+	assert.NotEqual(t, "original-hash", hashMap.NewHash, "A new hash should have been calculated")
+	assert.Equal(t, "original-hash", hashMap.OldHash, "Old hash should match the original")
+	assert.True(t, hashMap.Changed, "Content should be marked as changed")
+	
+	// Get the last write operation
+	writeOp, exists := fs.GetLastWrite("docs/user-stories/test.md")
+	require.True(t, exists, "Expected a write operation to occur")
+	
+	// Extract metadata from updated content
+	updatedContent := string(writeOp.Content)
+	updatedMetadata, err := ExtractMetadata(updatedContent)
+	require.NoError(t, err)
+	
+	// Verify that creation date is preserved
+	assert.Equal(t, originalTime.Format(time.RFC3339), updatedMetadata.CreatedAt.Format(time.RFC3339), 
+		"Creation date should be preserved")
+}
+
+func TestUpdateFileMetadata_UpdatesLastUpdatedForChangedContent(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create time values
+	originalTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	
+	// Create a file with existing metadata
+	existingMetadata := fmt.Sprintf("---\nfile_path: docs/user-stories/test.md\ncreated_at: %s\nlast_updated: %s\n_content_hash: original-hash\n---\n\n",
+		originalTime.Format(time.RFC3339),
+		originalTime.Format(time.RFC3339))
+	
+	content := existingMetadata + "# Test File\n\nThis is a test file with updated content."
+	fs.AddFile("docs/user-stories/test.md", []byte(content))
+	
+	// Update metadata
+	updated, hashMap, err := UpdateFileMetadata("docs/user-stories/test.md", ".", fs)
+	require.NoError(t, err)
+	
+	// Verify the function returned the expected values
+	assert.True(t, updated, "The file should have been updated")
+	assert.NotEqual(t, "original-hash", hashMap.NewHash, "A new hash should have been calculated")
+	assert.Equal(t, "original-hash", hashMap.OldHash, "Old hash should match the original")
+	assert.True(t, hashMap.Changed, "Content should be marked as changed")
+	
+	// Get the last write operation
+	writeOp, exists := fs.GetLastWrite("docs/user-stories/test.md")
+	require.True(t, exists, "Expected a write operation to occur")
+	
+	// Extract metadata from updated content
+	updatedContent := string(writeOp.Content)
+	updatedMetadata, err := ExtractMetadata(updatedContent)
+	require.NoError(t, err)
+	
+	// Verify that last updated is changed
+	assert.NotEqual(t, originalTime.Format(time.RFC3339), updatedMetadata.LastUpdated.Format(time.RFC3339), 
+		"Last updated date should be changed for content changes")
+}
+
+func TestUpdateFileMetadata_SkipsUpdateForUnchangedContent(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create test content and calculate its hash
+	testContent := "# Test File\n\nThis is test content."
+	contentHash := CalculateContentHash(testContent)
+	
+	// Create existing metadata with the correct hash
+	existingMetadata := fmt.Sprintf("---\nfile_path: docs/user-stories/test.md\ncreated_at: %s\nlast_updated: %s\n_content_hash: %s\n---\n\n",
+		time.Now().Format(time.RFC3339),
+		time.Now().Format(time.RFC3339),
+		contentHash)
+	
+	// Create full file content
+	fullContent := existingMetadata + testContent
+	fs.AddFile("docs/user-stories/test.md", []byte(fullContent))
+	
+	// Record initial write operations count
+	initialWriteOps := len(fs.WriteOps)
+	
+	// Update metadata
+	updated, hashMap, err := UpdateFileMetadata("docs/user-stories/test.md", ".", fs)
+	require.NoError(t, err)
+	
+	// Verify the function returned the expected values
+	assert.False(t, updated, "The file should not have been updated")
+	assert.Equal(t, contentHash, hashMap.NewHash, "New hash should match the original")
+	assert.Equal(t, contentHash, hashMap.OldHash, "Old hash should match the original")
+	assert.False(t, hashMap.Changed, "Content should not be marked as changed")
+	
+	// Check if any new write operations occurred
+	assert.Equal(t, initialWriteOps, len(fs.WriteOps), 
+		"No write operations should happen for unchanged content")
 } 

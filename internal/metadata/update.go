@@ -15,6 +15,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// SkippedDirectories is a list of directories to skip when scanning for markdown files
+var SkippedDirectories = []string{
+	"node_modules",
+	".git",
+	"dist",
+	"build",
+	"vendor",  // Added vendor directory to skip
+	"tmp",     // Added tmp directory to skip
+	"temp",    // Added temp directory to skip
+	".cache",  // Added .cache directory to skip
+	".github", // Added .github directory to skip
+}
+
 // UpdateFileMetadata updates the metadata section of a file
 // Returns:
 // - bool: whether the file was updated
@@ -28,19 +41,19 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 	// Get file info
 	fileInfo, err := fs.Stat(filePath)
 	if err != nil {
-		return false, hashMap, err
+		return false, hashMap, fmt.Errorf("failed to get file info: %w", err)
 	}
 
 	// Read file content
 	content, err := fs.ReadFile(filePath)
 	if err != nil {
-		return false, hashMap, err
+		return false, hashMap, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	// Extract existing metadata
 	existingMetadata, err := ExtractMetadata(string(content))
 	if err != nil {
-		return false, hashMap, err
+		return false, hashMap, fmt.Errorf("failed to extract metadata: %w", err)
 	}
 
 	// Calculate content hash
@@ -63,6 +76,9 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 	if string(currentMetadataBytes) == newMetadata || 
 		(len(currentMetadataBytes) == 0 && len(existingMetadata.RawMetadata) == 0 && contentWithoutMetadata == string(content)) {
 		// No changes needed
+		logger.Debug("No metadata changes needed", 
+			zap.String("file", filePath),
+			zap.Bool("content_changed", hashMap.Changed))
 		return false, hashMap, nil
 	}
 
@@ -70,19 +86,39 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 	newContent := newMetadata + contentWithoutMetadata
 	err = fs.WriteFile(filePath, []byte(newContent), fileInfo.Mode())
 	if err != nil {
-		return false, hashMap, err
+		return false, hashMap, fmt.Errorf("failed to write updated file: %w", err)
 	}
 
+	logger.Debug("Updated file metadata", 
+		zap.String("file", filePath),
+		zap.Bool("content_changed", hashMap.Changed),
+		zap.String("new_hash", contentHash))
+
 	return true, hashMap, nil
+}
+
+// ShouldSkipDirectory checks if the directory should be skipped
+func ShouldSkipDirectory(dirName string) bool {
+	for _, skipDir := range SkippedDirectories {
+		if dirName == skipDir {
+			return true
+		}
+	}
+	return false
 }
 
 // FindMarkdownFiles recursively finds all markdown files in a directory
 func FindMarkdownFiles(dir string, fs io.FileSystem) ([]string, error) {
 	var files []string
 
+	// Check if the directory exists
+	if !fs.Exists(dir) {
+		return files, fmt.Errorf("directory not found: %s", dir)
+	}
+
 	entries, err := fs.ReadDir(dir)
 	if err != nil {
-		return files, err
+		return files, fmt.Errorf("failed to read directory %s: %w", dir, err)
 	}
 
 	for _, entry := range entries {
@@ -91,7 +127,7 @@ func FindMarkdownFiles(dir string, fs io.FileSystem) ([]string, error) {
 		// Skip ignored directories
 		if entry.IsDir() {
 			base := filepath.Base(path)
-			if base == "node_modules" || base == ".git" || base == "dist" || base == "build" {
+			if ShouldSkipDirectory(base) {
 				logger.Debug("Skipping directory", zap.String("dir", path))
 				continue
 			}
@@ -99,7 +135,11 @@ func FindMarkdownFiles(dir string, fs io.FileSystem) ([]string, error) {
 			// Recursively process subdirectories
 			subfiles, err := FindMarkdownFiles(path, fs)
 			if err != nil {
-				return files, err
+				logger.Warn("Error scanning subdirectory", 
+					zap.String("dir", path), 
+					zap.Error(err))
+				// Continue scanning other directories even if one fails
+				continue
 			}
 			files = append(files, subfiles...)
 		} else if strings.HasSuffix(strings.ToLower(path), ".md") {
@@ -125,9 +165,15 @@ func UpdateAllUserStoryMetadata(userStoriesDir, root string, fs io.FileSystem) (
 		return nil, nil, nil, fmt.Errorf("failed to find markdown files: %w", err)
 	}
 
+	if len(files) == 0 {
+		logger.Warn("No markdown files found in directory", zap.String("dir", userStoriesDir))
+		return nil, nil, nil, nil
+	}
+
 	updatedFiles := make([]string, 0, len(files))
 	unchangedFiles := make([]string, 0, len(files))
 	hashMap := make(ContentChangeMap)
+	errors := make([]string, 0) // Track any errors during processing
 
 	// Update metadata for each file
 	for _, file := range files {
@@ -138,7 +184,7 @@ func UpdateAllUserStoryMetadata(userStoriesDir, root string, fs io.FileSystem) (
 			logger.Error("Failed to update metadata", 
 				zap.String("file", file), 
 				zap.Error(err))
-			fmt.Printf("Error updating %s: %s\n", file, err)
+			errors = append(errors, fmt.Sprintf("%s: %s", file, err.Error()))
 			continue
 		}
 
@@ -154,6 +200,27 @@ func UpdateAllUserStoryMetadata(userStoriesDir, root string, fs io.FileSystem) (
 			unchangedFiles = append(unchangedFiles, relPath)
 		}
 	}
+
+	// If there were any errors, log a summary
+	if len(errors) > 0 {
+		logger.Warn("Some files could not be updated", 
+			zap.Int("error_count", len(errors)),
+			zap.Strings("errors", errors))
+	}
+
+	// Stats for logging
+	stats := map[string]int{
+		"total": len(files),
+		"updated": len(updatedFiles),
+		"unchanged": len(unchangedFiles),
+		"errors": len(errors),
+	}
+
+	logger.Info("Completed user story metadata update", 
+		zap.Int("total", stats["total"]),
+		zap.Int("updated", stats["updated"]),
+		zap.Int("unchanged", stats["unchanged"]),
+		zap.Int("errors", stats["errors"]))
 
 	return updatedFiles, unchangedFiles, hashMap, nil
 } 

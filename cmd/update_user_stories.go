@@ -31,7 +31,9 @@ and ensures each has an up-to-date metadata section containing:
 - Content hash (hidden with underscore prefix)
 
 By default, it also updates content hash references in change request files when user story
-content changes. Use the --skip-references flag to disable this behavior.`,
+content changes. Use the --skip-references flag to disable this behavior.
+
+Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .github are automatically skipped.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logger.Info("Updating user story metadata")
 		
@@ -90,13 +92,17 @@ content changes. Use the --skip-references flag to disable this behavior.`,
 		}
 		
 		// Print summary of user story updates
-		for _, file := range updatedFiles {
-			fmt.Printf("✅ Updated metadata for: %s\n", file)
+		if len(updatedFiles) > 0 {
+			fmt.Println("📋 Updated user story metadata:")
+			for _, file := range updatedFiles {
+				fmt.Printf("   ✅ %s\n", file)
+			}
 		}
 		
-		for _, file := range unchangedFiles {
-			if debug {
-				fmt.Printf("ℹ️ No changes needed for: %s\n", file)
+		if debug && len(unchangedFiles) > 0 {
+			fmt.Println("📋 Unchanged user stories:")
+			for _, file := range unchangedFiles {
+				fmt.Printf("   ℹ️ %s\n", file)
 			}
 		}
 		
@@ -110,21 +116,26 @@ content changes. Use the --skip-references flag to disable this behavior.`,
 			logger.Info("Updating change request references")
 			
 			// Update change request references
-			updatedRefs, unchangedRefs, err := metadata.UpdateAllChangeRequestReferences(root, hashMap, fs)
+			updatedRefs, unchangedRefs, referencesUpdated, err := metadata.UpdateAllChangeRequestReferences(root, hashMap, fs)
 			if err != nil {
 				logger.Error("Failed to update change request references", zap.Error(err))
 				fmt.Fprintf(os.Stderr, "Error: Failed to update change request references: %s\n", err)
 			} else {
 				// Print summary of reference updates
-				for _, file := range updatedRefs {
-					fmt.Printf("✅ Updated references in: %s\n", file)
+				if len(updatedRefs) > 0 {
+					fmt.Println("📋 Updated change request references:")
+					for _, file := range updatedRefs {
+						fmt.Printf("   ✅ %s\n", file)
+					}
+					fmt.Printf("   📊 Total references updated: %d\n", referencesUpdated)
 				}
 				
 				if len(updatedRefs) > 0 || len(unchangedRefs) > 0 {
 					logger.Debug("Processing of change requests complete", 
 						zap.Int("total", len(updatedRefs) + len(unchangedRefs)), 
 						zap.Int("updated", len(updatedRefs)), 
-						zap.Int("unchanged", len(unchangedRefs)))
+						zap.Int("unchanged", len(unchangedRefs)),
+						zap.Int("references_updated", referencesUpdated))
 					
 					fmt.Printf("✨ Processed %d change request files (%d updated, %d unchanged)\n", 
 						len(updatedRefs) + len(unchangedRefs),
@@ -138,6 +149,9 @@ content changes. Use the --skip-references flag to disable this behavior.`,
 		} else if skipReferences {
 			logger.Debug("Skipping change request reference updates")
 			fmt.Println("ℹ️ Skipped change request reference updates (--skip-references flag used)")
+		} else if len(hashMap) == 0 {
+			logger.Debug("No content changes detected, skipping reference updates")
+			fmt.Println("ℹ️ No content changes detected, skipping reference updates")
 		}
 		
 		fmt.Printf("✨ Processed %d user story files (%d updated, %d unchanged)\n", 
