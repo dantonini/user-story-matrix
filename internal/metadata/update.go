@@ -86,8 +86,12 @@ func UpdateFileMetadata(filePath, root string, fs io.FileSystem) (bool, ContentH
 	// Check if metadata has changed (to avoid unnecessary updates)
 	currentMetadataBytes := metadataRegex.Find(content)
 	
-	if string(currentMetadataBytes) == newMetadata || 
-		(len(currentMetadataBytes) == 0 && len(existingMetadata.RawMetadata) == 0 && contentWithoutMetadata == string(content)) {
+	// FIXED CONDITION: A file needs updating if any of these conditions are true:
+	// 1. The file has no metadata section at all (len(currentMetadataBytes) == 0)
+	// 2. The existing metadata doesn't match the new metadata
+	needsUpdate := len(currentMetadataBytes) == 0 || string(currentMetadataBytes) != newMetadata
+	
+	if !needsUpdate {
 		// No changes needed
 		logger.Debug("No metadata changes needed", 
 			zap.String("file", filePath),

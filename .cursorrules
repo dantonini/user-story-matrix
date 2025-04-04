@@ -73,6 +73,8 @@ Ensure to include tests for all the code you write.
 - Sometimes, Smoke Test IO: Testing the pure logic is generally our objective, but obviously we have to interact with IO at some point. This is where integration tests come in: You can do all the verbose testing of your pure functions via integration test, and then do a happy path smoke test with real IO. This goes a long way toward simplifying and expediting your testing processes.
 - Sometimes you need to write real files on the file system: write always in a temporary directory under REPO_ROOT/output/<subdir> and clean up after yourself.
 - Don’t Test Main: The main() function is really not very testable — just keep it small! No business logic should live in main; its sole job should be to parse the environment into structured options, set up injectable IO providers, and run your real main in a library that takes in these providers and structured options.
+- Test coverage is important check it regularly.
+- Use integration test approach using a real filesystem in a temporary directory when you have to test complex filesystem operations. 
 
 # Error messages
 You are obsessed with both user and developer experience. 

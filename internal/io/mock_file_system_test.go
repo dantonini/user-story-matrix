@@ -6,6 +6,7 @@
 package io
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -97,4 +98,46 @@ func TestMockFileSystemStat(t *testing.T) {
 	// Test getting info for a non-existent file
 	_, err = fs.Stat("non-existent-file.txt")
 	assert.Error(t, err)
+}
+
+// TestMockFileSystemGetLastWrite tests the GetLastWrite method of the mock file system
+func TestMockFileSystemGetLastWrite(t *testing.T) {
+	fs := NewMockFileSystem()
+	
+	// Test when no writes have occurred
+	write, exists := fs.GetLastWrite("test-file.txt")
+	assert.False(t, exists, "GetLastWrite should return false for non-existent file")
+	assert.Empty(t, write.Content, "Write operation content should be empty for non-existent file")
+	
+	// Create a file with initial content
+	initialContent := []byte("Initial content")
+	err := fs.WriteFile("test-file.txt", initialContent, 0644)
+	assert.NoError(t, err, "WriteFile should not return an error")
+	
+	// Get the last write operation
+	write, exists = fs.GetLastWrite("test-file.txt")
+	assert.True(t, exists, "GetLastWrite should return true for existing file")
+	assert.Equal(t, string(initialContent), string(write.Content), "Last write content should match initial content")
+	
+	// Update the file with new content
+	updatedContent := []byte("Updated content")
+	err = fs.WriteFile("test-file.txt", updatedContent, 0644)
+	assert.NoError(t, err, "WriteFile should not return an error")
+	
+	// Get the last write operation again
+	write, exists = fs.GetLastWrite("test-file.txt")
+	assert.True(t, exists, "GetLastWrite should return true for existing file")
+	assert.Equal(t, string(updatedContent), string(write.Content), "Last write content should match updated content")
+	
+	// Verify multiple writes are tracked correctly
+	for i := 0; i < 5; i++ {
+		content := []byte(fmt.Sprintf("Content update %d", i))
+		err = fs.WriteFile("test-file.txt", content, 0644)
+		assert.NoError(t, err, "WriteFile should not return an error")
+		
+		// Verify the last write
+		write, exists = fs.GetLastWrite("test-file.txt")
+		assert.True(t, exists, "GetLastWrite should return true for existing file")
+		assert.Equal(t, string(content), string(write.Content), "Last write content should match the latest update")
+	}
 } 
