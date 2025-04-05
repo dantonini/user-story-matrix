@@ -164,14 +164,13 @@ Goal:
 
 Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-		`,
+- Read the blueprint using cat ${change_request_file_path}`,
 	},{
-		ID:          "01-laying-the-foundation-accomplished",
-		Description: "Laying the foundation accomplished - Summary of the changes",
+		ID:          "01-laying-the-foundation-test",
+		Description: "Laying the foundation test - Verifying the structural changes",
 		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
-You made some structural changes to the codebase, now your task is:
+Some structural changes has been made to the codebase, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
 - If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
 
@@ -182,18 +181,25 @@ You made some structural changes to the codebase, now your task is:
 
 Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-		`,
+- Read the blueprint using cat ${change_request_file_path}`,
 	},
 	{
 		ID:          "01-make-lint",
 		Description: "Make lint - Ensure the codebase is linted and formatted",
 		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
+	},{
+		ID:          "01-make-coverage",
+		Description: "Make coverage - Ensure the codebase is covered by tests",
+		Prompt:      "Execute the command: 'make coverage && ./coverage' and ensure to determine the coverage percentage",
+	},{
+		ID:          "01-make-coverage-report",
+		Description: "Make coverage report - Update the accomplishment report",
+		Prompt:      "Update the accomplishment report ${change_request_file_path}.01-foundation.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "02-mvi",
 		Description: "Minimum Viable Implementation - Building the core functionality",
-		Prompt:      `You are about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
+		Prompt:      `You are a software engineer about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -238,33 +244,75 @@ Your task is to build the **simplest working implementation** for each user stor
 - Avoid building more than what's needed to pass the tests and meet the blueprint requirements.
 - Defer enhancements and broader handling to future iterations.
 
----
-
-## ✅ Final Check
-
-After completing MVI for all user stories:
-
-- Run the test suite again to confirm full functionality.
-- Ensure each feature is backed by at least one clear, reliable test.
-- Write a summary of what you've accomplished.
-
----
-
-Read a set of user stories using the command: ./usm cat ${change_request_file_path}
-Read the implementation plan using the command: cat ${change_request_file_path}
-Read the "laying the foundation" accomplished summary using the command: ${change_request_file_path}.01-foundation.accomplished.md
- 
-Now build the MVI for each user story.
-
-At the end of your task write the summary of what you accomplished in ${change_request_file_path}.02-mvi.accomplished.md
-Ensure to include a user story implementation section:
-- in this section I'd like to have an easy way to check each acceptance criterion. I rely only on "facts". Please add explicit reference (no code at all, just a compact/understable reference to lookup for) to which test ensure that criterion is met. If no test was written about that specific criterion, mention it.
+Now build the MVI for each user story:
+- Read a set of user stories using the command: ./usm cat ${change_request_file_path}
+- Read the implementation plan using the command: cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
 `,
 	},
 	{
+		ID:          "02-mvi-accomplished",
+		Description: "Minimum Viable Implementation accomplished - Summary of the changes",
+		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+
+The whole iteration was composed by 4 phases:
+- Laid the foundation (sketch the solution, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria [Current step]
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to document what has been accomplished so far in the file ${change_request_file_path}.02-mvi.accomplished.md
+
+The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
+Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
+For example:
+- Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+- Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+- Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+- Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+- Include any changes to original design decisions
+
+Goal:
+- Describe the changes you made to the codebase to prepare it for the upcoming changes.
+- Describe how the subsequent phases should be executed relying on the current state of the codebase.
+
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+`,
+	},{
 		ID:          "02-mvi-test",
-		Description: "Minimum Viable Implementation testing - Verifying the core functionality",
-		Prompt:      "Ensure all the tests are passing for the minimum viable implementation based on the blueprint at ${change_request_file_path}. Ensure all basic functionality works as expected.",
+		Description: "Minimum Viable Implementation test - Verifying the core functionality",
+		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+
+The MVI has been built, now your task is:
+- Run the full test suite to confirm no regressions have been introduced.
+- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
+
+📘 Instructions
+- Clearly document each architectural or structural decision, especially where existing components were modified.
+- Leave TODOs or comments where further implementation will happen in later phases.
+- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
+
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+`,
+	},
+	{
+		ID:          "02-mvi-lint",
+		Description: "MVI lint - Ensure the codebase is linted and formatted",
+		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
+	},{
+		ID:          "02-mvi-coverage",
+		Description: "MVI coverage - Ensure the codebase is covered by tests",
+		Prompt:      "Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the MVI new code.",
+	},{
+		ID:          "02-mvi-coverage-report",
+		Description: "MVI coverage report - Update the accomplishment report",
+		Prompt:      "Update the accomplishment report ${change_request_file_path}.02-mvi.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "03-extend-functionalities",
