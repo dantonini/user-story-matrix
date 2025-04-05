@@ -90,7 +90,7 @@ var StandardWorkflowSteps = []WorkflowStep{
 		Prompt:      `You are a senior software engineer about to begin a new iteration of software development based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
-- Laid the foundation (scaffoling the solution, placeholders, key abstractions)
+- Laid the foundation (sketch the solution, placeholders, key abstractions)
 - Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
@@ -105,64 +105,90 @@ This phase includes two core responsibilities:
 
 # Architecture & Design Setup
 Analyze the blueprint and user stories to identify the new modules, services, or components that will be needed.
-Design the structural layout of these new elements, even if they are not yet fully implemented.
+Design the structural layout of these new elements, they need to be sketched with minimal implementation details.
 Define key interfaces, APIs, class responsibilities, and high-level data flows.
-Introduce placeholders (e.g., method stubs, empty classes, files) as needed to scaffold the system and ensure developers can start working on each part independently.
+Introduce placeholders (e.g., method stubs, empty classes, files) as needed to sketch the solution and ensure developers can start working on each part independently.
 
 Deliverables:
-
 - Skeletons of new modules, files, and class/functions definitions
-- Use a lot of comments / TODO and dummy implementations 
+- Use a lot of comments / TODO and dummy implementations to guide the future implementation
 - Basic integration points with existing code
 - Updated diagrams or descriptions (if applicable)
+- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
 
 Goal:
 - To create a solid, extensible structure that reflects the target design and allows iterative implementation with minimal rework.
 
 # Refactoring / Re-architecting
-Assess the existing codebase for parts that block or conflict with the new blueprint.
-Identify code smells, tight couplings, or brittle logic that could hinder future development.
-Carefully refactor or re-architect areas that require cleanup or realignment to match the upcoming design.
-Maintain behavior during this process—this is not about adding new features yet.
+This phase is about to prepare the codebase to make it easier to implement the upcoming changes.
+Hence we need to:
+- Assess the existing codebase for parts that block or conflict with the new blueprint.
+- Identify code smells, tight couplings, or brittle logic that could hinder future development.
+- Carefully refactor or re-architect areas that require cleanup or realignment to match the upcoming design.
+- Maintain existing behavior during this process — this is not about adding new features yet.
 
 Deliverables:
 - Refactored modules or components with improved structure
 - Simplified interfaces or decoupled logic
 - Regression tests to ensure no existing functionality breaks
-- An accomplishment report in ${change_request_file_path}.01-foundation.accomplished.md
+
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+		`,
+	},{
+		ID:          "01-laying-the-foundation-accomplished",
+		Description: "Laying the foundation accomplished - Summary of the changes",
+		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+
+The whole iteration was composed by 4 phases:
+- Laid the foundation (sketch the solution, placeholders, key abstractions) [Current step]
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to document what has been accomplished so far in the file ${change_request_file_path}.01-foundation.accomplished.md
 
 The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
-Use always short code references (no code at all, 
- just a compact/understable reference to lookup for, do not use line numbers) 
- as foundation of your statements
- For example:
- - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
- - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
- - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
- - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
- - Include any changes to original design decisions
+Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
+For example:
+- Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+- Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+- Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+- Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+- Include any changes to original design decisions
 
 Goal:
-- To reduce technical debt and align the current codebase with the structural needs of the upcoming iteration.
+- Describe the changes you made to the codebase to prepare it for the upcoming changes.
+- Describe how the subsequent phases should be executed relying on the current state of the codebase.
 
-# Mandatory Testing Requirements
-After refactoring or structural changes, run the full test suite to confirm no regressions have been introduced.
-If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+		`,
+	},{
+		ID:          "01-laying-the-foundation-accomplished",
+		Description: "Laying the foundation accomplished - Summary of the changes",
+		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+
+You made some structural changes to the codebase, now your task is:
+- Run the full test suite to confirm no regressions have been introduced.
+- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
 
 📘 Instructions
 - Clearly document each architectural or structural decision, especially where existing components were modified.
 - Leave TODOs or comments where further implementation will happen in later phases.
-- Do not implement the full logic yet—this phase is strictly for setting up structure and enabling smooth feature delivery.
+- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
 
-Now:
-Read the user stories using ./usm cat ${change_request_file_path}
-Read the blueprint using cat ${change_request_file_path}
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
 		`,
 	},
 	{
-		ID:          "01-laying-the-foundation-test",
-		Description: "Laying the foundation testing - Verifying the foundational changes",
-		Prompt:      "Ensure all the tests are passing for the foundational changes implemented based on the blueprint at ${change_request_file_path}. Verify that the structure is appropriate and tests are in place.",
+		ID:          "01-make-lint",
+		Description: "Make lint - Ensure the codebase is linted and formatted",
+		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
 	},
 	{
 		ID:          "02-mvi",
