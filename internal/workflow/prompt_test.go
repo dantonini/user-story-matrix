@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestWorkflowStepStructure(t *testing.T) {
@@ -35,18 +34,16 @@ func TestInterpolatePrompt(t *testing.T) {
 	fullpath := filepath.Join(dir, base)
 	stepID := "01-test-step"
 	stepName := "test-step"
-	timestamp := time.Now().Format("20060102-150405")
 	
 	// Create variables for testing
 	vars := PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
 		ChangeRequestBasename: base,
 		BlueprintBasename:     base,
-		Dirname:               dir,
+		ChangeRequestDirname:  dir,
 		StepID:                stepID,
 		StepName:              stepName,
-		Fullpath:              fullpath,
-		Timestamp:             timestamp,
+		ChangeRequestFullpath: fullpath,
 		Basename:              base, // Deprecated
 	}
 	
@@ -72,13 +69,13 @@ func TestInterpolatePrompt(t *testing.T) {
 		},
 		{
 			name:     "Mix of path and prompt variables",
-			prompt:   "Output will be saved to ${dirname}/results/${stepname}_${timestamp}.md",
-			expected: "Output will be saved to " + dir + "/results/" + stepName + "_" + timestamp + ".md",
+			prompt:   "Output will be saved to ${dirname}/results/${stepname}.md",
+			expected: "Output will be saved to " + dir + "/results/" + stepName + ".md",
 		},
 		{
 			name:     "All variables in one prompt",
-			prompt:   "${change_request_file_path} ${change_request_basename} ${blueprint_basename} ${dirname} ${stepid} ${stepname} ${fullpath} ${timestamp} ${basename}",
-			expected: changeRequestPath + " " + base + " " + base + " " + dir + " " + stepID + " " + stepName + " " + fullpath + " " + timestamp + " " + base,
+			prompt:   "${change_request_file_path} ${change_request_basename} ${blueprint_basename} ${dirname} ${stepid} ${stepname} ${fullpath} ${basename}",
+			expected: changeRequestPath + " " + base + " " + base + " " + dir + " " + stepID + " " + stepName + " " + fullpath + " " + base,
 		},
 		{
 			name:     "No variables",
@@ -159,11 +156,10 @@ func TestInterpolatePromptWithMap(t *testing.T) {
 		"change_request_file_path": "/path",
 		"user_name":                "john",
 		"project_id":               "123",
-		"timestamp":                "2025-04-01",
 	}
 	
-	complexPrompt := "User ${user_name} is working on project ${project_id} at ${timestamp} using ${change_request_file_path}"
-	complexExpected := "User john is working on project 123 at 2025-04-01 using /path"
+	complexPrompt := "User ${user_name} is working on project ${project_id} using ${change_request_file_path}"
+	complexExpected := "User john is working on project 123 using /path"
 	complexResult := interpolatePromptWithMap(complexPrompt, complexVarMap)
 	
 	if complexResult != complexExpected {

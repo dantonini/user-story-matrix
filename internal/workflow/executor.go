@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // StepExecutor handles the execution of workflow steps
@@ -57,20 +56,16 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {
 		stepName = parts[1]
 	}
-	
-	// Generate timestamp
-	timestamp := time.Now().Format("20060102-150405")
 
 	// Process the prompt with variable interpolation
 	processedPrompt, missingVars := InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
 		ChangeRequestBasename: base,
 		BlueprintBasename:     base,
-		Dirname:               dir,
+		ChangeRequestDirname:  dir,
 		StepID:                step.ID,
 		StepName:              stepName,
-		Fullpath:              fullpath,
-		Timestamp:             timestamp,
+		ChangeRequestFullpath: fullpath,
 		Basename:              base, // Deprecated
 	})
 

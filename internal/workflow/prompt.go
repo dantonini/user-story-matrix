@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // PromptVariables contains variables that can be interpolated into a prompt
@@ -18,11 +17,10 @@ type PromptVariables struct {
 	ChangeRequestFilePath   string
 	ChangeRequestBasename   string
 	BlueprintBasename       string
-	Dirname                 string
+	ChangeRequestDirname    string
 	StepID                  string
 	StepName                string
-	Fullpath                string
-	Timestamp               string
+	ChangeRequestFullpath   string
 	Basename                string // Deprecated, use ChangeRequestBasename instead
 }
 
@@ -66,11 +64,18 @@ func InterpolatePrompt(prompt string, variables PromptVariables) string {
 	result = strings.ReplaceAll(result, "${change_request_file_path}", variables.ChangeRequestFilePath)
 	result = strings.ReplaceAll(result, "${change_request_basename}", variables.ChangeRequestBasename)
 	result = strings.ReplaceAll(result, "${blueprint_basename}", variables.BlueprintBasename)
-	result = strings.ReplaceAll(result, "${dirname}", variables.Dirname)
+	
+	// Support both old and new variable names for dirname
+	result = strings.ReplaceAll(result, "${change_request_dirname}", variables.ChangeRequestDirname)
+	result = strings.ReplaceAll(result, "${dirname}", variables.ChangeRequestDirname) // For backward compatibility
+	
 	result = strings.ReplaceAll(result, "${stepid}", variables.StepID)
 	result = strings.ReplaceAll(result, "${stepname}", variables.StepName)
-	result = strings.ReplaceAll(result, "${fullpath}", variables.Fullpath)
-	result = strings.ReplaceAll(result, "${timestamp}", variables.Timestamp)
+	
+	// Support both old and new variable names for fullpath
+	result = strings.ReplaceAll(result, "${change_request_fullpath}", variables.ChangeRequestFullpath)
+	result = strings.ReplaceAll(result, "${fullpath}", variables.ChangeRequestFullpath) // For backward compatibility
+	
 	// Support deprecated variable
 	result = strings.ReplaceAll(result, "${basename}", variables.Basename)
 
@@ -130,11 +135,12 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 		"change_request_file_path": variables.ChangeRequestFilePath,
 		"change_request_basename":  variables.ChangeRequestBasename,
 		"blueprint_basename":       variables.BlueprintBasename,
-		"dirname":                  variables.Dirname,
+		"change_request_dirname":   variables.ChangeRequestDirname,
+		"dirname":                  variables.ChangeRequestDirname, // For backward compatibility
 		"stepid":                   variables.StepID,
 		"stepname":                 variables.StepName,
-		"fullpath":                 variables.Fullpath,
-		"timestamp":                variables.Timestamp,
+		"change_request_fullpath":  variables.ChangeRequestFullpath,
+		"fullpath":                 variables.ChangeRequestFullpath, // For backward compatibility
 		"basename":                 variables.Basename, // Deprecated
 	}
 	
@@ -217,19 +223,15 @@ func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 		stepName = parts[1]
 	}
 	
-	// Generate timestamp
-	timestamp := time.Now().Format("20060102-150405")
-	
 	// Create variables for interpolation
 	vars := PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
 		ChangeRequestBasename: base,
 		BlueprintBasename:     base,
-		Dirname:               dir,
+		ChangeRequestDirname:  dir,
 		StepID:                step.ID,
 		StepName:              stepName,
-		Fullpath:              fullpath,
-		Timestamp:             timestamp,
+		ChangeRequestFullpath: fullpath,
 		Basename:              base, // Deprecated
 	}
 	

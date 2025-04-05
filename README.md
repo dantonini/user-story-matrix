@@ -159,7 +159,7 @@ usm code --reset docs/changes-request/my-change-request.blueprint.md
     - extend functionalities
     - final iteration
 
-### Custom Output File Paths
+### Prompt interpolated variables
 
 USM supports flexible prompt interpolation:
 
@@ -167,13 +167,11 @@ USM supports flexible prompt interpolation:
 # Standard variables available in prompts:
 ${change_request_basename}   # The basename of the change request file (without extension)
 ${blueprint_basename}        # The basename of the blueprint file (without extension)
-${dirname}                   # The directory containing the change request file
+${change_request_dirname}    # The directory containing the change request file
 ${stepid}                    # The ID of the current workflow step
 ${stepname}                  # The name part of the step ID (e.g., "laying-the-foundation" from "01-laying-the-foundation")
-${fullpath}                  # The full path of the change request file (without extension)
-${timestamp}                 # Current timestamp (YYYYMMDD-HHMMSS)
+${change_request_fullpath}   # The full path of the change request file (without extension)
 ${change_request_file_path}  # Full path to the change request file (includes extension)
-${basename}                  # Deprecated: Use ${change_request_basename} instead
 ```
 
 These variables can also be used in workflow step prompts to create dynamic instructions for AI agents:

@@ -408,7 +408,7 @@ The whole iteration was composed by 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_file_path}.implementation.md
+Your task is to document what has been accomplished so far in the file ${change_request_dirname}/${change_request_basename}.implementation.md
 
 Keep into consideration that this technical document will be archived as Architecture Decision Record. Use reference to the implemented code to look up for (do not use line numbers, they change too frequently)
 Describe data structures and their purposes (if any)
