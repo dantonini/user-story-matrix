@@ -8,7 +8,7 @@ USM helps you **break down development into manageable, testable units** – use
 - Track and review change requests.
 
 You can think of USM as a lightweight orchestration layer between you and your AI assistant.  
-It doesn’t do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
+It doesn't do the coding *for* you. It helps you code **with** AI – deliberately, safely, and at scale.
 
 Always use the latest stable version of Go (1.22 or newer) and be familiar with CLI design principles, best practices, and Go idioms.
 
@@ -27,9 +27,9 @@ Build the CLI tool using the following frameworks:
 - Use meaningful names for functions, variables and comments.
 - Avoid to comment what is obvious, a comment should explain why and how, not what.
 - Use a consistent naming convention for variables, functions.
-- Factor out IO: Factoring out IO from your functions allows for clean and effective tests that aren’t “flaky” and don’t waste time doing things they don’t need to do, which makes everyone happier!
-- Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as “dependency injection.”
-- Making Our Own IO Providers: Sometimes we don’t have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
+- Factor out IO: Factoring out IO from your functions allows for clean and effective tests that aren't "flaky" and don't waste time doing things they don't need to do, which makes everyone happier!
+- Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as "dependency injection."
+- Making Our Own IO Providers: Sometimes we don't have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
 
 
 # TUI 
@@ -75,10 +75,36 @@ Two different types of tests:
 - Unit tests: Test the code in isolation, without interacting with the file system or other external dependencies. Name them <filename>_test.go. Prefer this type of tests.
 - Integration tests: Test the code in the context of the file system and other external dependencies. Name them <filename>_integration_test.go. Use this type of tests when you need to test real interactions with the file system or other external dependencies. 
 
+## Using MockFileSystem for Testing
+The project includes a `MockFileSystem` implementation in `internal/io/mock_file_system.go` that should be used for testing file system operations without accessing the real file system:
+
+- **When to use MockFileSystem:**
+  - For all unit tests that test code which interacts with the file system
+  - When you need to simulate file system behavior in a controlled way
+  - To test error conditions that would be difficult to create with a real file system
+  - To make tests deterministic and avoid environment-specific issues
+
+- **How to use MockFileSystem:**
+  - Always create a new instance using `io.NewMockFileSystem()` for each test to avoid state leaking between tests
+  - Use `AddFile(path, data)` to pre-populate the mock file system with files and their contents
+  - Access the file's contents through the `Files` field (e.g., `fs.Files[path]`) only when absolutely necessary
+  - When possible, use the standard interface methods (`ReadFile`, `WriteFile`, `Exists`, etc.) instead of directly accessing the internal state
+
+- **Best practices:**
+  - Don't try to simulate file system errors by modifying MockFileSystem internals; instead use explicit test helpers when needed
+  - In test code, explicitly document which operations are expected to succeed or fail
+  - Handle the limitations of MockFileSystem gracefully - not all real-world file system behaviors can be simulated
+  - When you can't test a specific file system edge case with MockFileSystem, document it with a test skip and clear reasoning and implement the test using a real file system
+
+- **Limitations:**
+  - MockFileSystem doesn't simulate all possible file system errors or behaviors
+  - Some operations like concurrent access simulation may not be accurate
+  - It's not a substitute for integration tests with a real file system when testing critical functionality
+
 Best practices:
 - Sometimes, Smoke Test IO: Testing the pure logic is generally our objective, but obviously we have to interact with IO at some point. This is where integration tests come in: You can do all the verbose testing of your pure functions via integration test, and then do a happy path smoke test with real IO. This goes a long way toward simplifying and expediting your testing processes.
 - Sometimes you need to write real files on the file system: write always in a temporary directory under REPO_ROOT/output/<subdir> and clean up after yourself.
-- Don’t Test Main: The main() function is really not very testable — just keep it small! No business logic should live in main; its sole job should be to parse the environment into structured options, set up injectable IO providers, and run your real main in a library that takes in these providers and structured options.
+- Don't Test Main: The main() function is really not very testable — just keep it small! No business logic should live in main; its sole job should be to parse the environment into structured options, set up injectable IO providers, and run your real main in a library that takes in these providers and structured options.
 - Test coverage is important check it regularly.
 - Use integration test approach using a real filesystem in a temporary directory when you have to test complex filesystem operations. 
 
@@ -89,8 +115,6 @@ Your error messages should state the problem in a way that is easy to understand
 # Code polishing
 - When you are done with a task, take a step back and polish the code to make it more readable and maintainable then use git to review the changes. Striclty keep the minimum amount of changes to the code to fix the issue or to add the new feature.
 - Don't leave dead code, if you don't use it, remove it.
-
-
 
 # Documentation
 Ensure the main README.md file is updated with the latest commands, features, and information about the project.
