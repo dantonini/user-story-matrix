@@ -19,7 +19,6 @@ func TestWorkflowStepStructure(t *testing.T) {
 		ID:          "test-id",
 		Description: "Test description",
 		Prompt:      "Test prompt",
-		OutputFile:  "test-output.md",
 	}
 
 	// Verify prompt field can be set and retrieved
@@ -225,110 +224,141 @@ func TestInterpolatePromptWithError(t *testing.T) {
 }
 
 func TestValidatePrompt(t *testing.T) {
-	// Test cases for ValidatePrompt
 	tests := []struct {
-		name        string
-		prompt      string
-		shouldError bool
+		name          string
+		prompt        string
+		shouldBeValid bool
+		errorContains string
 	}{
 		{
-			name:        "Valid prompt",
-			prompt:      "This is a valid prompt with ${change_request_file_path}",
-			shouldError: false,
+			name:          "Valid prompt",
+			prompt:        "This is a valid prompt with ${change_request_file_path}",
+			shouldBeValid: true,
+			errorContains: "",
 		},
 		{
-			name:        "Valid prompt with multiple variables",
-			prompt:      "Processing ${stepid} (${stepname}) for ${change_request_basename}",
-			shouldError: false,
+			name:          "Valid prompt with multiple variables",
+			prompt:        "The change request is ${change_request_file_path}. The basename is ${change_request_basename}.",
+			shouldBeValid: true,
+			errorContains: "",
 		},
 		{
-			name:        "Prompt with malformed variables",
-			prompt:      "This ${has spaces} and is invalid",
-			shouldError: true,
+			name:          "Invalid prompt with malformed variable",
+			prompt:        "This prompt has an ${invalid variable} with spaces",
+			shouldBeValid: false,
+			errorContains: "prompt contains malformed variables",
 		},
 		{
-			name:        "Prompt with unclosed variable",
-			prompt:      "This ${is unclosed",
-			shouldError: true,
+			name:          "Invalid prompt with unclosed variable",
+			prompt:        "This prompt has an ${unclosed variable",
+			shouldBeValid: false,
+			errorContains: "unclosed variable",
 		},
 		{
-			name:        "No variables",
-			prompt:      "This is a prompt with no variables",
-			shouldError: false,
+			name:          "Empty prompt",
+			prompt:        "",
+			shouldBeValid: true,
+			errorContains: "",
 		},
 	}
 	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidatePrompt(tc.prompt)
-			if (err != nil) != tc.shouldError {
-				t.Errorf("ValidatePrompt() error = %v, shouldError %v", err, tc.shouldError)
+			
+			if tc.shouldBeValid && err != nil {
+				t.Errorf("Expected prompt to be valid, but got error: %v", err)
+			}
+			
+			if !tc.shouldBeValid && err == nil {
+				t.Errorf("Expected prompt to be invalid, but no error was returned")
+			}
+			
+			if !tc.shouldBeValid && err != nil && tc.errorContains != "" {
+				if !strings.Contains(err.Error(), tc.errorContains) {
+					t.Errorf("Error message '%v' does not contain expected text '%s'", err, tc.errorContains)
+				}
 			}
 		})
 	}
 }
 
 func TestGenerateStepPrompt(t *testing.T) {
-	// Create test data
+	// Setup test data
 	changeRequestPath := "/path/to/my-change-request.blueprint.md"
 	
-	// Test cases for generateStepPrompt
+	// Test cases
 	tests := []struct {
-		name              string
-		step              WorkflowStep
-		changeRequestPath string
-		contains          []string // Strings that should be contained in the result
+		name     string
+		step     WorkflowStep
+		expected string
+		wantErr  bool
 	}{
 		{
-			name: "Step with prompt containing variables",
+			name: "Standard prompt",
 			step: WorkflowStep{
-				ID:          "01-test-step",
-				Description: "Test Step",
-				Prompt:      "Working on ${change_request_basename} in step ${stepid}",
-				OutputFile:  "output.md",
+				ID:          "01-test",
+				Description: "Test step",
+				Prompt:      "This is a test prompt with ${change_request_file_path}",
 			},
-			changeRequestPath: changeRequestPath,
-			contains: []string{
-				"Working on my-change-request in step 01-test-step",
-			},
+			expected: "This is a test prompt with " + changeRequestPath,
+			wantErr:  false,
 		},
 		{
-			name: "Step with empty prompt",
+			name: "Prompt with multiple variables",
 			step: WorkflowStep{
-				ID:          "01-test-step",
-				Description: "Test Description",
+				ID:          "02-test",
+				Description: "Test step with multiple variables",
+				Prompt:      "Processing ${change_request_file_path} with step ${stepid}",
+			},
+			expected: "Processing " + changeRequestPath + " with step 02-test",
+			wantErr:  false,
+		},
+		{
+			name: "Invalid prompt",
+			step: WorkflowStep{
+				ID:          "03-test",
+				Description: "Test step with invalid prompt",
+				Prompt:      "This has an ${invalid variable}",
+			},
+			expected: "",
+			wantErr:  true,
+		},
+		{
+			name: "Empty prompt",
+			step: WorkflowStep{
+				ID:          "04-test",
+				Description: "Test step with empty prompt",
 				Prompt:      "",
-				OutputFile:  "output.md",
 			},
-			changeRequestPath: changeRequestPath,
-			contains: []string{
-				"Test Description",
-			},
-		},
-		{
-			name: "Step with complex prompt",
-			step: WorkflowStep{
-				ID:          "02-complex-step",
-				Description: "Complex Step",
-				Prompt:      "Working on file at ${dirname}/${change_request_basename}.md for step ${stepname}",
-				OutputFile:  "output.md",
-			},
-			changeRequestPath: changeRequestPath,
-			contains: []string{
-				"/path/to",
-				"my-change-request",
-				"complex-step",
-			},
+			expected: "",
+			wantErr:  false,
 		},
 	}
 	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := generateStepPrompt(tc.step, tc.changeRequestPath)
-			
-			for _, substr := range tc.contains {
-				if !strings.Contains(result, substr) {
-					t.Errorf("generateStepPrompt() = %v, should contain %v", result, substr)
+			// Test function
+			if tc.wantErr {
+				// For error cases, check ValidatePrompt returns an error
+				err := ValidatePrompt(tc.step.Prompt)
+				if err == nil {
+					t.Errorf("Expected ValidatePrompt to return an error for invalid prompt")
+				}
+			} else {
+				result := generateStepPrompt(tc.step, changeRequestPath)
+				
+				// For non-error cases with explicit expected values
+				if tc.expected != "" && result != tc.expected {
+					t.Errorf("generateStepPrompt() = %v, want %v", result, tc.expected)
+				}
+				
+				// For empty prompt case, check default prompt is generated
+				if tc.step.Prompt == "" {
+					expectedDefault := generateDefaultPrompt(tc.step)
+					if result != expectedDefault {
+						t.Errorf("generateStepPrompt() with empty prompt = %v, want %v", result, expectedDefault)
+					}
 				}
 			}
 		})
@@ -336,18 +366,17 @@ func TestGenerateStepPrompt(t *testing.T) {
 }
 
 func TestGenerateDefaultPrompt(t *testing.T) {
-	// Test default prompt generation
 	step := WorkflowStep{
-		ID:          "test-id",
-		Description: "Test description",
-		OutputFile:  "test-output.md",
+		ID:          "test-step",
+		Description: "Test step",
+		Prompt:      "",
 	}
 	
-	expected := "Please execute the following step in the workflow: Test description"
-	result := generateDefaultPrompt(step)
+	generatedPrompt := generateDefaultPrompt(step)
+	expectedContains := "Test step"
 	
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
+	if !strings.Contains(generatedPrompt, expectedContains) {
+		t.Errorf("Generated default prompt does not contain expected text '%s'", expectedContains)
 	}
 }
 

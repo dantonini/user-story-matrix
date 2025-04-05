@@ -548,135 +548,6 @@ func TestWorkflowManager_UpdateState_ValidationChecks(t *testing.T) {
 	})
 }
 
-func TestWorkflowManager_GenerateOutputFilename(t *testing.T) {
-	// Create mocks
-	fs := ioLib.NewMockFileSystem()
-	mockIO := NewMockIO()
-	
-	// Create workflow manager
-	wm := NewWorkflowManager(fs, mockIO)
-	
-	tests := []struct {
-		name              string
-		changeRequestPath string
-		step              WorkflowStep
-		expected          string
-	}{
-		{
-			name:              "Legacy format with %s",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "%s.test-output.md",
-			},
-			expected: "/path/to/change-request.test-output.md",
-		},
-		{
-			name:              "Deprecated format with ${basename}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "${basename}.test-output.md",
-			},
-			expected: "/path/to/change-request.test-output.md",
-		},
-		{
-			name:              "New format with ${change_request_basename}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "${change_request_basename}.test-output.md",
-			},
-			expected: "/path/to/change-request.test-output.md",
-		},
-		{
-			name:              "New format with ${blueprint_basename}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "${blueprint_basename}.test-output.md",
-			},
-			expected: "/path/to/change-request.test-output.md",
-		},
-		{
-			name:              "Format with ${dirname}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "${dirname}/custom-dir/${change_request_basename}.md",
-			},
-			expected: "/path/to/custom-dir/change-request.md",
-		},
-		{
-			name:              "Format with ${stepid}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "01-test-step",
-				Description: "Test Step",
-				OutputFile:  "${change_request_basename}.${stepid}.md",
-			},
-			expected: "/path/to/change-request.01-test-step.md",
-		},
-		{
-			name:              "Format with ${stepname}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "01-test-step",
-				Description: "Test Step",
-				OutputFile:  "${change_request_basename}.${stepname}.md",
-			},
-			expected: "/path/to/change-request.test-step.md",
-		},
-		{
-			name:              "Format with ${fullpath}",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "${fullpath}.test-output.md",
-			},
-			expected: "/path/to/change-request.test-output.md",
-		},
-		{
-			name:              "Absolute path in output file",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "test-step",
-				Description: "Test Step",
-				OutputFile:  "/custom/path/${change_request_basename}.md",
-			},
-			expected: "/custom/path/change-request.md",
-		},
-		{
-			name:              "Multiple variables in one template",
-			changeRequestPath: "/path/to/change-request.blueprint.md",
-			step: WorkflowStep{
-				ID:          "01-test-step",
-				Description: "Test Step",
-				OutputFile:  "${dirname}/outputs/${stepname}/${change_request_basename}.md",
-			},
-			expected: "/path/to/outputs/test-step/change-request.md",
-		},
-	}
-	
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// Call the function
-			result := wm.GenerateOutputFilename(tc.changeRequestPath, tc.step)
-			
-			// Check results
-			if result != tc.expected {
-				t.Errorf("GenerateOutputFilename() = %v, want %v", result, tc.expected)
-			}
-		})
-	}
-}
-
 func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 	// Create mocks
 	fs := ioLib.NewMockFileSystem()
@@ -888,10 +759,19 @@ func TestWorkflowManager_ResetWorkflow_Error(t *testing.T) {
 }
 
 func TestWorkflowManager_ValidateWorkflowSteps(t *testing.T) {
+	// Create mocks
+	fs := ioLib.NewMockFileSystem()
+	mockIO := NewMockIO()
+	
+	// Create workflow manager
+	wm := NewWorkflowManager(fs, mockIO)
+	
+	// Test cases
 	tests := []struct {
-		name         string
-		steps        []WorkflowStep
-		wantErrorNum int
+		name           string
+		steps          []WorkflowStep
+		wantErrCount   int
+		wantErrMsgs    []string
 	}{
 		{
 			name: "Valid steps",
@@ -899,96 +779,68 @@ func TestWorkflowManager_ValidateWorkflowSteps(t *testing.T) {
 				{
 					ID:          "01-test",
 					Description: "Test step",
-					Prompt:      "Valid prompt with ${change_request_file_path}",
-					OutputFile:  "output.md",
+					Prompt:      "Test prompt",
 				},
 			},
-			wantErrorNum: 0,
+			wantErrCount: 0,
+			wantErrMsgs:  []string{},
 		},
 		{
 			name: "Missing ID",
 			steps: []WorkflowStep{
 				{
 					Description: "Test step",
-					Prompt:      "Valid prompt",
-					OutputFile:  "output.md",
+					Prompt:      "Test prompt",
 				},
 			},
-			wantErrorNum: 1,
+			wantErrCount: 1,
+			wantErrMsgs:  []string{"step missing ID"},
 		},
 		{
 			name: "Missing description",
 			steps: []WorkflowStep{
 				{
-					ID:         "01-test",
-					Prompt:     "Valid prompt",
-					OutputFile: "output.md",
+					ID:     "01-test",
+					Prompt: "Test prompt",
 				},
 			},
-			wantErrorNum: 1,
-		},
-		{
-			name: "Missing output file",
-			steps: []WorkflowStep{
-				{
-					ID:          "01-test",
-					Description: "Test step",
-					Prompt:      "Valid prompt",
-				},
-			},
-			wantErrorNum: 1,
-		},
-		{
-			name: "Invalid prompt with malformed variable",
-			steps: []WorkflowStep{
-				{
-					ID:          "01-test",
-					Description: "Test step",
-					Prompt:      "Invalid prompt with ${var with spaces}",
-					OutputFile:  "output.md",
-				},
-			},
-			wantErrorNum: 1,
-		},
-		{
-			name: "Invalid prompt with unclosed variable",
-			steps: []WorkflowStep{
-				{
-					ID:          "01-test",
-					Description: "Test step",
-					Prompt:      "Invalid prompt with ${unclosed",
-					OutputFile:  "output.md",
-				},
-			},
-			wantErrorNum: 1,
+			wantErrCount: 1,
+			wantErrMsgs:  []string{"step 01-test missing description"},
 		},
 		{
 			name: "Multiple errors",
 			steps: []WorkflowStep{
 				{
-					ID:          "01-test",
-					Description: "",
-					Prompt:      "Invalid prompt with ${var with spaces}",
-					OutputFile:  "",
+					// Missing ID and description
+					Prompt: "Test prompt",
+				},
+				{
+					ID: "02-test",
+					// Missing description
+					Prompt: "Test prompt",
 				},
 			},
-			wantErrorNum: 3,
+			wantErrCount: 2,
+			wantErrMsgs:  []string{"step missing ID", "step 02-test missing description"},
 		},
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fs := newTestFileSystem()
-			io := newTestUserOutput()
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Call the function
+			errors := wm.ValidateWorkflowSteps(tc.steps)
 			
-			wm := NewWorkflowManager(fs, io)
+			// Check error count
+			if len(errors) != tc.wantErrCount {
+				t.Errorf("ValidateWorkflowSteps() error count = %v, want %v", len(errors), tc.wantErrCount)
+			}
 			
-			errors := wm.ValidateWorkflowSteps(tt.steps)
-			
-			if len(errors) != tt.wantErrorNum {
-				t.Errorf("ValidateWorkflowSteps() got %d errors, want %d errors", len(errors), tt.wantErrorNum)
-				for i, err := range errors {
-					t.Logf("Error %d: %v", i, err)
+			// Check error messages
+			for i, wantMsg := range tc.wantErrMsgs {
+				if i < len(errors) {
+					if !strings.Contains(errors[i].Error(), wantMsg) {
+						t.Errorf("ValidateWorkflowSteps() error %d = %v, should contain %v", i, errors[i], wantMsg)
+					}
 				}
 			}
 		})

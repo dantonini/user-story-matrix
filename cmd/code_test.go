@@ -19,24 +19,23 @@ var (
 	ErrFileNotFound = errors.New("file not found")
 )
 
-// MockWorkflowManager is a mock implementation of the workflow manager
+// MockWorkflowManager is a mock implementation of the WorkflowManager interface
 type MockWorkflowManager struct {
 	resetWorkflowFunc          func(string) error
 	isWorkflowCompleteFunc     func(string) (bool, error)
 	determineNextStepFunc      func(string) (int, error)
-	generateOutputFilenameFunc func(string, workflow.WorkflowStep) string
 	updateStateFunc            func(string, int) error
 }
 
-// Interfaces needed for the mock implementation
+// WorkflowManager interface for code command operations
 type WorkflowManager interface {
 	ResetWorkflow(string) error
 	IsWorkflowComplete(string) (bool, error)
 	DetermineNextStep(string) (int, error)
-	GenerateOutputFilename(string, workflow.WorkflowStep) string
 	UpdateState(string, int) error
 }
 
+// UserOutput interface for code command output
 type UserOutput interface {
 	Print(string)
 	PrintSuccess(string)
@@ -60,15 +59,11 @@ func (m *MockWorkflowManager) DetermineNextStep(changeRequestPath string) (int, 
 	return m.determineNextStepFunc(changeRequestPath)
 }
 
-func (m *MockWorkflowManager) GenerateOutputFilename(changeRequestPath string, step workflow.WorkflowStep) string {
-	return m.generateOutputFilenameFunc(changeRequestPath, step)
-}
-
 func (m *MockWorkflowManager) UpdateState(changeRequestPath string, newStepIndex int) error {
 	return m.updateStateFunc(changeRequestPath, newStepIndex)
 }
 
-// mockUserOutput is a simple implementation of the user output interface for testing
+// mockUserOutput is a mock implementation of the UserOutput interface
 type mockUserOutput struct {
 	messages         []string
 	successMessages  []string
@@ -114,30 +109,35 @@ func (m *mockUserOutput) IsDebugEnabled() bool {
 // TestGetDirectoryPath tests the getDirectoryPath function
 func TestGetDirectoryPath(t *testing.T) {
 	tests := []struct {
-		name     string
-		filePath string
-		want     string
+		name  string
+		input string
+		want  string
 	}{
 		{
-			name:     "Unix path",
-			filePath: "/path/to/file.txt",
-			want:     "/path/to/",
+			name:  "Simple path",
+			input: "/path/to/file.txt",
+			want:  "/path/to/",
 		},
 		{
-			name:     "Windows path",
-			filePath: "C:\\path\\to\\file.txt",
-			want:     "C:\\path\\to\\",
+			name:  "Path with no directory",
+			input: "file.txt",
+			want:  "",
 		},
 		{
-			name:     "No directory",
-			filePath: "file.txt",
-			want:     "",
+			name:  "Path with trailing slash",
+			input: "/path/to/directory/",
+			want:  "/path/to/directory/",
+		},
+		{
+			name:  "Windows path",
+			input: "C:\\path\\to\\file.txt",
+			want:  "C:\\path\\to\\",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getDirectoryPath(tt.filePath)
+			got := getDirectoryPath(tt.input)
 			if got != tt.want {
 				t.Errorf("getDirectoryPath() = %v, want %v", got, tt.want)
 			}
@@ -148,30 +148,35 @@ func TestGetDirectoryPath(t *testing.T) {
 // TestGetFileName tests the getFileName function
 func TestGetFileName(t *testing.T) {
 	tests := []struct {
-		name     string
-		filePath string
-		want     string
+		name  string
+		input string
+		want  string
 	}{
 		{
-			name:     "Unix path",
-			filePath: "/path/to/file.txt",
-			want:     "file.txt",
+			name:  "Simple path",
+			input: "/path/to/file.txt",
+			want:  "file.txt",
 		},
 		{
-			name:     "Windows path",
-			filePath: "C:\\path\\to\\file.txt",
-			want:     "file.txt",
+			name:  "Path with no directory",
+			input: "file.txt",
+			want:  "file.txt",
 		},
 		{
-			name:     "No directory",
-			filePath: "file.txt",
-			want:     "file.txt",
+			name:  "Path with trailing slash",
+			input: "/path/to/directory/",
+			want:  "",
+		},
+		{
+			name:  "Windows path",
+			input: "C:\\path\\to\\file.txt",
+			want:  "file.txt",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getFileName(tt.filePath)
+			got := getFileName(tt.input)
 			if got != tt.want {
 				t.Errorf("getFileName() = %v, want %v", got, tt.want)
 			}
@@ -181,9 +186,15 @@ func TestGetFileName(t *testing.T) {
 
 // Mock implementation of executeStep for testing
 func mockExecuteStep(crPath string, step workflow.WorkflowStep, wf WorkflowManager, fs io.FileSystem, io UserOutput) error {
-	// Simple mock implementation
-	outputFile := wf.GenerateOutputFilename(crPath, step)
-	return fs.WriteFile(outputFile, []byte("test content"), 0644)
+	// Create a simple executor and execute the step
+	executor := workflow.NewStepExecutor(fs, io)
+	success, err := executor.ExecuteStep(crPath, step)
+	
+	if !success || err != nil {
+		return fmt.Errorf("failed to execute step: %v", err)
+	}
+	
+	return nil
 }
 
 // TestExecuteStep tests the executeStep function
@@ -193,18 +204,12 @@ func TestExecuteStep(t *testing.T) {
 	mockIO := &mockUserOutput{}
 	mockWF := &MockWorkflowManager{}
 	
-	// Set up the mock workflow manager functions
-	mockWF.generateOutputFilenameFunc = func(path string, step workflow.WorkflowStep) string {
-		return "test-output.md"
-	}
-	
 	// Test case
 	testCR := "/path/to/change-request.md"
 	testStep := workflow.WorkflowStep{
 		ID:          "test-step",
 		Description: "Test Step",
 		Prompt:      "Test prompt with ${change_request_file_path} variable",
-		OutputFile:  "test-output-%s.md",
 	}
 	
 	// Setup mock to create output file
@@ -218,12 +223,18 @@ func TestExecuteStep(t *testing.T) {
 		t.Errorf("executeStep() error = %v, want nil", err)
 	}
 	
-	// Verify that the output file creation was attempted
-	outputFile := mockWF.GenerateOutputFilename(testCR, testStep)
+	// Verify that the prompt was processed and printed
+	expectedOutput := "Test prompt with /path/to/change-request.md variable"
+	foundOutput := false
+	for _, msg := range mockIO.messages {
+		if msg == expectedOutput {
+			foundOutput = true
+			break
+		}
+	}
 	
-	// Check if the output file was created
-	if !mockFS.Exists(outputFile) {
-		t.Errorf("executeStep() did not create output file %s", outputFile)
+	if !foundOutput {
+		t.Errorf("executeStep() did not print expected output: %s", expectedOutput)
 	}
 }
 

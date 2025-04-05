@@ -20,7 +20,6 @@ var (
 	// Step validation specific errors
 	ErrStepMissingID         = errors.New("step missing ID")
 	ErrStepMissingDescription = errors.New("step missing description")
-	ErrStepMissingOutputFile = errors.New("step missing output file template")
 	ErrStepInvalidPrompt     = errors.New("invalid prompt in step")
 )
 
@@ -33,7 +32,6 @@ const (
 	MsgStepExecutionFailed     = "❌ Error: Failed to execute step: %s"
 	MsgUnrecognizedStep        = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
 	MsgStateFileCorrupted      = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
-	MsgOutputFileCreateFailed  = "❌ Error: Failed to create output file: %s"
 	MsgInvalidPrompt           = "❌ Error: Invalid prompt in step %s: %s"
 	MsgStepValidationFailed    = "❌ Error: Step validation failed: %s"
 ) 
