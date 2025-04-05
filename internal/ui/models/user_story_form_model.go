@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/user-story-matrix/usm/internal/llm"
@@ -112,7 +113,8 @@ func NewUserStoryFormModel(userStory models.UserStory, processor llm.LLMProcesso
 		ShowAPIKeyMessage:  false,
 		FormData: FormData{
 			Title:              userStory.Title,
-			AcceptanceCriteria: make([]string, 5), // Default to 5 criteria fields
+			Description:        userStory.Description,
+			AcceptanceCriteria: userStory.Criteria,
 		},
 		UIState: FormUIState{
 			ActiveField:        "title",
@@ -206,10 +208,8 @@ func (m *UserStoryFormModel) updateFormDataFromLLM(data llm.UserStoryData) {
 	// Populate acceptance criteria
 	if score, ok := data.Confidence["acceptance_criteria"]; ok && score > 0.5 {
 		// Only copy as many criteria as we have fields for
-		for i := 0; i < len(data.AcceptanceCriteria) && i < len(m.FormData.AcceptanceCriteria); i++ {
-			m.FormData.AcceptanceCriteria[i] = data.AcceptanceCriteria[i]
-			m.AutoPopulatedFields[getACFieldKey(i)] = true
-		}
+		m.FormData.AcceptanceCriteria = data.AcceptanceCriteria
+		m.AutoPopulatedFields["acceptance_criteria"] = true
 	}
 }
 
@@ -250,56 +250,59 @@ func (m *UserStoryFormModel) GetAPIKeyMessage() string {
 	return "API key not configured. Please set your OpenAI API key in the settings to enable auto-formatting."
 }
 
-// MarkFieldEdited marks a field as edited by the user, removing auto-populated status
+// MarkFieldEdited marks a field as manually edited by the user
 func (m *UserStoryFormModel) MarkFieldEdited(fieldName string) {
-	delete(m.AutoPopulatedFields, fieldName)
+	if fieldName != "" {
+		delete(m.AutoPopulatedFields, fieldName)
+	}
 }
 
-// MarkAllFieldsEdited marks all fields as edited by the user
+// MarkAllFieldsEdited marks all fields as manually edited by the user
 func (m *UserStoryFormModel) MarkAllFieldsEdited() {
 	m.AutoPopulatedFields = make(map[string]bool)
 }
 
 // GetFieldConfidence returns the confidence score for a field
 func (m *UserStoryFormModel) GetFieldConfidence(fieldName string) float64 {
-	if fieldName == "acceptance_criteria" {
-		return m.ConfidenceScores["acceptance_criteria"]
-	}
-	
-	fieldKey := fieldNameToConfidenceKey(fieldName)
-	if score, ok := m.ConfidenceScores[fieldKey]; ok {
+	confKey := fieldNameToConfidenceKey(fieldName)
+	if score, ok := m.ConfidenceScores[confKey]; ok {
 		return score
 	}
 	
+	// Default confidence for fields not found
 	return 0.0
 }
 
-// IsFieldAutoPopulated returns whether a field was auto-populated
+// IsFieldAutoPopulated returns whether a field was auto-populated by the LLM
 func (m *UserStoryFormModel) IsFieldAutoPopulated(fieldName string) bool {
-	return m.AutoPopulatedFields[fieldName]
+	populated, ok := m.AutoPopulatedFields[fieldName]
+	return ok && populated
 }
 
-// Helper functions
-
-// getACFieldKey returns the map key for an acceptance criteria field
-func getACFieldKey(index int) string {
-	return "acceptance_criteria_" + string(rune('0'+index))
+// GetProcessingState returns the current processing state
+func (m *UserStoryFormModel) GetProcessingState() llm.ProcessingState {
+	return m.ProcessingState
 }
 
-// fieldNameToConfidenceKey converts a field name to the confidence map key
+// GetLastError returns the last error encountered during processing
+func (m *UserStoryFormModel) GetLastError() string {
+	if m.LastError != nil {
+		return m.LastError.Error()
+	}
+	return ""
+}
+
+// GetFormData returns the current form data
+func (m *UserStoryFormModel) GetFormData() FormData {
+	return m.FormData
+}
+
+// Private helper functions
+
+// fieldNameToConfidenceKey converts a field name to its confidence key
 func fieldNameToConfidenceKey(fieldName string) string {
-	// Map form field names to confidence keys
-	fieldMap := map[string]string{
-		"title":       "title",
-		"description": "description",
-		"as_a":        "as_a",
-		"i_want":      "i_want",
-		"so_that":     "so_that",
+	if fieldName == "acceptance_criteria" || strings.HasPrefix(fieldName, "acceptance_criteria_") {
+		return "acceptance_criteria"
 	}
-	
-	if key, ok := fieldMap[fieldName]; ok {
-		return key
-	}
-	
 	return fieldName
 } 

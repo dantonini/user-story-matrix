@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package main
 
 import (
@@ -15,7 +14,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,7 +125,11 @@ func findUnusedCode(config Config) ([]UnusedResult, error) {
 		if config.Verbose {
 			fmt.Println("Using go vet to find potential unused code...")
 		}
-		results, _ = findUnusedCodeUsingGoVet(config)
+		var vetErr error
+		results, vetErr = findUnusedCodeUsingGoVet(config)
+		if vetErr != nil && config.Verbose {
+			fmt.Printf("go vet check failed: %v\n", vetErr)
+		}
 	}
 
 	return results, nil
@@ -263,7 +265,7 @@ func findUnusedCodeUsingStaticcheck(config Config) ([]UnusedResult, error) {
 	var results []UnusedResult
 
 	// Create temp file for output
-	tempFile, err := ioutil.TempFile("", "staticcheck-*.json")
+	tempFile, err := os.CreateTemp("", "staticcheck-*.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %v", err)
 	}
@@ -320,7 +322,10 @@ func findUnusedCodeUsingStaticcheck(config Config) ([]UnusedResult, error) {
 
 				filename := parts[0]
 				lineNum := 0
-				fmt.Sscanf(parts[1], "%d", &lineNum)
+				_, err := fmt.Sscanf(parts[1], "%d", &lineNum)
+				if err != nil && config.Verbose {
+					fmt.Printf("Failed to parse line number: %v\n", err)
+				}
 
 				// Extract the message part
 				msgParts := strings.SplitN(line, ": ", 2)
@@ -388,7 +393,11 @@ func findUnusedCodeUsingGoVet(config Config) ([]UnusedResult, error) {
 		fmt.Printf("Running: %s\n", strings.Join(cmd.Args, " "))
 	}
 
-	outBuf, _ := cmd.CombinedOutput()
+	outBuf, err := cmd.CombinedOutput()
+	if err != nil && config.Verbose {
+		fmt.Printf("go vet exited with error: %v\n", err)
+	}
+	
 	lines := strings.Split(string(outBuf), "\n")
 
 	for _, line := range lines {
@@ -400,7 +409,10 @@ func findUnusedCodeUsingGoVet(config Config) ([]UnusedResult, error) {
 
 			filename := parts[0]
 			lineNum := 0
-			fmt.Sscanf(parts[1], "%d", &lineNum)
+			_, err := fmt.Sscanf(parts[1], "%d", &lineNum)
+			if err != nil && config.Verbose {
+				fmt.Printf("Failed to parse line number: %v\n", err)
+			}
 
 			// Extract the message part
 			msgParts := strings.SplitN(line, ": ", 2)
@@ -581,7 +593,7 @@ func cleanupFile(filePath string, unusedResults []UnusedResult, config Config) e
 			return fmt.Errorf("failed to format modified code: %v", err)
 		}
 
-		if err := ioutil.WriteFile(filePath, []byte(buf.String()), 0644); err != nil {
+		if err := os.WriteFile(filePath, []byte(buf.String()), 0600); err != nil {
 			return fmt.Errorf("failed to write modified file: %v", err)
 		}
 
@@ -595,9 +607,9 @@ func cleanupFile(filePath string, unusedResults []UnusedResult, config Config) e
 
 // copyFile creates a copy of a file
 func copyFile(src, dst string) error {
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dst, data, 0644)
+	return os.WriteFile(dst, data, 0600)
 } 

@@ -129,7 +129,6 @@ func TestCreateTimeoutTicker(t *testing.T) {
 
 // Helper function to strip ANSI color codes for length checking
 func stripANSI(str string) string {
-	const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"
 	r := strings.NewReplacer("\u001B", "", "\u009B", "")
 	return r.Replace(str)
 } 

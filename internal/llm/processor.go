@@ -28,6 +28,8 @@ const (
 	ProcessingCancelled
 	// ProcessingNotConfigured indicates the processor is not configured (e.g., missing API key)
 	ProcessingNotConfigured
+	// ProcessingPartialSuccess indicates the processing was partially successful (some fields may be missing or incomplete)
+	ProcessingPartialSuccess
 )
 
 // UserStoryData represents the structured data parsed from unstructured text

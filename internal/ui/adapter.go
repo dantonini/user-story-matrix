@@ -11,9 +11,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user-story-matrix/usm/internal/io"
+	"github.com/user-story-matrix/usm/internal/llm"
 	"github.com/user-story-matrix/usm/internal/models"
-
-	// "github.com/user-story-matrix/usm/internal/ui/components/userstoryform" - Will be used in MVI phase
+	"github.com/user-story-matrix/usm/internal/ui/components/userstoryform"
 	"github.com/user-story-matrix/usm/internal/ui/pages"
 )
 
@@ -67,14 +67,35 @@ func RegisterNewSelectionUIMaker() {
 }
 
 // CreateUserStoryFormWithLLM creates a new user story form with LLM processing support
-// TODO: This is a placeholder implementation for the foundation phase
-// In the MVI phase, this will be replaced with a real implementation using
-// the userstoryform package and LLM processor
 func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
-	// For the foundation phase, just return the original form
-	// In MVI phase, this will be replaced with the enhanced form 
-	// that uses LLM processing
-	return io.NewUserStoryForm(us)
+	if !enableLLM {
+		// If LLM processing is disabled, use the original form
+		return io.NewUserStoryForm(us)
+	}
+	
+	// Create the filesystem for configuration
+	fs := io.NewOSFileSystem()
+	
+	// Create the configuration manager
+	configManager := llm.NewConfigManager(fs)
+	
+	// Load the configuration
+	err := configManager.LoadConfig()
+	if err != nil {
+		// If there's an error loading the config, fall back to the original form
+		return io.NewUserStoryForm(us)
+	}
+	
+	// Create the LLM processor
+	processor := llm.NewOpenAIProcessor(
+		llm.WithAPIKey(configManager.GetOpenAIKey()),
+		llm.WithModel("gpt-4o-mini"),
+		llm.WithMaxTokens(1000),
+		llm.WithTemperature(0.2),
+	)
+	
+	// Create the enhanced form
+	return userstoryform.New(us, processor, configManager)
 }
 
 // FormatUIMessage formats a UI message with style
