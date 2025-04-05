@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/02-pre-commit-consistency-checks.md
 created_at: 2025-03-23T16:29:07+01:00
-last_updated: 2025-03-23T22:14:12+01:00
-_content_hash: 6d64c146852c672b1cb7cf053863bdc8
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: d921b21d57498fb0805a4c0e1f66c691f69f7175b8aa2e6192b1e94eb4f78cfa
 ---
 
 # Pre Commit Consistency Checks

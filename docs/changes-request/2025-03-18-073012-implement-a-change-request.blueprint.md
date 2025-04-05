@@ -4,7 +4,7 @@ created-at: 2025-03-18T07:30:12+01:00
 user-stories:
   - title: Implement the change request
     file: docs/user-stories/basic-commands/05-implement-the-change-request.md
-    content-hash: ecc0149e53cd4719c59e60624d4ca26b
+    content-hash: 79ec9eecadb3d52f52c6b8a4aa02cc2a6aa183ba21bc15a711ca814aca9e1cd1
 
 ---
 

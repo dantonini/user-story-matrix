@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/code-command/07-allow-manual-override-or-reset.md
 created_at: 2025-03-26T01:48:54+01:00
-last_updated: 2025-03-26T01:49:08+01:00
-_content_hash: 6458c3afa0055497e0e0807f2169309c
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: c562379b3bc2afc7ce77963b6f3c7005cfbb0a670c9514b67f1bce044d273895
 ---
 
 # Allow manual override or reset  

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/update-metadata-command/01-update-user-stories-metadata.md
 created_at: 2025-03-17T20:22:58+01:00
-last_updated: 2025-03-17T20:22:58+01:00
-_content_hash: d266bf5244a4433071e267b9919814e1
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 629e68d30703ed913d7cf1f102dbdc4ec1bdef1a92ac2b6004cc09c76534df27
 ---
 
 # Update User Stories Metadata

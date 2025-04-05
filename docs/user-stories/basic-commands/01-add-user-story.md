@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/01-add-user-story.md
 created_at: 2025-03-17T19:47:09+01:00
-last_updated: 2025-03-18T05:00:52+01:00
-_content_hash: 219341c58d4f1186c239b98ce9289108
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 10ea11401739317f4359d22527e990bc490f424637a812008dd73516850f7484
 ---
 
 # Add a user story

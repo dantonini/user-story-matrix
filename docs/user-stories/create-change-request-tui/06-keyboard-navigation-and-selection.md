@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md
 created_at: 2025-03-24T07:25:06+01:00
-last_updated: 2025-03-25T07:48:06+01:00
-_content_hash: c0cc34266794eda0ced978861e1514aa
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: feeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203d
 ---
 
 # Keyboard Navigation and Selection

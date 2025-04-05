@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/01-on-demand-detection-and-versioning-of-us-changes-via-git.md
 created_at: 2025-03-23T19:44:32+01:00
-last_updated: 2025-03-23T21:48:56+01:00
-_content_hash: 49c0c05820b4da750af61b80d183f69e
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 6271d84fb0c5966a4da46d1f2b2a9dcf0e16ddadeb1ea183b4398483f2eff7c4
 ---
 
 # On-Demand Detection and Versioning of US Changes via Git

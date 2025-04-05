@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/update-metadata-command/02-detect-and-track-content-changes.md
 created_at: 2025-04-04T00:29:08+02:00
-last_updated: 2025-04-04T00:29:08+02:00
-_content_hash: ee6eced0f69ee22d373845bc6fa3e79eb67cf0bb58b683dcc1121f451fb4e01c
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: c96a77d6dc823ffef6c58cb07e8af9e20fc39d7005c7081b70924bc8649f8e49
 ---
 
 # Detect and Track Content Changes

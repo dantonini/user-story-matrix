@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/06B-ask-for-a-feature.md
 created_at: 2025-03-18T09:06:34+01:00
-last_updated: 2025-03-18T19:02:20+01:00
-_content_hash: 88e542ac744a671d176ee588edff67d4
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: fdfd4c477fb5b8ddaf321972444982c07d42e8e13e3dca9e54d119fc0b0f7c35
 ---
 
 # Save and Resume Feature Request Drafts

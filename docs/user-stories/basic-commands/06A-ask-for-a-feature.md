@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/06A-ask-for-a-feature.md
 created_at: 2025-03-18T09:06:34+01:00
-last_updated: 2025-03-18T19:02:03+01:00
-_content_hash: dec29cebc60a724852f9ed8babe37ff2
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 29b59a8073d839dc807d3d55007fe803cb7e98d00ea6d3c37bf612d35749c167
 ---
 
 # Submit a Feature Request

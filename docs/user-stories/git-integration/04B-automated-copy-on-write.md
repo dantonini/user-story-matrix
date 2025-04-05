@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/04B-automated-copy-on-write.md
 created_at: 2025-03-23T12:55:02+01:00
-last_updated: 2025-03-23T22:02:29+01:00
-_content_hash: a7282cad108920def8b74fcc03cffacc
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 744ba56c8a616f776462ea1a83cfcbeaf0b6502b85f2badaaad846faa53219a6
 ---
 
 # Automated Copy On Write

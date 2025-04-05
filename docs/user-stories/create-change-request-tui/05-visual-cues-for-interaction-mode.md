@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/05-visual-cues-for-interaction-mode.md
 created_at: 2025-03-24T07:23:50+01:00
-last_updated: 2025-03-25T07:48:03+01:00
-_content_hash: 6e29a359a462c162aadbe56452db7d3a
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: e2a8e07ed7b41ff9b342035f3b3928092f0a93c3ac3b683697a651aab5136ec8
 ---
 
 # Visual Cues for Interaction Mode

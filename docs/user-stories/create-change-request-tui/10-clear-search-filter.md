@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/10-clear-search-filter.md
 created_at: 2025-03-24T19:37:29+01:00
-last_updated: 2025-03-25T07:48:17+01:00
-_content_hash: bab339527b2550a4c50a2ce241c4c88f
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 0bb94f128ab037f6798bd7d85599d31d5bf4d87c03d16933cbb09046fd870147
 ---
 
 # Clear Search Filter

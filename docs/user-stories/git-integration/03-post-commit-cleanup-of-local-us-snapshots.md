@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/03-post-commit-cleanup-of-local-us-snapshots.md
 created_at: 2025-03-23T12:54:08+01:00
-last_updated: 2025-03-23T21:56:36+01:00
-_content_hash: 7227c0f34b4108d255b7795fdd4e04d9
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 9b0ede897ca1378fbbb9ba2d84952d8d4f5d5ecd2f4876c859e5d00d2ce13592
 ---
 
 # Post-Commit Cleanup of Local US Snapshots

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/04-basic-distribution.md
 created_at: 2025-03-17T08:27:44+01:00
-last_updated: 2025-03-17T08:27:44+01:00
-_content_hash: 31f44cf8eab6ad119efc2a5b551e2881
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: d3f1eb9fa55fa9ac92dcd5a1aac85dee23338a2de1c78b48a50832076a3bc5ff
 ---
 
 # Package and Distribute USM-CLI

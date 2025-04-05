@@ -4,10 +4,10 @@ created-at: 2025-04-04T00:35:19+02:00
 user-stories:
   - title: Update User Stories Metadata
     file: docs/user-stories/update-metadata-command/01-update-user-stories-metadata.md
-    content-hash: d266bf5244a4433071e267b9919814e1
+    content-hash: 629e68d30703ed913d7cf1f102dbdc4ec1bdef1a92ac2b6004cc09c76534df27
   - title: Detect and Track Content Changes
     file: docs/user-stories/update-metadata-command/02-detect-and-track-content-changes.md
-    content-hash: ee6eced0f69ee22d373845bc6fa3e79eb67cf0bb58b683dcc1121f451fb4e01c
+    content-hash: c96a77d6dc823ffef6c58cb07e8af9e20fc39d7005c7081b70924bc8649f8e49
   - title: Preserve Original Creation Date
     file: docs/user-stories/update-metadata-command/03-preserve-original-creation-date.md
     content-hash: 3fb2387aa05443306b3a853e06f3760adbaa25f95905366de7f05f24f1955a42

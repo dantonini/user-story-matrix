@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/code-command/01-execute-next-step-in-a-structured-workflow.md
 created_at: 2025-03-26T01:43:18+01:00
-last_updated: 2025-03-26T01:44:23+01:00
-_content_hash: 8c30f63b9f0d6994e740a6acd1c10403
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: c98843b09b524f5d6dd5c3aafce278d99961481470980d400b3d9758c7daaf71
 ---
 
 # Execute next step in a structured workflow  

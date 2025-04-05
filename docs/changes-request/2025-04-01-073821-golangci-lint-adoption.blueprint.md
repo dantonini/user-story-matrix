@@ -4,16 +4,16 @@ created-at: 2025-04-01T07:38:21+02:00
 user-stories:
   - title: Integrate golangci-lint in the CI/CD pipeline with optional usage
     file: docs/user-stories/golangci-lint/01-integrate-golangci-lint-in-the-ci-cd-pipeline-with-optional-usage.md
-    content-hash: 586a2d13669c351f01ffee13ae3967db
+    content-hash: 66f7e41ef61202867585b06d82ffaaa41219f2e59dc83cf1b6aed761500b9732
   - title: Provide a minimal, non-intrusive baseline lint config
     file: docs/user-stories/golangci-lint/02-provide-a-minimal-non-intrusive-baseline-lint-config.md
-    content-hash: 54609d555b90fcdd200abecb763ecb3a
+    content-hash: adbb2231ceefc3f7f39493fac3078fd9313a6f1a352c8f6c204949f765b86506
   - title: Run dead code detection automatically in full builds
     file: docs/user-stories/golangci-lint/03-run-dead-code-detection-automatically-in-full-builds.md
-    content-hash: da8bd386a07b430152f7d1e6c02b268a
+    content-hash: 1326e697672d9e2a375b7653c0b7d183bff5b0a754350e23b6bed23a7791718a
   - title: Pre-commit hook to warn on obvious issues without blocking
     file: docs/user-stories/golangci-lint/04-pre-commit-hook-to-warn-on-obvious-issues-without-blocking.md
-    content-hash: fae4a2f3be409a18427b459782415d45
+    content-hash: 8bc909f29d1a39e9e6da0a0a89e6c94a25a0968fe1aa1d3f4a3c48f9fd6774b0
 
 ---
 

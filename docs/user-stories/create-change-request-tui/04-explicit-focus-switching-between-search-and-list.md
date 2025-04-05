@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/04-explicit-focus-switching-between-search-and-list.md
 created_at: 2025-03-24T07:22:46+01:00
-last_updated: 2025-03-25T07:48:01+01:00
-_content_hash: 3bb331464ba9aff87569cd70ca7105b2
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 50fc6ff5cf5a9dab31106d783ab11d5a049ff219e92a1aa6c658bfe36ee1df49
 ---
 
 # Explicit Focus Switching Between Search and List

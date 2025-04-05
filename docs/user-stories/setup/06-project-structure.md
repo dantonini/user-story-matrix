@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/06-project-structure.md
 created_at: 2025-03-17T08:24:19+01:00
-last_updated: 2025-03-17T08:24:19+01:00
-_content_hash: 1577170b73d7e18c2fe13f58012f479f
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 551c299e46457225b7f66dd1a18bc108afa8777bd4c432bfa59059d02c04cf9e
 ---
 
 # Define Project Directory Structure

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/08-scrolling-and-large-lists.md
 created_at: 2025-03-24T07:26:27+01:00
-last_updated: 2025-03-25T07:48:12+01:00
-_content_hash: 9e6d0ca1739819d5c8a040ddafb8be07
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 7e1a5231022abfebbdd1c638d4e2e57f79d6651b53ffa940557e0b3277b9bac5
 ---
 
 # Scrolling and Large Lists

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/01-initial-view-of-change-request-selection-ui.md
 created_at: 2025-03-24T07:22:10+01:00
-last_updated: 2025-03-25T07:47:53+01:00
-_content_hash: 906e51d2a2b595c127f4f27fcba2f6a9
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: e7896fb05c2c6c218b772146cd753f125d3e666f8bd0288a545f0d5d0ed42ed2
 ---
 
 # Initial View of Change Request Selection UI

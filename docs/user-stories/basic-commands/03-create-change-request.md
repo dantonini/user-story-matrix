@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/03-create-change-request.md
 created_at: 2025-03-17T20:01:25+01:00
-last_updated: 2025-03-18T05:27:32+01:00
-_content_hash: 411f7ad61cdf96582b638a45041694de
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 8c2078c32a059d21ae7a041a0e8276d5e469882a00ef223a9509770c3d66f2b7
 ---
 
 # Create a change request

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/code-command/04-handle-invalid-or-missing-input-file.md
 created_at: 2025-03-26T01:46:08+01:00
-last_updated: 2025-03-26T01:46:39+01:00
-_content_hash: eb6491cb4c3794a778818c34907a4187
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 8124ff001877ba68f72c28d12165ebe9c2249cf6718379f6b68d85652c510b54
 ---
 
 # Handle invalid or missing input file  

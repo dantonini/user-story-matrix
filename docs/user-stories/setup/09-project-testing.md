@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/09-project-testing.md
 created_at: 2025-03-17T08:26:17+01:00
-last_updated: 2025-03-17T08:26:17+01:00
-_content_hash: 5544e8651e97c7a60691ddb12183091c
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: ac1065958fcd3b7e3fc433bf634462dadd0cc2307500864cba42a8c7740ea0a2
 ---
 
 # Set Up Unit Testing Framework

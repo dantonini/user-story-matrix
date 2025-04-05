@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/code-command/08-introduce-prompt-in-existing-step-definition.md
 created_at: 2025-03-31T08:13:51+02:00
-last_updated: 2025-03-31T08:13:51+02:00
-_content_hash: 55419763d3973fbbe3d750e40669f163
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 3ed379ede7aa463b94b320f491e43bf6c3893e361bc9ed3525f054fb0d6d0f08
 ---
 
 # Introduce Prompt in Existing Step Definition

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/git-integration/04A-automated-change-request-updates.md
 created_at: 2025-03-23T12:55:02+01:00
-last_updated: 2025-03-23T22:01:02+01:00
-_content_hash: 4975f531bf700b7af587d455a09ef4d5
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 397de1034f0a2e9ce7ba9aa328628650bf284cfd697d9e113c023d3d0245a9d3
 ---
 
 # Automated Change Request Updates

@@ -4,7 +4,7 @@ created-at: 2025-03-23T22:28:06+01:00
 user-stories:
   - title: Enhanced Change Request Creation with Filtering
     file: docs/user-stories/basic-commands/03A-create-change-request-filtering.md
-    content-hash: db5afbc5b435f7e4c135b2a2a60eeb33
+    content-hash: ff77a8252e9c3b809422df613e6daa60bcccf29b4380ea76e73cd115219fce70
 
 ---
 

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/05-user-installation.md
 created_at: 2025-03-17T08:21:54+01:00
-last_updated: 2025-03-17T08:21:54+01:00
-_content_hash: da50fa3ebd3afcdc4e4614a3de8d2d07
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 1478b80890e476c2fe3920c8841b5d10449d1efa2f4fc5f7de375c720faca1db
 ---
 
 # Install USM-CLI Easily

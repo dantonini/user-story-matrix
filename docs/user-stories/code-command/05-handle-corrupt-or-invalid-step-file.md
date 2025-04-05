@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/code-command/05-handle-corrupt-or-invalid-step-file.md
 created_at: 2025-03-26T01:47:09+01:00
-last_updated: 2025-03-26T01:47:26+01:00
-_content_hash: eb14fbbad9df2b19d421a552db0463db
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: fde2ee6fc26f0ffc2d8a2054f40a277f696cbd3d6c80126e10b0ec73af56cdf9
 ---
 
 # Handle corrupt or invalid `.step` file  

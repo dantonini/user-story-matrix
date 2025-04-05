@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/06C-ask-for-a-feature.md
 created_at: 2025-03-18T09:06:34+01:00
-last_updated: 2025-03-18T19:03:12+01:00
-_content_hash: 0063f8f8711deba5930296ce71253b1e
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: e11a6a9ce5f1138bbd7cae4373436c5a5bd97ac6c37560e2eb693baa55c3dd93
 ---
 
 # Interactive Input Navigation

@@ -4,7 +4,7 @@ created-at: 2025-03-31T08:18:19+02:00
 user-stories:
   - title: Introduce Prompt in Existing Step Definition
     file: docs/user-stories/code-command/08-introduce-prompt-in-existing-step-definition.md
-    content-hash: 55419763d3973fbbe3d750e40669f163
+    content-hash: 3ed379ede7aa463b94b320f491e43bf6c3893e361bc9ed3525f054fb0d6d0f08
 
 ---
 

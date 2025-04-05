@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/03-entering-search-mode-separates-typing-from-selection.md
 created_at: 2025-03-24T07:21:48+01:00
-last_updated: 2025-03-25T07:47:59+01:00
-_content_hash: 2efb9ba15e82fa61275082ebb7daa5e9
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 1f9a34087be1e027edf4ef0b979b3a846a9c17fb722f176bbb6439561279c663
 ---
 
 # Entering Search Mode Separates Typing from Selection

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/02-project-readme.md
 created_at: 2025-03-17T08:30:46+01:00
-last_updated: 2025-03-17T08:30:46+01:00
-_content_hash: b34f13111bf572f056ee482d27fa5ece
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 5f36294fa32712a9679dba2ee58e5aa0efcb487359f408239bf80133b963c327
 ---
 
 # Create a README with Project Documentation

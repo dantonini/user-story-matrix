@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/basic-commands/03A-create-change-request-filtering.md
 created_at: 2025-03-24T10:00:00+01:00
-last_updated: 2025-03-23T22:24:32+01:00
-_content_hash: db5afbc5b435f7e4c135b2a2a60eeb33
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: ff77a8252e9c3b809422df613e6daa60bcccf29b4380ea76e73cd115219fce70
 ---
 
 # Enhanced Change Request Creation with Filtering

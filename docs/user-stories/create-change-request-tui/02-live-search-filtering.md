@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/02-live-search-filtering.md
 created_at: 2025-03-24T07:21:59+01:00
-last_updated: 2025-03-25T07:47:56+01:00
-_content_hash: e9a55a417dd8edcc9ac78edbafb836ce
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2
 ---
 
 # Live Search Filtering

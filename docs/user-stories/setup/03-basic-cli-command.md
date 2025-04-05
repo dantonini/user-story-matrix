@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/03-basic-cli-command.md
 created_at: 2025-03-17T08:33:32+01:00
-last_updated: 2025-03-17T08:33:32+01:00
-_content_hash: ab6fddb8acf08e90f3203042e13763e3
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: 1400e7da01de2ed7da1b6672b715893fb69f2c87f9f5f7d096509fd72b83be60
 ---
 
 # Create Basic CLI Command Structure

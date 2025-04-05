@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/golangci-lint/02-provide-a-minimal-non-intrusive-baseline-lint-config.md
 created_at: 2025-04-01T07:19:07+02:00
-last_updated: 2025-04-01T07:19:07+02:00
-_content_hash: 54609d555b90fcdd200abecb763ecb3a
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: adbb2231ceefc3f7f39493fac3078fd9313a6f1a352c8f6c204949f765b86506
 ---
 
 # Provide a minimal, non-intrusive baseline lint config

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/create-change-request-tui/12-persist-selections-across-searches.md
 created_at: 2025-03-24T19:38:44+01:00
-last_updated: 2025-03-25T07:48:23+01:00
-_content_hash: 500cf233cbf438fdff5a7ce6c0618729
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: a103c3852b62f1d2b7e0c6ac9ac8a07356db44be2e2bc2870a6203b4c5165112
 ---
 
 # Persist Selections Across Searches

@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/setup/07-project-dependencies.md
 created_at: 2025-03-17T08:24:48+01:00
-last_updated: 2025-03-17T08:24:48+01:00
-_content_hash: d2563b5016fa8dffbb564d3d0946a45b
+last_updated: 2025-04-05T11:15:04+02:00
+_content_hash: d6d66c12aad6cc7234814c4141ffdca1bec5ede205472a74ad4ed3fc36645a10
 ---
 
 # Set Up Dependency Management
