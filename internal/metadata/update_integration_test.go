@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -341,5 +342,178 @@ This story has metadata but with an outdated hash.
 		assert.Contains(t, unchanged2, relStory2)
 		assert.Contains(t, unchanged2, relEpic)
 		assert.Empty(t, hashMap2, "Hash map should be empty for unchanged files")
+	})
+}
+
+// TestIntegration_UpdateFileMetadata_AddsMetadataToNewFile tests that UpdateFileMetadata
+// correctly adds metadata to a new file that doesn't have any metadata yet.
+func TestIntegration_UpdateFileMetadata_AddsMetadataToNewFile(t *testing.T) {
+	withTempDir(t, func(tempDir string, fs io.FileSystem) {
+		// Create directory structure
+		usDir := filepath.Join(tempDir, "docs", "user-stories")
+		require.NoError(t, fs.MkdirAll(usDir, 0755))
+		
+		// Create test file without metadata
+		testPath := filepath.Join(usDir, "test.md")
+		testContent := "# Test File\n\nThis is a test file."
+		require.NoError(t, fs.WriteFile(testPath, []byte(testContent), 0644))
+		
+		// Update metadata using tempDir as root
+		updated, hashMap, err := UpdateFileMetadata(testPath, tempDir, fs)
+		require.NoError(t, err, "Should update metadata without error")
+		
+		// Verify the function returned the expected values
+		assert.True(t, updated, "The file should have been updated")
+		assert.NotEmpty(t, hashMap.NewHash, "A new hash should have been calculated")
+		assert.Empty(t, hashMap.OldHash, "Old hash should be empty for a new file")
+		assert.True(t, hashMap.Changed, "Content should be marked as changed")
+		
+		// Read the updated content
+		updatedContent, err := fs.ReadFile(testPath)
+		require.NoError(t, err, "Should be able to read the updated file")
+		
+		// Get the content as a string
+		updatedContentStr := string(updatedContent)
+		
+		// Verify that metadata was added
+		assert.Contains(t, updatedContentStr, "---", "Content should contain metadata delimiter")
+		assert.Contains(t, updatedContentStr, "file_path:", "Content should contain file_path field")
+		assert.Contains(t, updatedContentStr, "docs/user-stories/test.md", "Content should contain the right file path component")
+		assert.Contains(t, updatedContentStr, "created_at:", "Content should contain created_at field")
+		assert.Contains(t, updatedContentStr, "last_updated:", "Content should contain last_updated field")
+		assert.Contains(t, updatedContentStr, "_content_hash:", "Content should contain _content_hash field")
+		
+		// Verify that the original content was preserved
+		assert.Contains(t, updatedContentStr, "# Test File", "Original title should be preserved")
+		assert.Contains(t, updatedContentStr, "This is a test file.", "Original content should be preserved")
+		
+		// Extract metadata to verify it properly
+		metadata, err := ExtractMetadata(updatedContentStr)
+		require.NoError(t, err, "Should be able to extract metadata")
+		
+		// Verify metadata fields
+		assert.NotEmpty(t, metadata.FilePath, "FilePath should not be empty")
+		assert.Contains(t, metadata.FilePath, "docs/user-stories/test.md", "FilePath should contain the right path component")
+		assert.False(t, metadata.CreatedAt.IsZero(), "CreatedAt should not be zero")
+		assert.False(t, metadata.LastUpdated.IsZero(), "LastUpdated should not be zero")
+		assert.Equal(t, hashMap.NewHash, metadata.ContentHash, "ContentHash should match calculated hash")
+		
+		// Calculate the hash on the original content and verify it matches
+		expectedHash := CalculateContentHash(testContent)
+		assert.Equal(t, expectedHash, metadata.ContentHash, "ContentHash should match calculated hash")
+	})
+}
+
+// TestIntegration_UpdateFileMetadata_UpdatesExistingMetadata tests that UpdateFileMetadata
+// correctly updates metadata in a file that already has metadata.
+func TestIntegration_UpdateFileMetadata_UpdatesExistingMetadata(t *testing.T) {
+	withTempDir(t, func(tempDir string, fs io.FileSystem) {
+		// Create directory structure
+		usDir := filepath.Join(tempDir, "docs", "user-stories")
+		require.NoError(t, fs.MkdirAll(usDir, 0755))
+		
+		// Create test file with outdated metadata
+		testPath := filepath.Join(usDir, "test.md")
+		
+		oldHash := "oldhash123"
+		oldContent := fmt.Sprintf(`---
+file_path: old/path/test.md
+created_at: 2022-05-15T10:30:00Z
+last_updated: 2022-05-16T10:30:00Z
+_content_hash: %s
+---
+
+# Test File
+
+This is a test file with outdated metadata.`, oldHash)
+		
+		require.NoError(t, fs.WriteFile(testPath, []byte(oldContent), 0644))
+		
+		// Update metadata
+		updated, hashMap, err := UpdateFileMetadata(testPath, tempDir, fs)
+		require.NoError(t, err)
+		
+		// Verify the function returned the expected values
+		assert.True(t, updated, "The file should have been updated")
+		assert.NotEmpty(t, hashMap.NewHash, "A new hash should have been calculated")
+		assert.Equal(t, oldHash, hashMap.OldHash, "Old hash should match the one in the file")
+		assert.True(t, hashMap.Changed, "Content should be marked as changed")
+		
+		// Read the updated content
+		updatedContent, err := fs.ReadFile(testPath)
+		require.NoError(t, err)
+		
+		// Get the content as a string
+		updatedContentStr := string(updatedContent)
+		
+		// Verify that metadata was updated
+		assert.Contains(t, updatedContentStr, "---")
+		assert.Contains(t, updatedContentStr, "file_path:", "File path field should be present")
+		assert.Contains(t, updatedContentStr, "docs/user-stories/test.md", "Path should include correct components")
+		assert.Contains(t, updatedContentStr, "created_at: 2022-05-15T10:30:00Z", "Creation date should be preserved")
+		assert.Contains(t, updatedContentStr, "last_updated:", "Last updated should be present")
+		assert.NotContains(t, updatedContentStr, "last_updated: 2022-05-16T10:30:00Z", "Last updated should be changed")
+		assert.Contains(t, updatedContentStr, "_content_hash:", "Content hash should be present")
+		assert.NotContains(t, updatedContentStr, "_content_hash: "+oldHash, "Old hash should be replaced")
+		
+		// Verify that the original content was preserved
+		assert.Contains(t, updatedContentStr, "# Test File")
+		assert.Contains(t, updatedContentStr, "This is a test file with outdated metadata.")
+		
+		// Extract metadata to verify it properly
+		metadata, err := ExtractMetadata(updatedContentStr)
+		require.NoError(t, err)
+		
+		// Verify metadata fields
+		assert.Contains(t, metadata.FilePath, "docs/user-stories/test.md", "File path should contain correct components")
+		assert.Equal(t, "2022-05-15T10:30:00Z", metadata.CreatedAt.Format(time.RFC3339), "CreatedAt should be preserved")
+		assert.NotEqual(t, "2022-05-16T10:30:00Z", metadata.LastUpdated.Format(time.RFC3339), "LastUpdated should be updated")
+		assert.Equal(t, hashMap.NewHash, metadata.ContentHash, "ContentHash should match the new hash")
+	})
+}
+
+// TestIntegration_UpdateFileMetadata_PreservesMetadata tests that UpdateFileMetadata
+// correctly preserves metadata when the content hash hasn't changed.
+func TestIntegration_UpdateFileMetadata_PreservesMetadata(t *testing.T) {
+	withTempDir(t, func(tempDir string, fs io.FileSystem) {
+		// Create directory structure
+		usDir := filepath.Join(tempDir, "docs", "user-stories")
+		require.NoError(t, fs.MkdirAll(usDir, 0755))
+		
+		// Create test file with current metadata
+		testPath := filepath.Join(usDir, "test.md")
+		relPath, err := filepath.Rel(tempDir, testPath)
+		require.NoError(t, err)
+		
+		originalContent := "# Test File\n\nThis is a test file with current metadata."
+		currentHash := CalculateContentHash(originalContent)
+		
+		initialContent := fmt.Sprintf(`---
+file_path: %s
+created_at: 2022-05-15T10:30:00Z
+last_updated: 2022-05-16T10:30:00Z
+_content_hash: %s
+---
+
+%s`, relPath, currentHash, originalContent)
+		
+		require.NoError(t, fs.WriteFile(testPath, []byte(initialContent), 0644))
+		
+		// Update metadata
+		updated, hashMap, err := UpdateFileMetadata(testPath, tempDir, fs)
+		require.NoError(t, err)
+		
+		// Verify the function returned the expected values
+		assert.False(t, updated, "The file should not have been updated")
+		assert.Equal(t, currentHash, hashMap.NewHash, "New hash should match current hash")
+		assert.Equal(t, currentHash, hashMap.OldHash, "Old hash should match current hash")
+		assert.False(t, hashMap.Changed, "Content should not be marked as changed")
+		
+		// Read the file content
+		currentContent, err := fs.ReadFile(testPath)
+		require.NoError(t, err)
+		
+		// Verify content hasn't changed
+		assert.Equal(t, initialContent, string(currentContent), "File content should be unchanged")
 	})
 } 

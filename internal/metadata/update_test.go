@@ -165,59 +165,9 @@ func (fs *WriteTrackingMockFileSystem) GetWrittenData(path string) []byte {
 
 // TestUpdateFileMetadata_AddsMetadataToNewFile verifies that metadata is added to a file without metadata
 func TestUpdateFileMetadata_AddsMetadataToNewFile(t *testing.T) {
-	// Despite improvements to the mock filesystem, there are still issues with tests that rely on WriteFile
-	// followed by ReadFile in complex scenarios. The content hash verification feature we added shows that
-	// while the file content is being set, it's not being consistently read back with the updated value.
-	// For a future improvement, we need to refactor the test to use an integration test approach with a real
-	// OS file system instead of the mock, or significantly enhance the mock implementation.
-	t.Skip("Test skipped due to persistent issues with mock filesystem read/write operations")
-	
-	// Create mock filesystem
-	fs := io.NewMockFileSystem()
-	
-	// Create test file
-	testContent := "# Test File\n\nThis is a test file."
-	testPath := "docs/user-stories/test.md"
-	fs.AddFile(testPath, []byte(testContent))
-	
-	// Update metadata
-	updated, hashMap, err := UpdateFileMetadata(testPath, ".", fs)
-	require.NoError(t, err)
-	
-	// Verify the function returned the expected values
-	assert.True(t, updated, "The file should have been updated")
-	assert.NotEmpty(t, hashMap.NewHash, "A new hash should have been calculated")
-	assert.Empty(t, hashMap.OldHash, "Old hash should be empty for a new file")
-	assert.True(t, hashMap.Changed, "Content should be marked as changed")
-	
-	// Read the updated content directly from the Files map
-	updatedContent, err := fs.ReadFile(testPath)
-	require.NoError(t, err, "Should be able to read the file")
-	
-	// Get the content as a string
-	updatedContentStr := string(updatedContent)
-	
-	// Verify that metadata was added
-	assert.Contains(t, updatedContentStr, "---")
-	assert.Contains(t, updatedContentStr, "file_path:")
-	assert.Contains(t, updatedContentStr, testPath)
-	assert.Contains(t, updatedContentStr, "created_at:")
-	assert.Contains(t, updatedContentStr, "last_updated:")
-	assert.Contains(t, updatedContentStr, "_content_hash:")
-	
-	// Verify that the original content was preserved
-	assert.Contains(t, updatedContentStr, "# Test File")
-	assert.Contains(t, updatedContentStr, "This is a test file.")
-	
-	// Extract metadata to verify it properly
-	metadata, err := ExtractMetadata(updatedContentStr)
-	require.NoError(t, err)
-	
-	// Verify metadata fields
-	assert.Equal(t, testPath, metadata.FilePath)
-	assert.False(t, metadata.CreatedAt.IsZero(), "Created at should not be zero")
-	assert.False(t, metadata.LastUpdated.IsZero(), "Last updated should not be zero")
-	assert.NotEmpty(t, metadata.ContentHash)
+	// This test has been implemented as an integration test using a real filesystem
+	// See TestIntegration_UpdateFileMetadata_AddsMetadataToNewFile in update_integration_test.go
+	t.Skip("Implemented as an integration test with real filesystem in update_integration_test.go")
 }
 
 // TestFindMarkdownFiles_FindsAllMarkdownFiles verifies that FindMarkdownFiles finds all markdown files in a directory
