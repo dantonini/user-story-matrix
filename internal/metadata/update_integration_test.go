@@ -312,8 +312,8 @@ This story has metadata but with an outdated hash.
 		assert.True(t, strings.HasPrefix(contentStr1, "---"), "Story1 should start with metadata delimiter")
 		assert.Contains(t, contentStr1, "file_path: "+relStory1)
 		assert.Contains(t, contentStr1, "created_at:")
-		assert.Contains(t, contentStr1, "last_updated:")
-		assert.Contains(t, contentStr1, "_content_hash:")
+		assert.Contains(t, contentStr1, "last_updated:", "Story1 should have last updated date")
+		assert.Contains(t, contentStr1, "_content_hash:", "Story1 should have content hash")
 		assert.Contains(t, contentStr1, "# Story 1")
 		
 		// 2. Story2 - should preserve original creation date
@@ -323,8 +323,8 @@ This story has metadata but with an outdated hash.
 		assert.True(t, strings.HasPrefix(contentStr2, "---"), "Story2 should start with metadata delimiter")
 		assert.Contains(t, contentStr2, "file_path: "+relStory2)
 		assert.Contains(t, contentStr2, "created_at: 2022-05-15T10:30:00Z", "Should preserve original creation date")
-		assert.Contains(t, contentStr2, "last_updated:")
-		assert.Contains(t, contentStr2, "_content_hash:")
+		assert.Contains(t, contentStr2, "last_updated:", "Story2 should have last updated date")
+		assert.Contains(t, contentStr2, "_content_hash:", "Story2 should have content hash")
 		assert.NotContains(t, contentStr2, "_content_hash: oldhash123", "Old hash should be replaced")
 		assert.Contains(t, contentStr2, "# Story 2")
 		
@@ -515,5 +515,355 @@ _content_hash: %s
 		
 		// Verify content hasn't changed
 		assert.Equal(t, initialContent, string(currentContent), "File content should be unchanged")
+	})
+}
+
+// TestIntegration_UpdateAllUserStoryMetadata_Complex tests comprehensive scenarios for UpdateAllUserStoryMetadata
+// This is an integration test that replaces the skipped mock-based test in update_test.go
+func TestIntegration_UpdateAllUserStoryMetadata_Complex(t *testing.T) {
+	withTempDir(t, func(tempDir string, fs io.FileSystem) {
+		// Create directory structure
+		docsDir := filepath.Join(tempDir, "docs")
+		userStoriesDir := filepath.Join(docsDir, "user-stories")
+		epicsDir := filepath.Join(userStoriesDir, "epics")
+		ignoreDir := filepath.Join(tempDir, "docs", "ignore-me") // Will be scanned because it's not in SkippedDirectories
+		nodeModulesDir := filepath.Join(tempDir, "node_modules") // Should be skipped
+		
+		// Create all directories
+		require.NoError(t, fs.MkdirAll(userStoriesDir, 0755))
+		require.NoError(t, fs.MkdirAll(epicsDir, 0755))
+		require.NoError(t, fs.MkdirAll(ignoreDir, 0755))
+		require.NoError(t, fs.MkdirAll(nodeModulesDir, 0755))
+		
+		// Create test files - some with metadata, some without
+		// 1. File with no metadata, needs adding
+		story1Path := filepath.Join(userStoriesDir, "story1.md")
+		story1Content := "# Story 1\n\nThis is a story without metadata."
+		require.NoError(t, fs.WriteFile(story1Path, []byte(story1Content), 0644))
+		
+		// 2. File with metadata but outdated content hash
+		story2Path := filepath.Join(userStoriesDir, "story2.md")
+		oldHash := "oldhash123"
+		story2Content := fmt.Sprintf(`---
+file_path: docs/user-stories/story2.md
+created_at: 2022-05-15T10:30:00Z
+last_updated: 2022-05-16T10:30:00Z
+_content_hash: %s
+---
+
+# Story 2
+This story has metadata but the content hash is outdated.
+`, oldHash)
+		require.NoError(t, fs.WriteFile(story2Path, []byte(story2Content), 0644))
+		
+		// 3. File with correct metadata and hash, shouldn't change
+		story3Path := filepath.Join(userStoriesDir, "story3.md")
+		unchangedContent := "# Story 3\nThis story won't change."
+		currentHash := CalculateContentHash(unchangedContent)
+		story3Content := fmt.Sprintf(`---
+file_path: docs/user-stories/story3.md
+created_at: 2022-05-15T10:30:00Z
+last_updated: 2022-05-16T10:30:00Z
+_content_hash: %s
+---
+
+%s`, currentHash, unchangedContent)
+		require.NoError(t, fs.WriteFile(story3Path, []byte(story3Content), 0644))
+		
+		// 4. File in subdirectory without metadata
+		epicPath := filepath.Join(epicsDir, "epic1.md")
+		epicContent := "# Epic 1\n\nThis is an epic without metadata."
+		require.NoError(t, fs.WriteFile(epicPath, []byte(epicContent), 0644))
+		
+		// 5. File in 'ignore-me' directory (should be processed, it's not in the SkippedDirectories list)
+		ignorePath := filepath.Join(ignoreDir, "ignore-story.md")
+		ignoreContent := "# Ignore Story\n\nThis should still be processed."
+		require.NoError(t, fs.WriteFile(ignorePath, []byte(ignoreContent), 0644))
+		
+		// 6. File in node_modules directory (should be skipped)
+		nodePath := filepath.Join(nodeModulesDir, "readme.md")
+		nodeContent := "# Node Module\n\nThis should be skipped."
+		require.NoError(t, fs.WriteFile(nodePath, []byte(nodeContent), 0644))
+		
+		// 7. Non-markdown file (should be skipped)
+		textPath := filepath.Join(userStoriesDir, "notes.txt")
+		textContent := "Just some notes, not markdown."
+		require.NoError(t, fs.WriteFile(textPath, []byte(textContent), 0644))
+		
+		// Calculate relative paths for verification
+		relStory1, _ := filepath.Rel(tempDir, story1Path)
+		relStory2, _ := filepath.Rel(tempDir, story2Path)
+		relStory3, _ := filepath.Rel(tempDir, story3Path)
+		relEpic, _ := filepath.Rel(tempDir, epicPath)
+		relIgnore, _ := filepath.Rel(tempDir, ignorePath)
+		
+		// Before update - read and verify content
+		beforeStory1, err := fs.ReadFile(story1Path)
+		require.NoError(t, err)
+		assert.Equal(t, story1Content, string(beforeStory1), "Story1 content should match before update")
+		
+		beforeStory2, err := fs.ReadFile(story2Path)
+		require.NoError(t, err)
+		assert.Equal(t, story2Content, string(beforeStory2), "Story2 content should match before update")
+		
+		beforeStory3, err := fs.ReadFile(story3Path)
+		require.NoError(t, err)
+		assert.Equal(t, story3Content, string(beforeStory3), "Story3 content should match before update")
+		
+		// Run UpdateAllUserStoryMetadata
+		updated, unchanged, hashMap, err := UpdateAllUserStoryMetadata(docsDir, tempDir, fs)
+		require.NoError(t, err, "UpdateAllUserStoryMetadata should not return an error")
+		
+		// Verify results - specific files that should be updated
+		assert.Equal(t, 4, len(updated), "Four files should be updated")
+		assert.Contains(t, updated, relStory1, "Story1 should be in updated list")
+		assert.Contains(t, updated, relStory2, "Story2 should be in updated list")
+		assert.Contains(t, updated, relEpic, "Epic should be in updated list")
+		assert.Contains(t, updated, relIgnore, "Ignore-story should be in updated list")
+		
+		// Verify unchanged files
+		assert.Equal(t, 1, len(unchanged), "One file should remain unchanged")
+		assert.Contains(t, unchanged, relStory3, "Story3 should be in unchanged list")
+		
+		// Verify hash map contains correct entries
+		assert.Equal(t, 4, len(hashMap), "Hash map should have 4 entries")
+		assert.Contains(t, hashMap, relStory1, "Story1 should be in hash map")
+		assert.Contains(t, hashMap, relStory2, "Story2 should be in hash map")
+		assert.Contains(t, hashMap, relEpic, "Epic should be in hash map")
+		assert.Contains(t, hashMap, relIgnore, "Ignore-story should be in hash map")
+		
+		// Verify the hash details for Story2
+		assert.Equal(t, oldHash, hashMap[relStory2].OldHash, "Story2 old hash should match")
+		assert.NotEqual(t, oldHash, hashMap[relStory2].NewHash, "Story2 new hash should be different")
+		assert.True(t, hashMap[relStory2].Changed, "Story2 should be marked as changed")
+		
+		// Verify file content has been updated correctly
+		// Story1 - check metadata was added
+		afterStory1, err := fs.ReadFile(story1Path)
+		require.NoError(t, err)
+		story1After := string(afterStory1)
+		assert.True(t, strings.HasPrefix(story1After, "---"), "Story1 should start with metadata delimiter")
+		assert.Contains(t, story1After, "file_path: "+relStory1, "Story1 should have correct file path")
+		assert.Contains(t, story1After, "created_at:", "Story1 should have creation date")
+		assert.Contains(t, story1After, "last_updated:", "Story1 should have last updated date")
+		assert.Contains(t, story1After, "_content_hash:", "Story1 should have content hash")
+		assert.Contains(t, story1After, "# Story 1", "Story1 should preserve original content")
+		
+		// Story2 - check metadata was updated (but creation date preserved)
+		afterStory2, err := fs.ReadFile(story2Path)
+		require.NoError(t, err)
+		story2After := string(afterStory2)
+		assert.True(t, strings.HasPrefix(story2After, "---"), "Story2 should start with metadata delimiter")
+		assert.Contains(t, story2After, "file_path: "+relStory2, "Story2 should have correct file path")
+		assert.Contains(t, story2After, "created_at: 2022-05-15T10:30:00Z", "Story2 should preserve original creation date")
+		assert.Contains(t, story2After, "last_updated:", "Story2 should have last updated date")
+		assert.NotContains(t, story2After, "last_updated: 2022-05-16T10:30:00Z", "Story2 should have updated last_updated date")
+		assert.Contains(t, story2After, "_content_hash:", "Story2 should have content hash")
+		assert.NotContains(t, story2After, "_content_hash: "+oldHash, "Story2 should have updated content hash")
+		assert.Contains(t, story2After, "# Story 2", "Story2 should preserve original content")
+		
+		// Story3 - should remain unchanged
+		afterStory3, err := fs.ReadFile(story3Path)
+		require.NoError(t, err)
+		assert.Equal(t, string(beforeStory3), string(afterStory3), "Story3 should remain unchanged")
+		
+		// Epic - check metadata was added
+		afterEpic, err := fs.ReadFile(epicPath)
+		require.NoError(t, err)
+		epicAfter := string(afterEpic)
+		assert.True(t, strings.HasPrefix(epicAfter, "---"), "Epic should start with metadata delimiter")
+		assert.Contains(t, epicAfter, "file_path: "+relEpic, "Epic should have correct file path")
+		assert.Contains(t, epicAfter, "created_at:", "Epic should have creation date")
+		assert.Contains(t, epicAfter, "last_updated:", "Epic should have last updated date")
+		assert.Contains(t, epicAfter, "_content_hash:", "Epic should have content hash")
+		assert.Contains(t, epicAfter, "# Epic 1", "Epic should preserve original content")
+		
+		// Ignore-story - check metadata was added
+		afterIgnore, err := fs.ReadFile(ignorePath)
+		require.NoError(t, err)
+		ignoreAfter := string(afterIgnore)
+		assert.True(t, strings.HasPrefix(ignoreAfter, "---"), "Ignore-story should start with metadata delimiter")
+		assert.Contains(t, ignoreAfter, "file_path: "+relIgnore, "Ignore-story should have correct file path")
+		assert.Contains(t, ignoreAfter, "created_at:", "Ignore-story should have creation date")
+		assert.Contains(t, ignoreAfter, "last_updated:", "Ignore-story should have last updated date")
+		assert.Contains(t, ignoreAfter, "_content_hash:", "Ignore-story should have content hash")
+		assert.Contains(t, ignoreAfter, "# Ignore Story", "Ignore-story should preserve original content")
+		
+		// Skipped files should not be modified
+		afterNode, err := fs.ReadFile(nodePath)
+		require.NoError(t, err)
+		assert.Equal(t, nodeContent, string(afterNode), "Node module file should not be modified")
+		
+		afterText, err := fs.ReadFile(textPath)
+		require.NoError(t, err)
+		assert.Equal(t, textContent, string(afterText), "Text file should not be modified")
+		
+		// Run again - all files should remain unchanged this time
+		updated2, unchanged2, hashMap2, err := UpdateAllUserStoryMetadata(docsDir, tempDir, fs)
+		require.NoError(t, err)
+		
+		assert.Equal(t, 0, len(updated2), "No files should be updated on second run")
+		assert.Equal(t, 5, len(unchanged2), "All 5 files should be unchanged on second run")
+		assert.Contains(t, unchanged2, relStory1, "Story1 should be in unchanged list on second run")
+		assert.Contains(t, unchanged2, relStory2, "Story2 should be in unchanged list on second run")
+		assert.Contains(t, unchanged2, relStory3, "Story3 should be in unchanged list on second run")
+		assert.Contains(t, unchanged2, relEpic, "Epic should be in unchanged list on second run")
+		assert.Contains(t, unchanged2, relIgnore, "Ignore-story should be in unchanged list on second run")
+		assert.Empty(t, hashMap2, "Hash map should be empty on second run")
+	})
+}
+
+// TestIntegration_UpdateAllUserStoryMetadata_UpdatesAllFiles verifies that all files
+// in a complex directory structure are properly updated with metadata
+func TestIntegration_UpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
+	withTempDir(t, func(tempDir string, fs io.FileSystem) {
+		// Create directory structure
+		docsDir := filepath.Join(tempDir, "docs")
+		userStoriesDir := filepath.Join(docsDir, "user-stories")
+		feature1Dir := filepath.Join(userStoriesDir, "feature1")
+		feature2Dir := filepath.Join(userStoriesDir, "feature2")
+		changeRequestDir := filepath.Join(docsDir, "changes-request")
+		
+		// Create all directories
+		require.NoError(t, fs.MkdirAll(feature1Dir, 0755))
+		require.NoError(t, fs.MkdirAll(feature2Dir, 0755))
+		require.NoError(t, fs.MkdirAll(changeRequestDir, 0755))
+		
+		// Create test files in various directories
+		testFiles := []struct {
+			path    string
+			content string
+		}{
+			{
+				path:    filepath.Join(feature1Dir, "story1.md"),
+				content: "# Story 1\n\nThis is story 1.",
+			},
+			{
+				path:    filepath.Join(feature1Dir, "story2.md"),
+				content: "# Story 2\n\nThis is story 2.",
+			},
+			{
+				path:    filepath.Join(feature2Dir, "story3.md"),
+				content: "# Story 3\n\nThis is story 3.",
+			},
+			{
+				path:    filepath.Join(changeRequestDir, "cr1.md"),
+				content: "# Change Request 1\n\nThis is a change request that should not be affected.",
+			},
+		}
+		
+		// Create all test files
+		for _, file := range testFiles {
+			require.NoError(t, fs.WriteFile(file.path, []byte(file.content), 0644))
+		}
+		
+		// Calculate relative paths for verification
+		var userStoryPaths []string
+		var changeRequestPaths []string
+		for _, file := range testFiles {
+			relPath, err := filepath.Rel(tempDir, file.path)
+			require.NoError(t, err)
+			
+			if strings.Contains(relPath, "changes-request") {
+				changeRequestPaths = append(changeRequestPaths, relPath)
+			} else {
+				userStoryPaths = append(userStoryPaths, relPath)
+			}
+		}
+		
+		// Verify files exist and have expected content before update
+		for _, file := range testFiles {
+			content, err := fs.ReadFile(file.path)
+			require.NoError(t, err)
+			assert.Equal(t, file.content, string(content), "File should contain expected content")
+		}
+		
+		// Update all metadata - only targeting the user-stories directory
+		updated, unchanged, hashMap, err := UpdateAllUserStoryMetadata(userStoriesDir, tempDir, fs)
+		require.NoError(t, err, "UpdateAllUserStoryMetadata should not return an error")
+		
+		// Verify results
+		assert.Equal(t, len(userStoryPaths), len(updated), "All user story files should be updated")
+		assert.Equal(t, 0, len(unchanged), "No files should remain unchanged in initial run")
+		assert.Equal(t, len(userStoryPaths), len(hashMap), "Hash map should have entry for each user story")
+		
+		// Verify each user story path is in the updated list
+		for _, path := range userStoryPaths {
+			assert.Contains(t, updated, path, "User story should be in updated list")
+			assert.Contains(t, hashMap, path, "User story should be in hash map")
+		}
+		
+		// Verify that change request files were not updated (not in the target directory)
+		for _, crPath := range changeRequestPaths {
+			assert.NotContains(t, updated, crPath, "Change request should not be in updated list")
+			assert.NotContains(t, hashMap, crPath, "Change request should not be in hash map")
+			
+			absolutePath := filepath.Join(tempDir, crPath)
+			content, err := fs.ReadFile(absolutePath)
+			require.NoError(t, err)
+			
+			for _, file := range testFiles {
+				if file.path == absolutePath {
+					assert.Equal(t, file.content, string(content), "Change request content should be unchanged")
+					break
+				}
+			}
+		}
+		
+		// Verify each user story file was updated with metadata
+		for _, path := range userStoryPaths {
+			absolutePath := filepath.Join(tempDir, path)
+			
+			// Read the updated content
+			content, err := fs.ReadFile(absolutePath)
+			require.NoError(t, err)
+			updatedContent := string(content)
+			
+			// Verify metadata was added correctly
+			assert.True(t, strings.HasPrefix(updatedContent, "---"), "File should start with metadata delimiter")
+			assert.Contains(t, updatedContent, "file_path: "+path, "Metadata should contain correct file path")
+			assert.Contains(t, updatedContent, "created_at:", "Metadata should contain creation date")
+			assert.Contains(t, updatedContent, "last_updated:", "Metadata should contain last updated date")
+			assert.Contains(t, updatedContent, "_content_hash:", "Metadata should contain content hash")
+			
+			// Verify original content was preserved
+			for _, file := range testFiles {
+				if filepath.Join(tempDir, path) == file.path {
+					assert.Contains(t, updatedContent, file.content, "Original content should be preserved")
+					break
+				}
+			}
+			
+			// Extract and verify metadata
+			metadata, err := ExtractMetadata(updatedContent)
+			require.NoError(t, err)
+			
+			assert.Equal(t, path, metadata.FilePath, "File path in metadata should match relative path")
+			assert.False(t, metadata.CreatedAt.IsZero(), "Created at should not be zero")
+			assert.False(t, metadata.LastUpdated.IsZero(), "Last updated should not be zero")
+			assert.NotEmpty(t, metadata.ContentHash, "Content hash should not be empty")
+			
+			// Verify content hash matches expected value
+			for _, file := range testFiles {
+				if filepath.Join(tempDir, path) == file.path {
+					expectedHash := CalculateContentHash(file.content)
+					assert.Equal(t, expectedHash, metadata.ContentHash, "Content hash should match expected value")
+					break
+				}
+			}
+		}
+		
+		// Run again - all files should be unchanged
+		updated2, unchanged2, hashMap2, err := UpdateAllUserStoryMetadata(userStoriesDir, tempDir, fs)
+		require.NoError(t, err)
+		
+		assert.Equal(t, 0, len(updated2), "No files should be updated on second run")
+		assert.Equal(t, len(userStoryPaths), len(unchanged2), "All user story files should be unchanged on second run")
+		assert.Empty(t, hashMap2, "Hash map should be empty for unchanged files")
+		
+		// Verify each path is in the unchanged list
+		for _, path := range userStoryPaths {
+			assert.Contains(t, unchanged2, path, "User story should be in unchanged list on second run")
+		}
 	})
 } 

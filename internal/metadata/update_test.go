@@ -8,7 +8,6 @@ package metadata
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -261,211 +260,16 @@ func TestShouldSkipDirectory(t *testing.T) {
 
 // TestUpdateAllUserStoryMetadata tests the basic functionality of updating multiple markdown files
 func TestUpdateAllUserStoryMetadata(t *testing.T) {
-	// Despite our best efforts to improve the mock filesystem, there are still issues with complex
-	// operations like directory traversal, file content updates, and state management across multiple
-	// file operations. This test would be better implemented as an integration test with a real
-	// filesystem in a temporary directory.
-	t.Skip("Test skipped due to persistent issues with mock filesystem implementation")
-	
-	// Create a mock file system with tracking capabilities
-	fs := NewWriteTrackingMockFileSystem()
-	
-	// Set up directories
-	fs.AddDirectory("docs")
-	fs.AddDirectory("docs/user-stories")
-	fs.AddDirectory("docs/user-stories/epics")
-	fs.AddDirectory("docs/ignore-me") // This won't be in SkippedDirectories so should be scanned
-	fs.AddDirectory("node_modules")   // This should be skipped
-	
-	// Add test files - some with metadata, some without
-	// File 1: No metadata, needs adding
-	fs.AddFile("docs/user-stories/story1.md", []byte(
-		"# Story 1\n\nThis is a story without metadata."))
-	
-	// File 2: Has metadata but outdated content hash
-	oldHash := "oldhash123"
-	fs.AddFile("docs/user-stories/story2.md", []byte(fmt.Sprintf(
-		`---
-file_path: docs/user-stories/story2.md
-created_at: 2022-05-15T10:30:00Z
-last_updated: 2022-05-16T10:30:00Z
-_content_hash: %s
----
-
-# Story 2
-This story has metadata but the content hash is outdated.
-`, oldHash)))
-	
-	// File 3: Has current metadata and hash, shouldn't change
-	unchangedContent := "# Story 3\nThis story won't change."
-	currentHash := CalculateContentHash(unchangedContent)
-	fs.AddFile("docs/user-stories/story3.md", []byte(fmt.Sprintf(
-		`---
-file_path: docs/user-stories/story3.md
-created_at: 2022-05-15T10:30:00Z
-last_updated: 2022-05-16T10:30:00Z
-_content_hash: %s
----
-
-%s`, currentHash, unchangedContent)))
-	
-	// File 4: In a subdirectory
-	fs.AddFile("docs/user-stories/epics/epic1.md", []byte(
-		"# Epic 1\n\nThis is an epic without metadata."))
-	
-	// File 5: In node_modules (should be skipped)
-	fs.AddFile("node_modules/readme.md", []byte(
-		"# Node Module\n\nThis should be skipped."))
-	
-	// File 6: Non-markdown file (should be skipped)
-	fs.AddFile("docs/user-stories/notes.txt", []byte(
-		"Just some notes, not markdown."))
-	
-	// Run the function
-	updated, unchanged, changeMap, err := UpdateAllUserStoryMetadata("docs", ".", fs)
-	
-	// Verify basic expectations
-	require.NoError(t, err)
-	assert.NotEmpty(t, updated, "Some files should be updated")
-	assert.NotEmpty(t, unchanged, "Some files should be unchanged")
-	assert.NotEmpty(t, changeMap, "Change map should not be empty")
-	
-	// Verify counts - 3 files should be updated (story1, story2, epic1)
-	// story3 should remain unchanged
-	// Other files should be skipped
-	assert.Equal(t, 3, len(updated), "Three files should be updated")
-	assert.Equal(t, 1, len(unchanged), "One file should be unchanged")
-	
-	// Verify specific files in the updated list (using relative paths)
-	assert.Contains(t, updated, "docs/user-stories/story1.md")
-	assert.Contains(t, updated, "docs/user-stories/story2.md")
-	assert.Contains(t, updated, "docs/user-stories/epics/epic1.md")
-	
-	// Verify unchanged file
-	assert.Contains(t, unchanged, "docs/user-stories/story3.md")
-	
-	// Verify content changes in the change map
-	assert.Contains(t, changeMap, "docs/user-stories/story1.md")
-	assert.Contains(t, changeMap, "docs/user-stories/story2.md")
-	assert.Equal(t, oldHash, changeMap["docs/user-stories/story2.md"].OldHash)
-	assert.NotEqual(t, oldHash, changeMap["docs/user-stories/story2.md"].NewHash)
-	
-	// Verify file content has been updated with metadata
-	for _, path := range []string{"docs/user-stories/story1.md", "docs/user-stories/story2.md", "docs/user-stories/epics/epic1.md"} {
-		content, err := fs.ReadFile(path)
-		assert.NoError(t, err)
-		contentStr := string(content)
-		
-		// Check that metadata block exists
-		assert.Contains(t, contentStr, "---")
-		assert.Contains(t, contentStr, "file_path: "+path)
-		assert.Contains(t, contentStr, "created_at:")
-		assert.Contains(t, contentStr, "last_updated:")
-		assert.Contains(t, contentStr, "_content_hash:")
-	}
-	
-	// Verify file that shouldn't change hasn't been modified
-	content, err := fs.ReadFile("docs/user-stories/story3.md")
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), currentHash)
-	
-	// Verify skipped files weren't processed
-	assert.Equal(t, 3, fs.GetWriteCount(), "Only 3 files should have been written")
-	assert.NotContains(t, fs.GetWrittenPaths(), "node_modules/readme.md")
-	assert.NotContains(t, fs.GetWrittenPaths(), "docs/user-stories/notes.txt")
+	// This test has been implemented as a comprehensive integration test 
+	// See TestIntegration_UpdateAllUserStoryMetadata_Complex in update_integration_test.go
+	t.Skip("Implemented as an integration test with real filesystem in update_integration_test.go")
 }
 
 // TestUpdateAllUserStoryMetadata_UpdatesAllFiles verifies that all files in a directory are updated
 func TestUpdateAllUserStoryMetadata_UpdatesAllFiles(t *testing.T) {
-	// This test involves multiple file operations and is encountering similar issues to
-	// TestUpdateFileMetadata_AddsMetadataToNewFile. The mock filesystem works for simple tests
-	// but has limitations in complex scenarios with multiple file operations.
-	// For future improvements, we should consider creating a more robust mock or using
-	// a dedicated test filesystem that writes to a temporary directory.
-	t.Skip("Test skipped due to persistent issues with mock filesystem in complex file operation scenarios")
-	
-	// Create mock filesystem
-	fs := io.NewMockFileSystem()
-	
-	// Create directory structure
-	fs.AddDirectory("docs")
-	fs.AddDirectory("docs/user-stories")
-	fs.AddDirectory("docs/user-stories/feature1")
-	fs.AddDirectory("docs/user-stories/feature2")
-	fs.AddDirectory("docs/changes-request")
-	
-	// Create test files
-	testFiles := []struct {
-		path    string
-		content string
-	}{
-		{
-			path:    "docs/user-stories/feature1/story1.md",
-			content: "# Story 1\n\nThis is story 1.",
-		},
-		{
-			path:    "docs/user-stories/feature1/story2.md",
-			content: "# Story 2\n\nThis is story 2.",
-		},
-		{
-			path:    "docs/user-stories/feature2/story3.md",
-			content: "# Story 3\n\nThis is story 3.",
-		},
-		{
-			path:    "docs/changes-request/cr1.md",
-			content: "# Change Request 1\n\nThis is a change request.",
-		},
-	}
-	
-	for _, file := range testFiles {
-		fs.AddFile(file.path, []byte(file.content))
-	}
-	
-	// Update all metadata
-	updatedFiles, unchangedFiles, hashMap, err := UpdateAllUserStoryMetadata("docs/user-stories", ".", fs)
-	require.NoError(t, err)
-	
-	// Verify results
-	assert.Equal(t, 3, len(updatedFiles), "Expected 3 files to be updated")
-	assert.Equal(t, 0, len(unchangedFiles), "Expected 0 files to be unchanged")
-	assert.Equal(t, 3, len(hashMap), "Expected 3 entries in the hash map")
-	
-	// Check that each user story file was updated with metadata
-	for _, file := range testFiles {
-		if filepath.Ext(file.path) == ".md" && !strings.Contains(file.path, "changes-request") {
-			// Read the updated content
-			content, err := fs.ReadFile(file.path)
-			require.NoError(t, err)
-			
-			updatedContent := string(content)
-			
-			// Verify that metadata was added
-			assert.Contains(t, updatedContent, "---")
-			assert.Contains(t, updatedContent, "file_path:")
-			assert.Contains(t, updatedContent, file.path)
-			assert.Contains(t, updatedContent, "created_at:")
-			assert.Contains(t, updatedContent, "last_updated:")
-			assert.Contains(t, updatedContent, "_content_hash:")
-			
-			// Verify that the original content was preserved
-			assert.Contains(t, updatedContent, file.content)
-			
-			// Extract metadata to verify
-			metadata, err := ExtractMetadata(updatedContent)
-			require.NoError(t, err)
-			
-			// Verify metadata fields
-			assert.Equal(t, file.path, metadata.FilePath)
-			assert.False(t, metadata.CreatedAt.IsZero(), "Created at should not be zero")
-			assert.False(t, metadata.LastUpdated.IsZero(), "Last updated should not be zero")
-			assert.NotEmpty(t, metadata.ContentHash)
-		}
-	}
-	
-	// Verify that change request files were not updated
-	crContent, err := fs.ReadFile("docs/changes-request/cr1.md")
-	require.NoError(t, err)
-	assert.Equal(t, "# Change Request 1\n\nThis is a change request.", string(crContent))
+	// This test has been implemented as an integration test using a real filesystem
+	// See TestIntegration_UpdateAllUserStoryMetadata_UpdatesAllFiles in update_integration_test.go
+	t.Skip("Implemented as an integration test with real filesystem in update_integration_test.go")
 }
 
 func TestUpdateFileMetadata_PreservesOriginalCreationDate(t *testing.T) {
