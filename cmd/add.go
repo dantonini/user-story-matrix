@@ -83,9 +83,8 @@ Example:
 			LastUpdated: time.Now(),
 		}
 		
-		// Create the form, using the LLM-enabled version if available
-		var formModel tea.Model
-		formModel = ui.CreateUserStoryFormWithLLM(us, enableLLM)
+		// Create the form, using the LLM-enabled version if available and run it
+		formModel := ui.CreateUserStoryFormWithLLM(us, enableLLM)
 		
 		// Run the form
 		p := tea.NewProgram(formModel)
@@ -107,7 +106,7 @@ Example:
 				return
 			}
 			userStory = ptrForm.GetUserStory()
-			confirmSubmission = ptrForm.ConfirmSubmission
+			// Don't need to set confirmSubmission here since we already checked it
 		} else {
 			// Try to use the new form's API via type assertions
 			// We use reflection-like approach since we can't directly import the package
