@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -17,11 +16,15 @@ import (
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/models"
+	"github.com/user-story-matrix/usm/internal/ui"
 )
 
 var (
 	// Directory to save the user story
 	intoDir string
+	
+	// Enable LLM processing for user stories (true by default)
+	enableLLM bool
 )
 
 // addCmd represents the add command
@@ -43,6 +46,7 @@ or in the default directory (docs/user-stories) if not specified.
 Example:
   usm add user-story
   usm add user-story --into docs/user-stories/my-feature
+  usm add user-story --no-llm  (disable LLM processing)
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create filesystem and IO interfaces
@@ -79,29 +83,57 @@ Example:
 			LastUpdated: time.Now(),
 		}
 		
-		// Create and run the form
-		form := io.NewUserStoryForm(us)
-		p := tea.NewProgram(form)
+		// Create the form, using the LLM-enabled version if available
+		var formModel tea.Model
+		formModel = ui.CreateUserStoryFormWithLLM(us, enableLLM)
+		
+		// Run the form
+		p := tea.NewProgram(formModel)
 		result, err := p.Run()
 		if err != nil {
 			terminal.PrintError(fmt.Sprintf("Error running form: %s", err))
 			return
 		}
 		
-		// Get final form state
-		ptrForm, ok := result.(*io.UserStoryForm)
-		if !ok {
-			terminal.PrintError("Error: could not get form result")
-			return
-		}
+		// Process the result based on its type
+		var userStory models.UserStory
+		var confirmSubmission bool
 		
-		if !ptrForm.ConfirmSubmission {
-			terminal.Print("User story empty, creation cancelled")
-			return
+		// Handle different form types
+		if ptrForm, ok := result.(*io.UserStoryForm); ok {
+			// Legacy form
+			if !ptrForm.ConfirmSubmission {
+				terminal.Print("User story empty, creation cancelled")
+				return
+			}
+			userStory = ptrForm.GetUserStory()
+			confirmSubmission = ptrForm.ConfirmSubmission
+		} else {
+			// Try to use the new form's API via type assertions
+			// We use reflection-like approach since we can't directly import the package
+			// to avoid import cycles
+			if getter, ok := result.(interface{ GetUserStory() models.UserStory }); ok {
+				userStory = getter.GetUserStory()
+			} else {
+				terminal.PrintError("Error: could not get user story from form")
+				return
+			}
+			
+			if confirmGetter, ok := result.(interface{ GetConfirmSubmission() bool }); ok {
+				confirmSubmission = confirmGetter.GetConfirmSubmission()
+			} else {
+				terminal.PrintError("Error: could not determine if submission was confirmed")
+				return
+			}
+			
+			if !confirmSubmission {
+				terminal.Print("User story empty, creation cancelled")
+				return
+			}
 		}
 		
 		// Generate the filename
-		filename := models.GenerateFilename(sequentialNumber, ptrForm.GetTitle())
+		filename := models.GenerateFilename(sequentialNumber, userStory.Title)
 		
 		// Generate the file path
 		filePath := filepath.Join(targetDir, filename)
@@ -118,13 +150,12 @@ Example:
 			// If we can't get the relative path, use the absolute path
 			relativePath = filePath
 		}
-		ptrForm.SetFilePath(relativePath)
 		
-		// Get the final user story
-		us = ptrForm.GetUserStory()
+		// Update the file path
+		userStory.FilePath = relativePath
 		
 		// Save the file
-		if err := fs.WriteFile(filePath, []byte(us.Content), 0644); err != nil {
+		if err := fs.WriteFile(filePath, []byte(userStory.Content), 0644); err != nil {
 			terminal.PrintError(fmt.Sprintf("Failed to write file: %s", err))
 			return
 		}
@@ -144,4 +175,8 @@ func init() {
 	
 	// Add flags
 	addUserStoryCmd.Flags().StringVar(&intoDir, "into", "", "Directory to save the user story (default is docs/user-stories)")
+	addUserStoryCmd.Flags().BoolVar(&enableLLM, "no-llm", false, "Disable LLM processing of pasted text")
+	
+	// Invert the flag meaning (--no-llm sets enableLLM to false)
+	enableLLM = !enableLLM
 } 

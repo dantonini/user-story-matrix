@@ -6,8 +6,14 @@
 package ui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/models"
+
+	// "github.com/user-story-matrix/usm/internal/ui/components/userstoryform" - Will be used in MVI phase
 	"github.com/user-story-matrix/usm/internal/ui/pages"
 )
 
@@ -58,4 +64,31 @@ func (a *SelectionAdapter) GetSelected() []int {
 // permanently use the new implementation
 func RegisterNewSelectionUIMaker() {
 	// The new implementation is already set as default in CurrentNewSelectionUI
+}
+
+// CreateUserStoryFormWithLLM creates a new user story form with LLM processing support
+// TODO: This is a placeholder implementation for the foundation phase
+// In the MVI phase, this will be replaced with a real implementation using
+// the userstoryform package and LLM processor
+func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
+	// For the foundation phase, just return the original form
+	// In MVI phase, this will be replaced with the enhanced form 
+	// that uses LLM processing
+	return io.NewUserStoryForm(us)
+}
+
+// FormatUIMessage formats a UI message with style
+func FormatUIMessage(message string, style string) string {
+	switch style {
+	case "success":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render(fmt.Sprintf("✓ %s", message))
+	case "error":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(fmt.Sprintf("✗ %s", message))
+	case "warning":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(fmt.Sprintf("! %s", message))
+	case "info":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Render(fmt.Sprintf("ℹ %s", message))
+	default:
+		return message
+	}
 } 

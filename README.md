@@ -119,7 +119,28 @@ usm add user-story
 
 # Add a user story to a specific directory
 usm add user-story --into docs/user-stories/my-feature
+
+# Add a user story without LLM processing
+usm add user-story --no-llm
 ```
+
+When adding a user story, USM now features intelligent processing of pasted text. You can simply paste unstructured text (like requirements, emails, or notes) into the form, and USM will use OpenAI to automatically parse and structure the content into the appropriate form fields.
+
+### Using the LLM Paste Processor
+
+To use the LLM paste processor, you need to configure your OpenAI API key:
+
+```bash
+# Set your OpenAI API key
+usm settings api-key openai YOUR_API_KEY
+
+# Check your current API key status
+usm settings api-key openai
+```
+
+Once configured, any text you paste into the user story form will be automatically processed, saving you time and ensuring more consistent user stories.
+
+**Note:** The LLM processing is enabled by default. Use the `--no-llm` flag to disable it if needed.
 
 ### Listing User Stories
 
