@@ -200,13 +200,26 @@ This change request is focused on Story 1 only.
 		nonBlueprintPath := filepath.Join(crDir, "not-a-blueprint.md")
 		nonBlueprintContent := `# Not a Blueprint
 
-This is not a blueprint file and should be ignored.
+This is not a blueprint file, but should still be processed.
 
 - title: Story 1
   file: docs/user-stories/story1.md
   content-hash: old-hash-1
 `
 		require.NoError(t, fs.WriteFile(nonBlueprintPath, []byte(nonBlueprintContent), 0644))
+		
+		// Create a file without any user story references - this should be ignored
+		noReferencesPath := filepath.Join(crDir, "no-references.md")
+		noReferencesContent := `# File Without References
+
+This file doesn't contain any user story references in the expected format.
+
+- This is an unrelated list item
+- Another unrelated item
+  
+Some other content here.
+`
+		require.NoError(t, fs.WriteFile(noReferencesPath, []byte(noReferencesContent), 0644))
 		
 		// Create a hash map with changes
 		hashMap := make(ContentChangeMap)
@@ -230,13 +243,23 @@ This is not a blueprint file and should be ignored.
 		// Get relative paths for verification
 		relCR1, _ := filepath.Rel(tempDir, cr1Path)
 		relCR2, _ := filepath.Rel(tempDir, cr2Path)
+		relNonBlueprint, _ := filepath.Rel(tempDir, nonBlueprintPath)
+		relNoReferences, _ := filepath.Rel(tempDir, noReferencesPath)
 		
 		// Verify results
-		assert.Equal(t, 2, len(updatedFiles), "Two files should be updated")
+		assert.Equal(t, 3, len(updatedFiles), "Three files should be updated (including non-blueprint file but not no-references file)")
 		assert.Contains(t, updatedFiles, relCR1, "CR1 should be in the updated list")
 		assert.Contains(t, updatedFiles, relCR2, "CR2 should be in the updated list")
-		assert.Equal(t, 0, len(unchangedFiles), "No files should be unchanged")
-		assert.Equal(t, 3, refCount, "Three references should be updated")
+		assert.Contains(t, updatedFiles, relNonBlueprint, "Non-blueprint file should be in the updated list")
+		assert.NotContains(t, updatedFiles, relNoReferences, "No-references file should not be in the updated list")
+		
+		// Print unchanged files for debugging
+		t.Logf("Unchanged files: %v", unchangedFiles)
+		
+		// Check if no-references file is in the unchanged files
+		assert.Contains(t, unchangedFiles, relNoReferences, "No-references file should be in the unchanged list")
+		assert.Equal(t, 1, len(unchangedFiles), "Only no-references file should be unchanged")
+		assert.Equal(t, 4, refCount, "Four references should be updated (including the one in non-blueprint file)")
 		
 		// Verify content of first change request
 		content1New, err := fs.ReadFile(cr1Path)
@@ -256,10 +279,16 @@ This is not a blueprint file and should be ignored.
 		assert.Contains(t, contentStr2, "content-hash: new-hash-1", "Hash for story1 should be updated in CR2")
 		assert.NotContains(t, contentStr2, "content-hash: old-hash-1", "Old hash for story1 should be replaced in CR2")
 		
-		// Verify non-blueprint file was not modified
+		// Verify non-blueprint file was modified
 		nonBlueprintContent2, err := fs.ReadFile(nonBlueprintPath)
 		require.NoError(t, err)
-		assert.Equal(t, nonBlueprintContent, string(nonBlueprintContent2), "Non-blueprint file should not be modified")
+		assert.Contains(t, string(nonBlueprintContent2), "content-hash: new-hash-1", "Hash for story1 should be updated in non-blueprint file")
+		assert.NotContains(t, string(nonBlueprintContent2), "content-hash: old-hash-1", "Old hash for story1 should be replaced in non-blueprint file")
+		
+		// Verify that no-references file was not modified
+		noReferencesContentAfter, err := fs.ReadFile(noReferencesPath)
+		require.NoError(t, err)
+		assert.Equal(t, noReferencesContent, string(noReferencesContentAfter), "File without references should not be modified")
 	})
 }
 

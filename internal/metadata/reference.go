@@ -50,7 +50,7 @@ func FindChangeRequestFiles(root string, fs io.FileSystem) ([]string, error) {
 	
 	var files []string
 	
-	// Filter for blueprint files
+	// Look for all change request files, not just blueprint files
 	for _, entry := range entries {
 		if entry.IsDir() {
 			// Recursively search subdirectories
@@ -68,7 +68,8 @@ func FindChangeRequestFiles(root string, fs io.FileSystem) ([]string, error) {
 		}
 		
 		filename := entry.Name()
-		if strings.HasSuffix(filename, ".blueprint.md") {
+		// Include all markdown files in the change request directory
+		if strings.HasSuffix(filename, ".md") {
 			files = append(files, filepath.Join(changeRequestDir, filename))
 		}
 	}

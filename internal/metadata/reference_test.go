@@ -76,10 +76,10 @@ func TestFindChangeRequestFiles(t *testing.T) {
 	// Test finding change request files
 	files, err := FindChangeRequestFiles("", fs)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(files))
+	assert.Equal(t, 3, len(files))
 	assert.Contains(t, files, "docs/changes-request/cr1.blueprint.md")
 	assert.Contains(t, files, "docs/changes-request/cr2.blueprint.md")
-	assert.NotContains(t, files, "docs/changes-request/not-a-blueprint.md")
+	assert.Contains(t, files, "docs/changes-request/not-a-blueprint.md")
 }
 
 func TestUpdateChangeRequestReferences(t *testing.T) {
