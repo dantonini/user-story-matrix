@@ -48,7 +48,7 @@ This is a test change request that references a user story.
   content-hash: oldhash456
 `
 	changeRequestFile := filepath.Join(tempDir, "test-change-request.md")
-	err = os.WriteFile(changeRequestFile, []byte(changeRequestContent), 0644)
+	err = os.WriteFile(changeRequestFile, []byte(changeRequestContent), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ This is a test change request that references a user story with a mismatched has
   content-hash: differenthash123
 `
 	changeRequestFile := filepath.Join(tempDir, "test-mismatched-change-request.md")
-	err = os.WriteFile(changeRequestFile, []byte(changeRequestContent), 0644)
+	err = os.WriteFile(changeRequestFile, []byte(changeRequestContent), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,12 +202,12 @@ created_at: 2025-03-17T12:00:00Z
 `
 	
 	// Write files
-	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-1.md"), []byte(changeRequest1), 0644)
+	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-1.md"), []byte(changeRequest1), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	
-	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-2.md"), []byte(changeRequest2), 0644)
+	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-2.md"), []byte(changeRequest2), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ created_at: 2025-03-17T12:00:00Z
 `
 	
 	// Write file
-	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request.md"), []byte(changeRequest), 0644)
+	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request.md"), []byte(changeRequest), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,12 +339,12 @@ created_at: 2025-03-17T12:00:00Z
 `
 	
 	// Write files
-	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-1.md"), []byte(changeRequest1), 0644)
+	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-1.md"), []byte(changeRequest1), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	
-	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-2.md"), []byte(changeRequest2), 0644)
+	err = os.WriteFile(filepath.Join(changeRequestDir, "change-request-2.md"), []byte(changeRequest2), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,7 +442,7 @@ user-stories:
 ---
 `
 	changeRequestFile := filepath.Join(tempDir, "2025-03-24-200355-full-tui.blueprint.md")
-	err := fs.WriteFile(changeRequestFile, []byte(changeRequestContent), 0644)
+	err := fs.WriteFile(changeRequestFile, []byte(changeRequestContent), 0600)
 	require.NoError(t, err)
 	
 	// Create a hash map with changes for multiple files, using long hashes

@@ -6,6 +6,8 @@
 package logger
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"go.uber.org/zap"
@@ -38,7 +40,11 @@ func Initialize(debug bool) error {
 func SetDebugMode(debug bool) {
 	// If logger is not initialized, initialize it
 	if log == nil {
-		_ = Initialize(debug)
+		if err := Initialize(debug); err != nil {
+			// Since we can't log the error (logger isn't initialized),
+			// we'll just print it to stderr
+			fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		}
 		return
 	}
 	
@@ -51,7 +57,13 @@ func SetDebugMode(debug bool) {
 		newLog, err := cfg.Build()
 		if err == nil {
 			// Sync the old logger before replacing
-			_ = log.Sync()
+			if err := log.Sync(); err != nil {
+				// Ignore "inappropriate ioctl for device" errors which commonly happen
+				// when stderr is a terminal device
+				if !strings.Contains(err.Error(), "inappropriate ioctl for device") {
+					fmt.Fprintf(os.Stderr, "Failed to sync logger: %v\n", err)
+				}
+			}
 			log = newLog
 		}
 	}

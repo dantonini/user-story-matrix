@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/user-story-matrix/usm/internal/io"
 )
 
 func TestExtractMetadata(t *testing.T) {
@@ -80,62 +79,65 @@ func TestCalculateContentHash(t *testing.T) {
 	assert.Equal(t, expectedHash, hash)
 }
 
-func setupMockFileSystem() *io.MockFileSystem {
-	fs := io.NewMockFileSystem()
-	
-	// Set up user stories directory
-	userStoriesDir := "docs/user-stories"
-	fs.AddDirectory(userStoriesDir)
-	
-	// Add a few user story files
-	fs.AddFile("docs/user-stories/sample.md", []byte(`---
-file_path: docs/user-stories/sample.md
-created_at: 2023-01-01T12:00:00Z
-last_updated: 2023-01-02T12:00:00Z
-_content_hash: abcdef1234567890
----
-
-# Sample User Story
-
-This is a sample user story.
-`))
-
-	fs.AddFile("docs/user-stories/another.md", []byte(`---
-file_path: docs/user-stories/another.md
-created_at: 2023-01-03T12:00:00Z
-last_updated: 2023-01-04T12:00:00Z
-_content_hash: 0987654321fedcba
----
-
-# Another User Story
-
-This is another user story.
-`))
-
-	// Set up change requests directory
-	changeRequestsDir := "docs/changes-request"
-	fs.AddDirectory(changeRequestsDir)
-	
-	// Add a change request file
-	fs.AddFile("docs/changes-request/sample.blueprint.md", []byte(`---
-name: Sample Change Request
-created-at: 2023-01-05T12:00:00Z
-user-stories:
-  - title: Sample User Story
-    file: docs/user-stories/sample.md
-    content-hash: abcdef1234567890
-  - title: Another User Story
-    file: docs/user-stories/another.md
-    content-hash: 0987654321fedcba
----
-
-# Blueprint
-
-This is a sample change request.
-`))
-
-	return fs
-}
+// TODO: This function is currently unused. Keep it for future tests.
+// When more tests are implemented that require a mock file system,
+// this function will be used.
+// func setupMockFileSystem() *io.MockFileSystem {
+// 	fs := io.NewMockFileSystem()
+// 	
+// 	// Set up user stories directory
+// 	userStoriesDir := "docs/user-stories"
+// 	fs.AddDirectory(userStoriesDir)
+// 	
+// 	// Add a few user story files
+// 	fs.AddFile("docs/user-stories/sample.md", []byte(`---
+// file_path: docs/user-stories/sample.md
+// created_at: 2023-01-01T12:00:00Z
+// last_updated: 2023-01-02T12:00:00Z
+// _content_hash: abcdef1234567890
+// ---
+// 
+// # Sample User Story
+// 
+// This is a sample user story.
+// `))
+// 
+// 	fs.AddFile("docs/user-stories/another.md", []byte(`---
+// file_path: docs/user-stories/another.md
+// created_at: 2023-01-03T12:00:00Z
+// last_updated: 2023-01-04T12:00:00Z
+// _content_hash: 0987654321fedcba
+// ---
+// 
+// # Another User Story
+// 
+// This is another user story.
+// `))
+// 
+// 	// Set up change requests directory
+// 	changeRequestsDir := "docs/changes-request"
+// 	fs.AddDirectory(changeRequestsDir)
+// 	
+// 	// Add a change request file
+// 	fs.AddFile("docs/changes-request/sample.blueprint.md", []byte(`---
+// name: Sample Change Request
+// created-at: 2023-01-05T12:00:00Z
+// user-stories:
+//   - title: Sample User Story
+//     file: docs/user-stories/sample.md
+//     content-hash: abcdef1234567890
+//   - title: Another User Story
+//     file: docs/user-stories/another.md
+//     content-hash: 0987654321fedcba
+// ---
+// 
+// # Blueprint
+// 
+// This is a sample change request.
+// `))
+// 
+// 	return fs
+// }
 
 // Additional tests will be added for:
 // - UpdateFileMetadata

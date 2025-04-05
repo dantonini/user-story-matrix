@@ -6,12 +6,8 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/metadata"
 )
 
@@ -166,6 +162,11 @@ func TestUpdateUserStoriesCommandWithDebug(t *testing.T) {
 }
 */
 
+// The following unused code is removed as it's not being used in tests
+// and is flagged by the linter.
+// When these tests are re-implemented, this code can be added back.
+
+/*
 // Definitions for the testFileSystem
 type testFileInfo struct {
 	name    string
@@ -241,3 +242,4 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 	
 	return "", root.Execute()
 } 
+*/ 

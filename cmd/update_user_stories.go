@@ -43,8 +43,15 @@ when content has actually changed, making it safe to run as part of automated wo
 		logger.Debug("Updating user story metadata")
 		
 		// Get command options
-		skipReferences, _ := cmd.Flags().GetBool("skip-references")
-		debug, _ := cmd.Flags().GetBool("debug")
+		skipReferences, err := cmd.Flags().GetBool("skip-references")
+		if err != nil {
+			return fmt.Errorf("failed to get skip-references flag: %w", err)
+		}
+		
+		debug, err := cmd.Flags().GetBool("debug")
+		if err != nil {
+			return fmt.Errorf("failed to get debug flag: %w", err)
+		}
 		
 		// If debug mode is enabled, adjust the logger level
 		if debug {
@@ -263,25 +270,7 @@ func init() {
 	
 	// Hidden flag for testing
 	updateUserStoriesCmd.Flags().String("test-root", "", "Test root directory (for testing only)")
-	updateUserStoriesCmd.Flags().MarkHidden("test-root")
-}
-
-// For testing
-func resetUpdateUserStoriesCmd() {
-	updateUserStoriesCmd = &cobra.Command{
-		Use:   "update user-stories metadata",
-		Short: "Update metadata in user story markdown files",
-		Long:  `Update metadata in user story markdown files.`,
-		RunE:  func(cmd *cobra.Command, args []string) error { return nil },
+	if err := updateUserStoriesCmd.Flags().MarkHidden("test-root"); err != nil {
+		fmt.Printf("failed to hide test-root flag: %v\n", err)
 	}
-	// Reinitialize the command with flags
-	rootCmd.AddCommand(updateUserStoriesCmd)
-	
-	// Add flags
-	updateUserStoriesCmd.Flags().Bool("skip-references", false, "Skip updating references in change request files")
-	updateUserStoriesCmd.Flags().Bool("debug", false, "Enable debug mode with detailed logging")
-	
-	// Hidden flag for testing
-	updateUserStoriesCmd.Flags().String("test-root", "", "Test root directory (for testing only)")
-	updateUserStoriesCmd.Flags().MarkHidden("test-root")
 } 

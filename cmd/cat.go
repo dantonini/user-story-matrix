@@ -76,11 +76,35 @@ Examples:
 		changeRequestPath := args[0]
 
 		// Get command flags
-		showContentHash, _ := cmd.Flags().GetBool("show-content-hash")
-		filterPattern, _ := cmd.Flags().GetString("filter")
-		colorOutput, _ := cmd.Flags().GetBool("color")
-		compactMode, _ := cmd.Flags().GetBool("compact")
-		excludeStories, _ := cmd.Flags().GetStringSlice("exclude")
+		showContentHash, err := cmd.Flags().GetBool("show-content-hash")
+		if err != nil {
+			fmt.Printf("failed to get show-content-hash flag: %v\n", err)
+			return
+		}
+		
+		filterPattern, err := cmd.Flags().GetString("filter")
+		if err != nil {
+			fmt.Printf("failed to get filter flag: %v\n", err)
+			return
+		}
+		
+		colorOutput, err := cmd.Flags().GetBool("color")
+		if err != nil {
+			fmt.Printf("failed to get color flag: %v\n", err)
+			return
+		}
+		
+		compactMode, err := cmd.Flags().GetBool("compact")
+		if err != nil {
+			fmt.Printf("failed to get compact flag: %v\n", err)
+			return
+		}
+		
+		excludeStories, err := cmd.Flags().GetStringSlice("exclude")
+		if err != nil {
+			fmt.Printf("failed to get exclude flag: %v\n", err)
+			return
+		}
 
 		// Create options
 		options := CatOptions{
