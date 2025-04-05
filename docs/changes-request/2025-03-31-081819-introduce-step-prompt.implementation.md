@@ -1,0 +1,1 @@
+Implemented the prompt in the step definition.
