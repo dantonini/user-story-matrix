@@ -317,7 +317,7 @@ Now, let's start the work:
 	{
 		ID:          "03-extend-functionalities",
 		Description: "Extending functionalities - Adding additional features and improvements",
-		Prompt:      `You are about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
+		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -325,26 +325,17 @@ The whole iteration is divided into 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-The initial blueprint is: ${change_request_file_path}
-Retrieve the user stories mentioned in the blueprint are:
-- ./usm cat ${change_request_file_path}
-
 You have already:
 - Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat 2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
 - Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
+
+Your task now is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
 
 ### 🎯 Goals of this Phase
 
 - Extend the core logic to handle **all scenarios** described in the user stories and their acceptance criteria.
 - Add meaningful logic to improve completeness while maintaining modularity.
 - Update or create **new tests** to ensure coverage of extended functionality.
-
-### 🧪 Formal Test Execution – Mandatory
-
-At the end of this phase, you **must run the complete formal test suite**:
-- All existing and new tests **must pass**.
-- Add tests for any uncovered edge cases.
-- Document any remaining limitations or areas needing future refinement.
 
 ### ✅ Guidelines
 
@@ -365,10 +356,27 @@ At the end of this phase, you **must run the complete formal test suite**:
    - Add or update tests.
    - Ensure the verification logic (e.g., test assertions) remains aligned and meaningful for the user story.
 
-3. Run the full test suite and validate all tests pass.
-4. At the end of your task write the summary of what you accomplished in ${change_request_file_path}.03-extend-functionalities.accomplished.md.
+Let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+`,
+	},
+	{
+		ID:          "03-extend-functionalities-accomplished",
+		Description: "Extending functionalities accomplished - Summary of the changes",
+		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
-The accomplishment report is not a summary, is a compass to the changes you made, hence avoid general statements/claim, be precise:
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions)
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Extend the implementation to support more scenarios and edge cases
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to document what has been accomplished so far in the file ${change_request_file_path}.03-extend-functionalities.accomplished.md
+
+The accomplishment report is not a summary, is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, 
  just a compact/understable reference to lookup for, do not use line numbers) 
  as foundation of your statements
@@ -378,15 +386,48 @@ Use always short code references (no code at all,
  - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
  - Include a dedicated section for potentially still not yet well covered acceptance criteria.
 
---- 
-
-
-Your task now is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.`,
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+`,
 	},
 	{
 		ID:          "03-extend-functionalities-test",
 		Description: "Extending functionalities testing - Verifying the additional features",
-		Prompt:      "Ensure all the tests are passing for the extended functionality implemented based on the blueprint at ${change_request_file_path}. Verify all features work correctly.",
+		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+
+The extended functionalities have been built, now your task is:
+- Run the full test suite to confirm no regressions have been introduced.
+- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
+
+📘 Instructions
+- Clearly document each architectural or structural decision, especially where existing components were modified.
+- Leave TODOs or comments where further implementation will happen in later phases.
+- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
+
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+`,
+	},
+	{
+		ID:          "03-extend-functionalities-lint",
+		Description: "Extending functionalities linting - Verifying the additional features",
+		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
+	},
+	{
+		ID:          "03-extend-functionalities-coverage",
+		Description: "Extending functionalities coverage - Verifying the additional features",
+		Prompt:      "Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the extended functionalities.",
+	},
+	{
+		ID:          "03-extend-functionalities-coverage-report",
+		Description: "Extending functionalities coverage report - Update the accomplishment report",
+		Prompt:      "Update the accomplishment report ${change_request_file_path}.03-extend-functionalities.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "04-final-iteration",
