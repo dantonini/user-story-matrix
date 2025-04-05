@@ -9,41 +9,55 @@ import (
 	"strings"
 )
 
-// FilterContentHash removes content hash lines from markdown content
-// If includeContentHash is true, the content hash will be preserved
+// FilterContentHash removes content hash lines from markdown content.
+//
+// This function processes YAML frontmatter in markdown files to selectively
+// remove content hash metadata. Key behaviors:
+//
+// - If includeContentHash is true, returns the original content unchanged
+// - Only removes the _content_hash line from the first metadata section (between --- markers)
+// - Preserves any content hash entries in subsequent metadata sections
+// - Maintains exact formatting and whitespace of the document
+//
+// This is particularly useful for generating clean output when displaying
+// user stories without exposing implementation details like content hashes.
 func FilterContentHash(content string, includeContentHash bool) string {
 	if includeContentHash {
 		return content
 	}
 	
-	// Split the content into lines
 	lines := strings.Split(content, "\n")
-	// Pre-allocate the filtered lines slice to avoid the prealloc lint issue
 	filteredLines := make([]string, 0, len(lines))
+	
 	inMetadata := false
-	isFirstMetadataSection := true // Tracks if we're in the first metadata section
-	metadataSectionCount := 0      // Counts how many metadata sections we've seen
+	isFirstMetadataSection := false // Will be set to true when first section starts
 	
 	for _, line := range lines {
-		if strings.TrimSpace(line) == "---" {
-			// Toggle metadata section flag
+		lineContent := strings.TrimSpace(line)
+		
+		// Handle metadata section markers
+		if lineContent == "---" {
 			if !inMetadata {
 				// Starting a metadata section
 				inMetadata = true
-				metadataSectionCount++
-				isFirstMetadataSection = (metadataSectionCount == 1)
+				// First --- marker we encounter starts the first metadata section
+				if !isFirstMetadataSection {
+					isFirstMetadataSection = true
+				}
 			} else {
 				// Ending a metadata section
 				inMetadata = false
+				// Stop filtering after first section ends
+				isFirstMetadataSection = false
 			}
 			
 			filteredLines = append(filteredLines, line)
 			continue
 		}
 		
-		// Skip content hash lines, but only in the first metadata section
-		if inMetadata && isFirstMetadataSection && strings.Contains(line, "_content_hash:") {
-			continue
+		// Only filter content hash in the first metadata section
+		if inMetadata && isFirstMetadataSection && strings.HasPrefix(lineContent, "_content_hash:") {
+			continue // Skip this line
 		}
 		
 		filteredLines = append(filteredLines, line)

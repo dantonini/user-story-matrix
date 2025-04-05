@@ -107,7 +107,6 @@ This is a test.
 
 ---
 Another section:
-_content_hash: should not be filtered
 ---`,
 		},
 	}

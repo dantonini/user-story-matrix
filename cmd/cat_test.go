@@ -8,6 +8,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -619,6 +620,72 @@ func TestInvalidFilterPattern(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid filter pattern")
 }
 
+// TestExecuteCatCommand tests the executeCatCommand function, focusing on error handling cases
+func TestExecuteCatCommand(t *testing.T) {
+	// Setup test environment
+	_, outBuf, mockFS := setupCatTest(t)
+	mockTerminal := &mockTerminal{buffer: outBuf}
+	
+	// Ensure the test change request file exists for the filter pattern test
+	mockFS.AddFile("test-cr.md", []byte(`---
+name: Valid Change Request
+created-at: 2025-01-01T00:00:00Z
+user-stories:
+  - title: Test Story
+    file: test.md
+    content-hash: abc123
+---`))
+	
+	tests := []struct {
+		name          string
+		options       CatOptions
+		setupMock     func(*io.MockFileSystem)
+		expectedError string
+	}{
+		{
+			name: "Non-existent change request file",
+			options: CatOptions{
+				ChangeRequestPath: "non-existent.md",
+			},
+			setupMock: func(fs *io.MockFileSystem) {
+				// Don't add the file to simulate missing file
+			},
+			expectedError: "change request file not found",
+		},
+		{
+			name: "Invalid filter pattern",
+			options: CatOptions{
+				ChangeRequestPath: "test-cr.md",
+				FilterPattern:     "[", // Invalid regex pattern
+			},
+			setupMock: func(fs *io.MockFileSystem) {
+				// The test-cr.md file was already added above
+			},
+			expectedError: "invalid filter pattern",
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Clear buffer
+			outBuf.Reset()
+			
+			// Setup mock
+			tc.setupMock(mockFS)
+			
+			// Call the function under test
+			err := executeCatCommand(mockFS, mockTerminal, tc.options)
+			
+			// Verify error
+			if err == nil {
+				t.Errorf("Expected error containing '%s', but got nil", tc.expectedError)
+				return
+			}
+			assert.Contains(t, err.Error(), tc.expectedError)
+		})
+	}
+}
+
 // createTestChangeRequest creates a test change request
 func createTestChangeRequest() models.ChangeRequest {
 	return models.ChangeRequest{
@@ -683,7 +750,8 @@ func createExtendedTestChangeRequest() models.ChangeRequest {
 
 // mockTerminal is a simple implementation of the UserOutput interface for testing
 type mockTerminal struct {
-	buffer *bytes.Buffer
+	buffer       *bytes.Buffer
+	debugEnabled bool
 }
 
 func (m *mockTerminal) Print(message string) {
@@ -721,7 +789,7 @@ func (m *mockTerminal) PrintStep(stepNumber int, totalSteps int, description str
 }
 
 func (m *mockTerminal) IsDebugEnabled() bool {
-	return false
+	return m.debugEnabled
 }
 
 // colorTrackingTerminal is a special terminal that tracks color usage
@@ -768,4 +836,115 @@ func (c *colorTrackingTerminal) PrintStep(stepNumber int, totalSteps int, descri
 
 func (c *colorTrackingTerminal) IsDebugEnabled() bool {
 	return true
+}
+
+// TestUtilityFunctions tests the utility functions used by the cat command
+func TestUtilityFunctions(t *testing.T) {
+	t.Run("printFilePath", func(t *testing.T) {
+		// Setup
+		outBuf := new(bytes.Buffer)
+		normalTerminal := &mockTerminal{buffer: outBuf}
+		colorTerminal := &colorTrackingTerminal{buffer: outBuf}
+		
+		// Test normal output
+		outBuf.Reset()
+		printFilePath(normalTerminal, "test/path.md", false)
+		assert.Equal(t, "[//]: # (test/path.md)\n", outBuf.String())
+		
+		// Test colorized output
+		outBuf.Reset()
+		printFilePath(colorTerminal, "test/path.md", true)
+		assert.Equal(t, 1, colorTerminal.successCallCount)
+	})
+	
+	t.Run("printSeparator", func(t *testing.T) {
+		// Setup
+		outBuf := new(bytes.Buffer)
+		terminal := &mockTerminal{buffer: outBuf}
+		
+		// Test normal mode
+		outBuf.Reset()
+		printSeparator(terminal, false)
+		assert.Equal(t, "\n---\n", outBuf.String())
+		
+		// Test compact mode
+		outBuf.Reset()
+		printSeparator(terminal, true)
+		assert.Equal(t, "\n", outBuf.String())
+	})
+	
+	t.Run("printSummary", func(t *testing.T) {
+		// Setup
+		outBuf := new(bytes.Buffer)
+		normalTerminal := &mockTerminal{buffer: outBuf, debugEnabled: false}
+		colorTerminal := &colorTrackingTerminal{buffer: outBuf}
+		
+		result := ProcessingResult{
+			TotalStories:     5,
+			DisplayedStories: 3,
+			SkippedStories:   1,
+			ErrorStories:     1,
+		}
+		
+		// Test no summary when not needed (no filter, no debug, no skipped)
+		outBuf.Reset()
+		printSummary(normalTerminal, ProcessingResult{TotalStories: 5, DisplayedStories: 5}, CatOptions{})
+		assert.Equal(t, "", outBuf.String())
+		
+		// Test summary with filter
+		outBuf.Reset()
+		printSummary(normalTerminal, result, CatOptions{FilterPattern: "test"})
+		assert.Contains(t, outBuf.String(), "Summary: 3 of 5 stories displayed, 1 skipped, 1 errors")
+		
+		// Test summary with color
+		outBuf.Reset()
+		colorTerminal.warningCallCount = 0
+		printSummary(colorTerminal, result, CatOptions{ColorOutput: true, FilterPattern: "test"})
+		assert.Equal(t, 1, colorTerminal.warningCallCount)
+	})
+	
+	t.Run("matchesFilter", func(t *testing.T) {
+		// Test with simple regex pattern that will definitely match
+		simpleRegex, err := regexp.Compile("test")
+		assert.NoError(t, err, "Error compiling simple test regex")
+		
+		// Simple test - should match content
+		assert.True(t, matchesFilter(simpleRegex, "This contains test pattern", "Title"),
+			"Simple pattern should match content")
+			
+		// Simple test - should match title
+		assert.True(t, matchesFilter(simpleRegex, "Content", "Title with test in it"),
+			"Simple pattern should match title")
+			
+		// Simple test - no match
+		assert.False(t, matchesFilter(simpleRegex, "Content", "Title"),
+			"Simple pattern should not match when neither matches")
+	})
+}
+
+// TestProcessingWithEmptyChangeRequest tests processing an empty change request
+func TestProcessingWithEmptyChangeRequest(t *testing.T) {
+	// Setup test environment
+	_, outBuf, mockFS := setupCatTest(t)
+	
+	// Create a mock terminal with debug enabled
+	mockTerminal := &mockTerminal{
+		buffer:       outBuf,
+		debugEnabled: true,
+	}
+	
+	// Create an empty change request
+	cr := models.ChangeRequest{
+		Name:        "empty change request",
+		CreatedAt:   time.Now(),
+		UserStories: []models.UserStoryReference{},
+		FilePath:    "empty-cr.md",
+	}
+	
+	// Process the empty change request
+	err := processAndPrintUserStories(mockFS, mockTerminal, CatOptions{}, cr)
+	
+	// Check results
+	assert.NoError(t, err)
+	assert.Contains(t, outBuf.String(), "Summary: 0 of 0 stories displayed")
 } 
