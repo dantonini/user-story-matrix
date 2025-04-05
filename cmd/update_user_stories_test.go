@@ -8,8 +8,30 @@ package cmd
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/user-story-matrix/usm/internal/metadata"
 )
+
+// captureOutput captures stdout during the execution of a function
+// This function is already defined in update_user_stories_print_test.go
+// func captureOutput(fn func()) string {
+// 	// Save and restore original stdout
+// 	old := os.Stdout
+// 	r, w, _ := os.Pipe()
+// 	os.Stdout = w
+
+// 	// Run the function
+// 	fn()
+
+// 	// Restore stdout and close the pipe
+// 	w.Close()
+// 	os.Stdout = old
+
+// 	// Read the output from the pipe
+// 	var buf bytes.Buffer
+// 	io.Copy(&buf, r)
+// 	return buf.String()
+// }
 
 // TestExtractExistingMetadata tests the extraction of metadata from content
 func TestExtractExistingMetadata(t *testing.T) {
@@ -95,6 +117,95 @@ func TestCalculateContentHash(t *testing.T) {
 	if hash != expectedHash {
 		t.Errorf("Expected hash to be %q but got %q", expectedHash, hash)
 	}
+}
+
+// TestPluralize tests the pluralize function
+func TestPluralize(t *testing.T) {
+	tests := []struct {
+		name     string
+		word     string
+		count    int
+		expected string
+	}{
+		{
+			name:     "single",
+			word:     "reference",
+			count:    1,
+			expected: "reference",
+		},
+		{
+			name:     "multiple",
+			word:     "reference",
+			count:    2,
+			expected: "references",
+		},
+		{
+			name:     "zero",
+			word:     "file",
+			count:    0,
+			expected: "files",
+		},
+		{
+			name:     "different word",
+			word:     "story",
+			count:    3,
+			expected: "storys",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := pluralize(tc.word, tc.count)
+			if result != tc.expected {
+				t.Errorf("Expected %q, got %q", tc.expected, result)
+			}
+		})
+	}
+}
+
+// TestPrintMismatchedReferences tests the printMismatchedReferences function
+func TestPrintMismatchedReferences(t *testing.T) {
+	// Test with empty list
+	output := captureOutput(func() {
+		printMismatchedReferences([]metadata.MismatchedReference{})
+	})
+	assert.Empty(t, output, "Expected no output for empty list")
+
+	// Test with mismatched references
+	mismatches := []metadata.MismatchedReference{
+		{
+			FilePath:      "docs/changes-request/cr-001.md",
+			ReferenceHash: "old-hash-1",
+			OldHash:       "expected-hash-1",
+		},
+		{
+			FilePath:      "docs/changes-request/cr-001.md", 
+			ReferenceHash: "old-hash-2",
+			OldHash:       "expected-hash-2",
+		},
+		{
+			FilePath:      "docs/changes-request/subdir/cr-002.md",
+			ReferenceHash: "old-hash-3",
+			OldHash:       "expected-hash-3",
+		},
+	}
+
+	output = captureOutput(func() {
+		printMismatchedReferences(mismatches)
+	})
+
+	// Check for header
+	assert.Contains(t, output, "Hash Mismatch Detected")
+	
+	// Check for file grouping - cr-001.md should show 2 references
+	assert.Contains(t, output, "cr-001.md (2 references)")
+	
+	// Check for file grouping - cr-002.md should show 1 reference
+	assert.Contains(t, output, "cr-002.md (1 reference)")
+	
+	// Check for explanation
+	assert.Contains(t, output, "This usually happens when:")
+	assert.Contains(t, output, "A change request was created with an user story")
 }
 
 // TODO: Fix remaining tests to work with the updated metadata package
