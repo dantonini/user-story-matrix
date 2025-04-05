@@ -110,11 +110,8 @@ Use the --reset flag to start the workflow from the beginning:
 
 		currentStep := workflow.StandardWorkflowSteps[nextStepIndex]
 
-		// Generate output filename (still needed for state tracking)
-		outputFile := wm.GenerateOutputFilename(changeRequestPath, currentStep)
-
 		// Execute the step - now just prints the prompt to stdout
-		success, err := executeStep(changeRequestPath, currentStep, outputFile, fs, term)
+		success, err := executeStep(changeRequestPath, currentStep, fs, term)
 		if err != nil {
 			term.PrintError(fmt.Sprintf("Failed to execute step: %s", err))
 			os.Exit(1)
@@ -147,9 +144,9 @@ Use the --reset flag to start the workflow from the beginning:
 }
 
 // executeStep executes a workflow step and prints the processed prompt
-func executeStep(changeRequestPath string, step workflow.WorkflowStep, outputFile string, fs io.FileSystem, term io.UserOutput) (bool, error) {
+func executeStep(changeRequestPath string, step workflow.WorkflowStep, fs io.FileSystem, term io.UserOutput) (bool, error) {
 	executor := workflow.NewStepExecutor(fs, term)
-	return executor.ExecuteStep(changeRequestPath, step, outputFile)
+	return executor.ExecuteStep(changeRequestPath, step)
 }
 
 // getDirectoryPath extracts the directory part of a file path

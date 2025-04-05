@@ -159,6 +159,35 @@ usm code --reset docs/changes-request/my-change-request.blueprint.md
     - extend functionalities
     - final iteration
 
+### Custom Output File Paths
+
+USM supports flexible prompt interpolation:
+
+```bash
+# Standard variables available in prompts:
+${change_request_basename}   # The basename of the change request file (without extension)
+${blueprint_basename}        # The basename of the blueprint file (without extension)
+${dirname}                   # The directory containing the change request file
+${stepid}                    # The ID of the current workflow step
+${stepname}                  # The name part of the step ID (e.g., "laying-the-foundation" from "01-laying-the-foundation")
+${fullpath}                  # The full path of the change request file (without extension)
+${timestamp}                 # Current timestamp (YYYYMMDD-HHMMSS)
+${change_request_file_path}  # Full path to the change request file (includes extension)
+${basename}                  # Deprecated: Use ${change_request_basename} instead
+```
+
+These variables can also be used in workflow step prompts to create dynamic instructions for AI agents:
+
+```
+You are reviewing implementation for change request ${change_request_basename}.
+Current step: ${stepname}
+The full change request is located at: ${change_request_file_path}
+
+Please focus on the following aspects...
+```
+
+For more details, see [Variable Interpolation in USM](docs/changes-request/output-file-path-interpolation.md).
+
 # Project Structure
 
 - `docs/user-stories/`: Contains the user stories used to develop USM itself. This folder showcases how USM structures and manages its own development flow.

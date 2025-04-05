@@ -8,7 +8,6 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -557,19 +556,124 @@ func TestWorkflowManager_GenerateOutputFilename(t *testing.T) {
 	// Create workflow manager
 	wm := NewWorkflowManager(fs, mockIO)
 	
-	// Define test parameters
-	changeRequestPath := "/path/to/change-request.blueprint.md"
-	step := StandardWorkflowSteps[0]
+	tests := []struct {
+		name              string
+		changeRequestPath string
+		step              WorkflowStep
+		expected          string
+	}{
+		{
+			name:              "Legacy format with %s",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "%s.test-output.md",
+			},
+			expected: "/path/to/change-request.test-output.md",
+		},
+		{
+			name:              "Deprecated format with ${basename}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "${basename}.test-output.md",
+			},
+			expected: "/path/to/change-request.test-output.md",
+		},
+		{
+			name:              "New format with ${change_request_basename}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "${change_request_basename}.test-output.md",
+			},
+			expected: "/path/to/change-request.test-output.md",
+		},
+		{
+			name:              "New format with ${blueprint_basename}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "${blueprint_basename}.test-output.md",
+			},
+			expected: "/path/to/change-request.test-output.md",
+		},
+		{
+			name:              "Format with ${dirname}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "${dirname}/custom-dir/${change_request_basename}.md",
+			},
+			expected: "/path/to/custom-dir/change-request.md",
+		},
+		{
+			name:              "Format with ${stepid}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "01-test-step",
+				Description: "Test Step",
+				OutputFile:  "${change_request_basename}.${stepid}.md",
+			},
+			expected: "/path/to/change-request.01-test-step.md",
+		},
+		{
+			name:              "Format with ${stepname}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "01-test-step",
+				Description: "Test Step",
+				OutputFile:  "${change_request_basename}.${stepname}.md",
+			},
+			expected: "/path/to/change-request.test-step.md",
+		},
+		{
+			name:              "Format with ${fullpath}",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "${fullpath}.test-output.md",
+			},
+			expected: "/path/to/change-request.test-output.md",
+		},
+		{
+			name:              "Absolute path in output file",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				OutputFile:  "/custom/path/${change_request_basename}.md",
+			},
+			expected: "/custom/path/change-request.md",
+		},
+		{
+			name:              "Multiple variables in one template",
+			changeRequestPath: "/path/to/change-request.blueprint.md",
+			step: WorkflowStep{
+				ID:          "01-test-step",
+				Description: "Test Step",
+				OutputFile:  "${dirname}/outputs/${stepname}/${change_request_basename}.md",
+			},
+			expected: "/path/to/outputs/test-step/change-request.md",
+		},
+	}
 	
-	// Call the function
-	filename := wm.GenerateOutputFilename(changeRequestPath, step)
-	
-	// Define expected result
-	expected := filepath.Join("/path/to", "change-request.01-laying-the-foundation.md")
-	
-	// Check results
-	if filename != expected {
-		t.Errorf("GenerateOutputFilename() = %v, want %v", filename, expected)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Call the function
+			result := wm.GenerateOutputFilename(tc.changeRequestPath, tc.step)
+			
+			// Check results
+			if result != tc.expected {
+				t.Errorf("GenerateOutputFilename() = %v, want %v", result, tc.expected)
+			}
+		})
 	}
 }
 

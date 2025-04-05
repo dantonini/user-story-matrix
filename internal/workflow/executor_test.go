@@ -161,7 +161,7 @@ This is a test change request.`,
 			}
 
 			// Execute step
-			success, err := executor.ExecuteStep("change-request.md", tt.step, "output.md")
+			success, err := executor.ExecuteStep("change-request.md", tt.step)
 
 			// Check success/failure
 			if tt.wantSuccess {
@@ -225,7 +225,7 @@ func TestStepExecutor_ExecuteStep_FileSystemErrors(t *testing.T) {
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
 			}
-			success, err := executor.ExecuteStep("change-request.md", step, "output/test.md")
+			success, err := executor.ExecuteStep("change-request.md", step)
 
 			// Check result
 			if tt.wantSuccess {
@@ -284,7 +284,7 @@ func TestStepExecutor_ExecuteStep_PromptValidation(t *testing.T) {
 			}
 
 			// Execute step
-			success, err := executor.ExecuteStep("change-request.md", step, "output.md")
+			success, err := executor.ExecuteStep("change-request.md", step)
 			if !success || err != nil {
 				t.Errorf("ExecuteStep() failed: success=%v, error=%v", success, err)
 			}

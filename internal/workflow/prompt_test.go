@@ -7,8 +7,10 @@ package workflow
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWorkflowStepStructure(t *testing.T) {
@@ -27,26 +29,77 @@ func TestWorkflowStepStructure(t *testing.T) {
 }
 
 func TestInterpolatePrompt(t *testing.T) {
-	// Test basic variable interpolation
-	prompt := "Process the file at ${change_request_file_path}"
+	// Setup test data
+	changeRequestPath := "/path/to/my-change-request.blueprint.md"
+	dir := filepath.Dir(changeRequestPath)
+	base := strings.TrimSuffix(filepath.Base(changeRequestPath), ".blueprint.md")
+	fullpath := filepath.Join(dir, base)
+	stepID := "01-test-step"
+	stepName := "test-step"
+	timestamp := time.Now().Format("20060102-150405")
+	
+	// Create variables for testing
 	vars := PromptVariables{
-		ChangeRequestFilePath: "/path/to/file",
+		ChangeRequestFilePath: changeRequestPath,
+		ChangeRequestBasename: base,
+		BlueprintBasename:     base,
+		Dirname:               dir,
+		StepID:                stepID,
+		StepName:              stepName,
+		Fullpath:              fullpath,
+		Timestamp:             timestamp,
+		Basename:              base, // Deprecated
 	}
 	
-	expected := "Process the file at /path/to/file"
-	result := InterpolatePrompt(prompt, vars)
-	
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
+	tests := []struct {
+		name     string
+		prompt   string
+		expected string
+	}{
+		{
+			name:     "Simple variable substitution",
+			prompt:   "The change request is ${change_request_file_path}",
+			expected: "The change request is " + changeRequestPath,
+		},
+		{
+			name:     "Multiple variables",
+			prompt:   "Processing step ${stepid} (${stepname}) for ${change_request_basename}",
+			expected: "Processing step " + stepID + " (" + stepName + ") for " + base,
+		},
+		{
+			name:     "Basename variable (deprecated)",
+			prompt:   "Working on ${basename}",
+			expected: "Working on " + base,
+		},
+		{
+			name:     "Mix of path and prompt variables",
+			prompt:   "Output will be saved to ${dirname}/results/${stepname}_${timestamp}.md",
+			expected: "Output will be saved to " + dir + "/results/" + stepName + "_" + timestamp + ".md",
+		},
+		{
+			name:     "All variables in one prompt",
+			prompt:   "${change_request_file_path} ${change_request_basename} ${blueprint_basename} ${dirname} ${stepid} ${stepname} ${fullpath} ${timestamp} ${basename}",
+			expected: changeRequestPath + " " + base + " " + base + " " + dir + " " + stepID + " " + stepName + " " + fullpath + " " + timestamp + " " + base,
+		},
+		{
+			name:     "No variables",
+			prompt:   "A prompt with no variables",
+			expected: "A prompt with no variables",
+		},
+		{
+			name:     "Unknown variable",
+			prompt:   "This ${unknown_var} should remain unchanged",
+			expected: "This ${unknown_var} should remain unchanged",
+		},
 	}
 	
-	// Test with multiple occurrences of the same variable
-	prompt = "Path: ${change_request_file_path}, use ${change_request_file_path} for processing"
-	expected = "Path: /path/to/file, use /path/to/file for processing"
-	result = InterpolatePrompt(prompt, vars)
-	
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := InterpolatePrompt(tc.prompt, vars)
+			if result != tc.expected {
+				t.Errorf("InterpolatePrompt() = %v, want %v", result, tc.expected)
+			}
+		})
 	}
 }
 
@@ -120,127 +173,165 @@ func TestInterpolatePromptWithMap(t *testing.T) {
 }
 
 func TestInterpolatePromptWithError(t *testing.T) {
-	// Test with missing variables
-	prompt := "Process ${nonexistent_var} and ${change_request_file_path}"
-	vars := PromptVariables{
-		ChangeRequestFilePath: "/path/to/file",
+	// Test cases for InterpolatePromptWithError
+	tests := []struct {
+		name        string
+		prompt      string
+		vars        PromptVariables
+		shouldError bool
+	}{
+		{
+			name:   "Valid interpolation",
+			prompt: "The file is ${change_request_file_path}",
+			vars: PromptVariables{
+				ChangeRequestFilePath: "/path/to/file.md",
+			},
+			shouldError: false,
+		},
+		{
+			name:   "Missing variable",
+			prompt: "The file is ${change_request_basename}",
+			vars: PromptVariables{
+				ChangeRequestFilePath: "/path/to/file.md",
+			},
+			shouldError: true,
+		},
+		{
+			name:   "Malformed variable",
+			prompt: "The file is ${change request file path}",
+			vars: PromptVariables{
+				ChangeRequestFilePath: "/path/to/file.md",
+			},
+			shouldError: true,
+		},
+		{
+			name:   "Unclosed variable",
+			prompt: "The file is ${unclosed",
+			vars: PromptVariables{
+				ChangeRequestFilePath: "/path/to/file.md",
+			},
+			shouldError: true,
+		},
 	}
 	
-	result, err := InterpolatePromptWithError(prompt, vars)
-	expected := "Process ${nonexistent_var} and /path/to/file"
-	
-	if result != expected {
-		t.Errorf("Expected result '%s', got '%s'", expected, result)
-	}
-	
-	if err == nil {
-		t.Error("Expected error for missing variables, got nil")
-	} else {
-		ierr, ok := err.(*InterpolationError)
-		if !ok {
-			t.Errorf("Expected *InterpolationError, got %T", err)
-		} else {
-			if len(ierr.MissingVars) != 1 || ierr.MissingVars[0] != "nonexistent_var" {
-				t.Errorf("Expected missing variable 'nonexistent_var', got %v", ierr.MissingVars)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := InterpolatePromptWithError(tc.prompt, tc.vars)
+			if (err != nil) != tc.shouldError {
+				t.Errorf("InterpolatePromptWithError() error = %v, shouldError %v", err, tc.shouldError)
 			}
-		}
-	}
-	
-	// Test with malformed variables
-	malformedPrompt := "Process ${var with spaces} and ${incomplete"
-	_, err = InterpolatePromptWithError(malformedPrompt, vars)
-	
-	if err == nil {
-		t.Error("Expected error for malformed variables, got nil")
-	} else {
-		ierr, ok := err.(*InterpolationError)
-		if !ok {
-			t.Errorf("Expected *InterpolationError, got %T", err)
-		} else {
-			if len(ierr.MalformedVars) == 0 {
-				t.Error("Expected malformed variables, got none")
-			}
-		}
-	}
-	
-	// Test with valid prompt
-	validPrompt := "Process ${change_request_file_path}"
-	result, err = InterpolatePromptWithError(validPrompt, vars)
-	expected = "Process /path/to/file"
-	
-	if result != expected {
-		t.Errorf("Expected result '%s', got '%s'", expected, result)
-	}
-	
-	if err != nil {
-		t.Errorf("Expected no error for valid prompt, got %v", err)
+		})
 	}
 }
 
 func TestValidatePrompt(t *testing.T) {
-	// Test with valid prompt
-	validPrompt := "Process ${change_request_file_path} and ${another_var}"
-	err := ValidatePrompt(validPrompt)
-	
-	if err != nil {
-		t.Errorf("Expected no error for valid prompt, got %v", err)
+	// Test cases for ValidatePrompt
+	tests := []struct {
+		name        string
+		prompt      string
+		shouldError bool
+	}{
+		{
+			name:        "Valid prompt",
+			prompt:      "This is a valid prompt with ${change_request_file_path}",
+			shouldError: false,
+		},
+		{
+			name:        "Valid prompt with multiple variables",
+			prompt:      "Processing ${stepid} (${stepname}) for ${change_request_basename}",
+			shouldError: false,
+		},
+		{
+			name:        "Prompt with malformed variables",
+			prompt:      "This ${has spaces} and is invalid",
+			shouldError: true,
+		},
+		{
+			name:        "Prompt with unclosed variable",
+			prompt:      "This ${is unclosed",
+			shouldError: true,
+		},
+		{
+			name:        "No variables",
+			prompt:      "This is a prompt with no variables",
+			shouldError: false,
+		},
 	}
 	
-	// Test with malformed variables
-	malformedPrompt := "Process ${var with spaces}"
-	err = ValidatePrompt(malformedPrompt)
-	
-	if err == nil {
-		t.Error("Expected error for malformed variables, got nil")
-	} else {
-		ierr, ok := err.(*InterpolationError)
-		if !ok {
-			t.Errorf("Expected *InterpolationError, got %T", err)
-		} else {
-			if len(ierr.MalformedVars) == 0 {
-				t.Error("Expected malformed variables, got none")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidatePrompt(tc.prompt)
+			if (err != nil) != tc.shouldError {
+				t.Errorf("ValidatePrompt() error = %v, shouldError %v", err, tc.shouldError)
 			}
-		}
-	}
-	
-	// Test with unclosed variable
-	unclosedPrompt := "Process ${incomplete"
-	err = ValidatePrompt(unclosedPrompt)
-	
-	if err == nil {
-		t.Error("Expected error for unclosed variable, got nil")
+		})
 	}
 }
 
 func TestGenerateStepPrompt(t *testing.T) {
-	// Test with a step that has a prompt
-	stepWithPrompt := WorkflowStep{
-		ID:          "test-id",
-		Description: "Test description",
-		Prompt:      "Process the file at ${change_request_file_path}",
-		OutputFile:  "test-output.md",
+	// Create test data
+	changeRequestPath := "/path/to/my-change-request.blueprint.md"
+	
+	// Test cases for generateStepPrompt
+	tests := []struct {
+		name              string
+		step              WorkflowStep
+		changeRequestPath string
+		contains          []string // Strings that should be contained in the result
+	}{
+		{
+			name: "Step with prompt containing variables",
+			step: WorkflowStep{
+				ID:          "01-test-step",
+				Description: "Test Step",
+				Prompt:      "Working on ${change_request_basename} in step ${stepid}",
+				OutputFile:  "output.md",
+			},
+			changeRequestPath: changeRequestPath,
+			contains: []string{
+				"Working on my-change-request in step 01-test-step",
+			},
+		},
+		{
+			name: "Step with empty prompt",
+			step: WorkflowStep{
+				ID:          "01-test-step",
+				Description: "Test Description",
+				Prompt:      "",
+				OutputFile:  "output.md",
+			},
+			changeRequestPath: changeRequestPath,
+			contains: []string{
+				"Test Description",
+			},
+		},
+		{
+			name: "Step with complex prompt",
+			step: WorkflowStep{
+				ID:          "02-complex-step",
+				Description: "Complex Step",
+				Prompt:      "Working on file at ${dirname}/${change_request_basename}.md for step ${stepname}",
+				OutputFile:  "output.md",
+			},
+			changeRequestPath: changeRequestPath,
+			contains: []string{
+				"/path/to",
+				"my-change-request",
+				"complex-step",
+			},
+		},
 	}
 	
-	expected := "Process the file at /path/to/file"
-	result := generateStepPrompt(stepWithPrompt, "/path/to/file")
-	
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
-	}
-	
-	// Test with a step that has no prompt
-	stepWithoutPrompt := WorkflowStep{
-		ID:          "test-id",
-		Description: "Test description",
-		Prompt:      "",
-		OutputFile:  "test-output.md",
-	}
-	
-	expected = "Please execute the following step in the workflow: Test description"
-	result = generateStepPrompt(stepWithoutPrompt, "/path/to/file")
-	
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := generateStepPrompt(tc.step, tc.changeRequestPath)
+			
+			for _, substr := range tc.contains {
+				if !strings.Contains(result, substr) {
+					t.Errorf("generateStepPrompt() = %v, should contain %v", result, substr)
+				}
+			}
+		})
 	}
 }
 

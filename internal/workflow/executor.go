@@ -7,7 +7,9 @@ package workflow
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 // StepExecutor handles the execution of workflow steps
@@ -25,9 +27,7 @@ func NewStepExecutor(fs FileSystem, io UserOutput) *StepExecutor {
 }
 
 // ExecuteStep executes a workflow step and outputs the processed prompt to stdout.
-// The outputFile parameter is only used for backward compatibility with the existing API,
-// but no file is actually written.
-func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, outputFile string) (bool, error) {
+func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) (bool, error) {
 	// Print progress message only in debug mode
 	if e.io.IsDebugEnabled() {
 		e.io.PrintProgress(fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
@@ -46,9 +46,32 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep, 
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
 
+	// Extract path components for variables
+	dir := filepath.Dir(changeRequestPath)
+	base := filepath.Base(changeRequestPath)
+	base = strings.TrimSuffix(base, ".blueprint.md")
+	fullpath := filepath.Join(dir, base)
+	
+	// Extract step name from ID
+	stepName := step.ID
+	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {
+		stepName = parts[1]
+	}
+	
+	// Generate timestamp
+	timestamp := time.Now().Format("20060102-150405")
+
 	// Process the prompt with variable interpolation
 	processedPrompt, missingVars := InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
+		ChangeRequestBasename: base,
+		BlueprintBasename:     base,
+		Dirname:               dir,
+		StepID:                step.ID,
+		StepName:              stepName,
+		Fullpath:              fullpath,
+		Timestamp:             timestamp,
+		Basename:              base, // Deprecated
 	})
 
 	// Warn about missing variables
