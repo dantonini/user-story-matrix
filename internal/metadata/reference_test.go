@@ -310,4 +310,72 @@ func TestValidateChangedReferences(t *testing.T) {
 	assert.Equal(t, "docs/user-stories/story3.md", mismatchedRefs[0].FilePath)
 	assert.Equal(t, "different-hash-3", mismatchedRefs[0].ReferenceHash)
 	assert.Equal(t, "old-hash-3", mismatchedRefs[0].OldHash)
+}
+
+func TestUpdateChangeRequestReferences_FilePathCorruption(t *testing.T) {
+	// Setup
+	mockFS := io.NewMockFileSystem()
+	fileContent := `---
+name: Test Change Request
+created-at: 2025-03-24T20:03:55+01:00
+user-stories:
+  - title: Live Search Filtering
+    file: docs/user-stories/create-change-request-tui/02-live-search-filtering.md
+    content-hash: oldhash123
+  - title: Keyboard Navigation and Selection
+    file: docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md
+    content-hash: oldhash456
+---
+`
+	
+	mockFS.AddFile("test_change_request.md", []byte(fileContent))
+	
+	// Set up hash map with very long hash values
+	hashMap := ContentChangeMap{
+		"docs/user-stories/create-change-request-tui/02-live-search-filtering.md": ContentHashMap{
+			FilePath: "docs/user-stories/create-change-request-tui/02-live-search-filtering.md",
+			OldHash: "oldhash123",
+			NewHash: "448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2",
+			Changed: true,
+		},
+		"docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md": ContentHashMap{
+			FilePath: "docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md",
+			OldHash: "oldhash456",
+			NewHash: "feeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203d",
+			Changed: true,
+		},
+	}
+	
+	// Call the function
+	updated, count, mismatches, err := UpdateChangeRequestReferences("test_change_request.md", hashMap, mockFS)
+	
+	// Assertions
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	assert.Equal(t, 2, count)
+	assert.Equal(t, 0, len(mismatches))
+	
+	// Verify the content was updated correctly
+	updatedContent, err := mockFS.ReadFile("test_change_request.md")
+	assert.NoError(t, err)
+	
+	// The file path should remain intact, only content-hash should be updated
+	assert.Contains(t, string(updatedContent), "file: docs/user-stories/create-change-request-tui/02-live-search-filtering.md")
+	assert.Contains(t, string(updatedContent), "content-hash: 448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2")
+	assert.Contains(t, string(updatedContent), "file: docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md")
+	assert.Contains(t, string(updatedContent), "content-hash: feeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203d")
+	
+	// The file path should NOT contain the hash
+	assert.NotContains(t, string(updatedContent), "file: docs/user-stories/create-change-request-tui/02-live-search448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2")
+	
+	// Check for file path corruption patterns we've observed
+	corruptionPatterns := []string{
+		"live-search448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2",
+		"title: Visual Cues fore2a8e07ed7b41ff9b342035f3b3928092f0a93c3ac3b683697a651aab5136ec8",
+		"7a5cdd266ccf8b42780da330b173e9a10741c5224c7560a9b367ab91c0e85889a0ced978861e1514aa",
+	}
+	
+	for _, pattern := range corruptionPatterns {
+		assert.NotContains(t, string(updatedContent), pattern, "Found corruption pattern: %s", pattern)
+	}
 } 

@@ -168,13 +168,13 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 		return false, 0, nil, fmt.Errorf("failed to read change request file: %w", err)
 	}
 	
-	contentStr := string(content)
+	originalContent := string(content)
 	
 	changesMade := false
 	updatedReferences := 0
 	
 	// Extract all references
-	references := ExtractReferences(contentStr)
+	references := ExtractReferences(originalContent)
 	
 	// Validate which references need updating
 	changedReferences, mismatchedReferences := ValidateChangedReferences(references, hashMap)
@@ -183,9 +183,15 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 		return false, 0, nil, nil
 	}
 	
+	// Clone the original content for updating
+	updatedContent := originalContent
+	
 	// Find all user story references
-	matches := userStoryReferenceRegex.FindAllStringSubmatch(contentStr, -1)
-	matchIndices := userStoryReferenceRegex.FindAllStringSubmatchIndex(contentStr, -1)
+	matches := userStoryReferenceRegex.FindAllStringSubmatch(originalContent, -1)
+	matchIndices := userStoryReferenceRegex.FindAllStringSubmatchIndex(originalContent, -1)
+	
+	// Track the offset caused by changes in string length
+	offset := 0
 	
 	// Process matches one by one
 	for i, match := range matches {
@@ -197,14 +203,18 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 		
 		// Check if this file is in our hash map
 		if hashInfo, ok := hashMap[filePath]; ok && hashInfo.Changed {
-			// Update the content hash in the document
-			// We need to find where in the string the content hash starts and ends
-			hashStartPos := matchIndex[8]
-			hashEndPos := matchIndex[9]
+			// We need to find where in the string the content hash starts and ends,
+			// adjusted by the current offset
+			hashStartPos := matchIndex[8] + offset
+			hashEndPos := matchIndex[9] + offset
 			
-			// Update the content hash
-			newContent := contentStr[:hashStartPos] + hashInfo.NewHash + contentStr[hashEndPos:]
-			contentStr = newContent
+			// Calculate the new offset after replacement
+			newOffset := len(hashInfo.NewHash) - len(currentHash)
+			offset += newOffset
+			
+			// Update only the content hash, not touching the file path
+			updatedContent = updatedContent[:hashStartPos] + hashInfo.NewHash + updatedContent[hashEndPos:]
+			
 			changesMade = true
 			updatedReferences++
 			
@@ -222,7 +232,7 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to get file info: %w", err)
 		}
 		
-		err = fs.WriteFile(filePath, []byte(contentStr), fileInfo.Mode())
+		err = fs.WriteFile(filePath, []byte(updatedContent), fileInfo.Mode())
 		if err != nil {
 			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to write updated content: %w", err)
 		}

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
@@ -382,5 +383,129 @@ created_at: 2025-03-17T12:00:00Z
 		assert.Equal(t, "docs/user-stories/story1.md", mismatches[0].FilePath)
 		assert.Equal(t, "different-hash-1", mismatches[0].ReferenceHash)
 		assert.Equal(t, "old-hash-1", mismatches[0].OldHash)
+	}
+}
+
+// Helper function to create a temporary directory for testing
+func setupTempDir(t *testing.T) (string, func()) {
+	// Create a temporary directory
+	tempDir, err := os.MkdirTemp("", "test-metadata-references")
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	// Create required subdirectories
+	changeRequestDir := filepath.Join(tempDir, "docs", "changes-request")
+	err = os.MkdirAll(changeRequestDir, 0755)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatal(err)
+	}
+	
+	// Return directory and cleanup function
+	return tempDir, func() {
+		os.RemoveAll(tempDir)
+	}
+}
+
+func TestIntegration_UpdateChangeRequestReferences_PreventFilePathCorruption(t *testing.T) {
+	// Skip if we're not running integration tests
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	
+	// Setup temporary directory
+	tempDir, cleanup := setupTempDir(t)
+	defer cleanup()
+	
+	// Use real file system
+	fs := io.NewOSFileSystem()
+	
+	// Create a change request file with multiple user story references
+	// Similar to the format in the corrupted files we observed
+	changeRequestContent := `---
+name: full tui
+created-at: 2025-03-24T20:03:55+01:00
+user-stories:
+  - title: Initial View of Change Request Selection UI
+    file: docs/user-stories/create-change-request-tui/01-initial-view-of-change-request-selection-ui.md
+    content-hash: oldhash111
+  - title: Live Search Filtering
+    file: docs/user-stories/create-change-request-tui/02-live-search-filtering.md
+    content-hash: oldhash222
+  - title: Entering Search Mode Separates Typing from Selection
+    file: docs/user-stories/create-change-request-tui/03-entering-search-mode-separates-typing-from-selection.md
+    content-hash: oldhash333
+  - title: Keyboard Navigation and Selection
+    file: docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md
+    content-hash: oldhash444
+---
+`
+	changeRequestFile := filepath.Join(tempDir, "2025-03-24-200355-full-tui.blueprint.md")
+	err := fs.WriteFile(changeRequestFile, []byte(changeRequestContent), 0644)
+	require.NoError(t, err)
+	
+	// Create a hash map with changes for multiple files, using long hashes
+	hashMap := ContentChangeMap{
+		"docs/user-stories/create-change-request-tui/01-initial-view-of-change-request-selection-ui.md": {
+			FilePath: "docs/user-stories/create-change-request-tui/01-initial-view-of-change-request-selection-ui.md",
+			OldHash:  "oldhash111",
+			NewHash:  "e7896fb05c2c6c218b772146cd753f125d3e666f8bd0288a545f0d5d0ed42ed2",
+			Changed:  true,
+		},
+		"docs/user-stories/create-change-request-tui/02-live-search-filtering.md": {
+			FilePath: "docs/user-stories/create-change-request-tui/02-live-search-filtering.md",
+			OldHash:  "oldhash222",
+			NewHash:  "448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2",
+			Changed:  true,
+		},
+		"docs/user-stories/create-change-request-tui/03-entering-search-mode-separates-typing-from-selection.md": {
+			FilePath: "docs/user-stories/create-change-request-tui/03-entering-search-mode-separates-typing-from-selection.md",
+			OldHash:  "oldhash333",
+			NewHash:  "1f9a34087be1e027edf4ef0b979b3a846a9c17fb722f176bbb6439561279c663",
+			Changed:  true,
+		},
+		"docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md": {
+			FilePath: "docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md",
+			OldHash:  "oldhash444",
+			NewHash:  "feeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203d",
+			Changed:  true,
+		},
+	}
+	
+	// Update the references
+	updated, refsUpdated, mismatches, err := UpdateChangeRequestReferences(changeRequestFile, hashMap, fs)
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.Equal(t, 4, refsUpdated)
+	require.Empty(t, mismatches)
+	
+	// Read the file back and check for correct updates
+	content, err := fs.ReadFile(changeRequestFile)
+	require.NoError(t, err)
+	
+	updatedContent := string(content)
+	
+	// Check that file paths are intact
+	assert.Contains(t, updatedContent, "file: docs/user-stories/create-change-request-tui/01-initial-view-of-change-request-selection-ui.md")
+	assert.Contains(t, updatedContent, "file: docs/user-stories/create-change-request-tui/02-live-search-filtering.md")
+	assert.Contains(t, updatedContent, "file: docs/user-stories/create-change-request-tui/03-entering-search-mode-separates-typing-from-selection.md")
+	assert.Contains(t, updatedContent, "file: docs/user-stories/create-change-request-tui/06-keyboard-navigation-and-selection.md")
+	
+	// Check that content hashes are updated
+	assert.Contains(t, updatedContent, "content-hash: e7896fb05c2c6c218b772146cd753f125d3e666f8bd0288a545f0d5d0ed42ed2")
+	assert.Contains(t, updatedContent, "content-hash: 448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2")
+	assert.Contains(t, updatedContent, "content-hash: 1f9a34087be1e027edf4ef0b979b3a846a9c17fb722f176bbb6439561279c663")
+	assert.Contains(t, updatedContent, "content-hash: feeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203d")
+	
+	// Check for corruption patterns - these should NOT be present
+	corruptionPatterns := []string{
+		"live-search448981a2d2918b6bb7bfbc6015ef86e9dff5e1c0a944aa53d652ae3371ce40f2",
+		"03-entering-s1f9a34087be1e027edf4ef0b979b3a846a9c17fb722f176bbb6439561279c663",
+		"06-kfeeb2080784b92262b59d45aed619d0b7980b7d3905532d52b779a88de31203dvigation",
+	}
+	
+	for _, pattern := range corruptionPatterns {
+		assert.NotContains(t, updatedContent, pattern, "Found corruption pattern: %s", pattern)
 	}
 } 
