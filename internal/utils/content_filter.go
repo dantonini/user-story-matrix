@@ -16,30 +16,33 @@ func FilterContentHash(content string, includeContentHash bool) string {
 		return content
 	}
 	
-	// TODO: Implement a more sophisticated filtering algorithm
-	// This is a placeholder implementation using a simple string split and join
-	// In the actual implementation, we will:
-	// 1. Split the content into lines
-	// 2. Track whether we are in the metadata section
-	// 3. Skip content hash lines when in metadata
-	// 4. Join everything back together
-	
-	// For now, we'll use a basic implementation
+	// Split the content into lines
 	lines := strings.Split(content, "\n")
 	// Pre-allocate the filtered lines slice to avoid the prealloc lint issue
 	filteredLines := make([]string, 0, len(lines))
 	inMetadata := false
+	isFirstMetadataSection := true // Tracks if we're in the first metadata section
+	metadataSectionCount := 0      // Counts how many metadata sections we've seen
 	
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "---" {
 			// Toggle metadata section flag
-			inMetadata = !inMetadata
+			if !inMetadata {
+				// Starting a metadata section
+				inMetadata = true
+				metadataSectionCount++
+				isFirstMetadataSection = (metadataSectionCount == 1)
+			} else {
+				// Ending a metadata section
+				inMetadata = false
+			}
+			
 			filteredLines = append(filteredLines, line)
 			continue
 		}
 		
-		// Skip content hash lines in metadata section
-		if inMetadata && strings.Contains(line, "_content_hash:") {
+		// Skip content hash lines, but only in the first metadata section
+		if inMetadata && isFirstMetadataSection && strings.Contains(line, "_content_hash:") {
 			continue
 		}
 		

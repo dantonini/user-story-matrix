@@ -31,7 +31,7 @@ type UIState struct {
 // NewUIState creates a new UI state
 func NewUIState() *UIState {
 	return &UIState{
-		SearchFocused:   false, // Start with search focused
+		SearchFocused:   true, // Start with search focused
 		ShowImplemented: false, // Default to showing only unimplemented stories
 		SelectedIDs:     make(map[string]bool),
 		CursorPosition:  0,
