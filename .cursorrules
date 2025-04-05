@@ -27,6 +27,10 @@ Build the CLI tool using the following frameworks:
 - Use meaningful names for functions, variables and comments.
 - Avoid to comment what is obvious, a comment should explain why and how, not what.
 - Use a consistent naming convention for variables, functions.
+- Factor out IO: Factoring out IO from your functions allows for clean and effective tests that aren’t “flaky” and don’t waste time doing things they don’t need to do, which makes everyone happier!
+- Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as “dependency injection.”
+- Making Our Own IO Providers: Sometimes we don’t have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
+
 
 # TUI 
 USM is a cli tool with a small interactive UI (a similar tool is github cli) to guide the user through the user story creation and management efficiently:
@@ -67,9 +71,11 @@ When to use simple components:
 # Testing
 Ensure to include tests for all the code you write.
 
-- Factor out IO: Factoring out IO from your functions allows for clean and effective tests that aren’t “flaky” and don’t waste time doing things they don’t need to do, which makes everyone happier!
-- Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as “dependency injection.”
-- Making Our Own IO Providers: Sometimes we don’t have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
+Two different types of tests:
+- Unit tests: Test the code in isolation, without interacting with the file system or other external dependencies. Name them <filename>_test.go. Prefer this type of tests.
+- Integration tests: Test the code in the context of the file system and other external dependencies. Name them <filename>_integration_test.go. Use this type of tests when you need to test real interactions with the file system or other external dependencies. 
+
+Best practices:
 - Sometimes, Smoke Test IO: Testing the pure logic is generally our objective, but obviously we have to interact with IO at some point. This is where integration tests come in: You can do all the verbose testing of your pure functions via integration test, and then do a happy path smoke test with real IO. This goes a long way toward simplifying and expediting your testing processes.
 - Sometimes you need to write real files on the file system: write always in a temporary directory under REPO_ROOT/output/<subdir> and clean up after yourself.
 - Don’t Test Main: The main() function is really not very testable — just keep it small! No business logic should live in main; its sole job should be to parse the environment into structured options, set up injectable IO providers, and run your real main in a library that takes in these providers and structured options.
