@@ -155,7 +155,7 @@ If major components are touched, consider adding or updating smoke/regression te
 - Do not implement the full logic yet—this phase is strictly for setting up structure and enabling smooth feature delivery.
 
 Now:
-Read the user stories using ./cat-user-stories-in-change-request.sh ${change_request_file_path}
+Read the user stories using ./usm cat ${change_request_file_path}
 Read the blueprint using cat ${change_request_file_path}
 		`,
 	},
@@ -224,7 +224,7 @@ After completing MVI for all user stories:
 
 ---
 
-Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh ${change_request_file_path}
+Read a set of user stories using the command: ./usm cat ${change_request_file_path}
 Read the implementation plan using the command: cat ${change_request_file_path}
 Read the "laying the foundation" accomplished summary using the command: ${change_request_file_path}.01-foundation.accomplished.md
  
@@ -253,7 +253,7 @@ The whole iteration is divided into 4 phases:
 
 The initial blueprint is: ${change_request_file_path}
 Retrieve the user stories mentioned in the blueprint are:
-- ./cat-user-stories-in-change-request.sh ${change_request_file_path}
+- ./usm cat ${change_request_file_path}
 
 You have already:
 - Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat 2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
@@ -317,7 +317,7 @@ Your task now is to proceed to **expand the implementation** to cover additional
 	{
 		ID:          "04-final-iteration",
 		Description: "Final iteration - Polishing and final adjustments",
-		Prompt:      `Read a set of user stories using the command: ./cat-user-stories-in-change-request.sh ${change_request_file_path}
+		Prompt:      `Read a set of user stories using the command: ./usm cat ${change_request_file_path}
 
 You have already:
 - Laid the foundation (project structure, placeholders, key abstractions): cat ${change_request_file_path}.01-foundation.accomplished.md

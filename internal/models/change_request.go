@@ -141,7 +141,7 @@ A blueprint is a technical design document that outlines proposed codebase chang
 
 General Guidelines:
 - The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command:
-	./cat-user-stories-in-change-request.sh %s
+	./usm cat %s
 - The document is not for writing code but for transmitting ideas, concepts, and plans.
 - Follow a top-down (or break-down) approach: start with a high-level overview and progressively drill down into specifics.
 

@@ -289,7 +289,7 @@ func TestGetPromptInstruction(t *testing.T) {
 				"docs/change-requests/test.md", // Path should be included twice
 				"Blueprint",
 				"user stories",
-				"cat-user-stories-in-change-request.sh",
+				"usm cat",
 				"Acceptance Criteria",
 				"Testing Scenarios",
 			},
