@@ -27,6 +27,13 @@ type Reference struct {
 	Line        int // Line number in the change request file
 }
 
+// MismatchedReference represents a reference with a hash mismatch
+type MismatchedReference struct {
+	FilePath      string
+	ReferenceHash string
+	OldHash       string
+}
+
 // ChangeRequestInfo contains information about a change request file
 type ChangeRequestInfo struct {
 	FilePath   string
@@ -121,8 +128,9 @@ func ExtractReferences(content string) []Reference {
 }
 
 // ValidateChangedReferences checks all references against the hash map and reports any that need updating
-func ValidateChangedReferences(references []Reference, hashMap ContentChangeMap) []Reference {
+func ValidateChangedReferences(references []Reference, hashMap ContentChangeMap) ([]Reference, []MismatchedReference) {
 	changedReferences := []Reference{}
+	mismatchedReferences := []MismatchedReference{}
 	
 	for _, ref := range references {
 		if hashInfo, ok := hashMap[ref.FilePath]; ok && hashInfo.Changed {
@@ -130,28 +138,34 @@ func ValidateChangedReferences(references []Reference, hashMap ContentChangeMap)
 				changedReferences = append(changedReferences, ref)
 			} else {
 				// Reference hash doesn't match the old hash - might indicate a problem
-				logger.Warn("Reference hash doesn't match stored old hash",
-					zap.String("file", ref.FilePath),
-					zap.String("reference_hash", ref.ContentHash),
-					zap.String("old_hash", hashInfo.OldHash))
+				// Don't log here as we'll display the mismatches in a more user-friendly way
+				
+				// Add to mismatched references collection
+				mismatchedReferences = append(mismatchedReferences, MismatchedReference{
+					FilePath:      ref.FilePath,
+					ReferenceHash: ref.ContentHash,
+					OldHash:       hashInfo.OldHash,
+				})
+				
 				changedReferences = append(changedReferences, ref)
 			}
 		}
 	}
 	
-	return changedReferences
+	return changedReferences, mismatchedReferences
 }
 
 // UpdateChangeRequestReferences updates references in change request files
 // Returns:
 // - bool: whether the file was updated
 // - int: number of references updated
+// - []MismatchedReference: list of references with mismatched hashes
 // - error: any error that occurred
-func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs io.FileSystem) (bool, int, error) {
+func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs io.FileSystem) (bool, int, []MismatchedReference, error) {
 	// Read file content
 	content, err := fs.ReadFile(filePath)
 	if err != nil {
-		return false, 0, fmt.Errorf("failed to read change request file: %w", err)
+		return false, 0, nil, fmt.Errorf("failed to read change request file: %w", err)
 	}
 	
 	contentStr := string(content)
@@ -163,10 +177,10 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 	references := ExtractReferences(contentStr)
 	
 	// Validate which references need updating
-	changedReferences := ValidateChangedReferences(references, hashMap)
+	changedReferences, mismatchedReferences := ValidateChangedReferences(references, hashMap)
 	
 	if len(changedReferences) == 0 {
-		return false, 0, nil
+		return false, 0, nil, nil
 	}
 	
 	// Find all user story references
@@ -205,16 +219,16 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 	if changesMade {
 		fileInfo, err := fs.Stat(filePath)
 		if err != nil {
-			return false, updatedReferences, fmt.Errorf("failed to get file info: %w", err)
+			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to get file info: %w", err)
 		}
 		
 		err = fs.WriteFile(filePath, []byte(contentStr), fileInfo.Mode())
 		if err != nil {
-			return false, updatedReferences, fmt.Errorf("failed to write updated content: %w", err)
+			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to write updated content: %w", err)
 		}
 	}
 	
-	return changesMade, updatedReferences, nil
+	return changesMade, updatedReferences, mismatchedReferences, nil
 }
 
 // FilterChangedContent filters the hash map to include only files with changed content
@@ -235,38 +249,35 @@ func FilterChangedContent(hashMap ContentChangeMap) ContentChangeMap {
 // - []string: list of updated files
 // - []string: list of unchanged files
 // - int: total number of references updated
+// - []MismatchedReference: list of references with mismatched hashes
 // - error: any error that occurred
-func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs io.FileSystem) ([]string, []string, int, error) {
+func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs io.FileSystem) ([]string, []string, int, []MismatchedReference, error) {
 	// Filter the hash map to include only files with changed content
 	changedMap := FilterChangedContent(hashMap)
 	
 	// If no content has changed, no need to update references
 	if len(changedMap) == 0 {
 		logger.Debug("No content changes detected, skipping reference updates")
-		return nil, nil, 0, nil
+		return nil, nil, 0, nil, nil
 	}
 	
 	// Find all change request files
 	files, err := FindChangeRequestFiles(root, fs)
 	if err != nil {
-		return nil, nil, 0, err
-	}
-
-	if len(files) == 0 {
-		logger.Warn("No change request files found", zap.String("root", root))
-		return nil, nil, 0, nil
+		return nil, nil, 0, nil, fmt.Errorf("failed to find change request files: %w", err)
 	}
 	
 	updatedFiles := make([]string, 0, len(files))
 	unchangedFiles := make([]string, 0, len(files))
-	errors := make([]string, 0)
+	allMismatchedRefs := make([]MismatchedReference, 0)
 	totalReferencesUpdated := 0
+	errors := make([]string, 0) // Track any errors during processing
 	
-	// Update references in each file
+	// Check and update references in each file
 	for _, file := range files {
 		logger.Debug("Processing change request", zap.String("file", file))
 		
-		updated, referencesUpdated, err := UpdateChangeRequestReferences(file, changedMap, fs)
+		updated, referencesUpdated, mismatchedReferences, err := UpdateChangeRequestReferences(file, changedMap, fs)
 		if err != nil {
 			logger.Error("Failed to update references", 
 				zap.String("file", file), 
@@ -274,6 +285,9 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 			errors = append(errors, fmt.Sprintf("%s: %s", file, err.Error()))
 			continue
 		}
+		
+		// Collect all mismatched references
+		allMismatchedRefs = append(allMismatchedRefs, mismatchedReferences...)
 		
 		relPath, err := filepath.Rel(root, file)
 		if err != nil {
@@ -283,9 +297,6 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 		if updated {
 			updatedFiles = append(updatedFiles, relPath)
 			totalReferencesUpdated += referencesUpdated
-			logger.Debug("Updated references", 
-				zap.String("file", relPath),
-				zap.Int("references_updated", referencesUpdated))
 		} else {
 			unchangedFiles = append(unchangedFiles, relPath)
 		}
@@ -293,7 +304,7 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 	
 	// If there were any errors, log a summary
 	if len(errors) > 0 {
-		logger.Warn("Some change requests could not be updated", 
+		logger.Warn("Some files could not be updated", 
 			zap.Int("error_count", len(errors)),
 			zap.Strings("errors", errors))
 	}
@@ -307,12 +318,12 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 		"references_updated": totalReferencesUpdated,
 	}
 	
-	logger.Info("Completed change request reference update", 
+	logger.Debug("Completed change request reference update", 
 		zap.Int("total", stats["total"]),
 		zap.Int("updated", stats["updated"]),
 		zap.Int("unchanged", stats["unchanged"]),
 		zap.Int("errors", stats["errors"]),
 		zap.Int("references_updated", stats["references_updated"]))
 	
-	return updatedFiles, unchangedFiles, totalReferencesUpdated, nil
+	return updatedFiles, unchangedFiles, totalReferencesUpdated, allMismatchedRefs, nil
 } 

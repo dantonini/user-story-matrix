@@ -10,10 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/metadata"
+	"github.com/user-story-matrix/usm/internal/ui/styles"
 	"go.uber.org/zap"
 )
 
@@ -38,7 +40,7 @@ Directories like node_modules, .git, dist, build, vendor, tmp, .cache, and .gith
 The command preserves original creation dates if they exist, and only updates last_updated dates
 when content has actually changed, making it safe to run as part of automated workflows.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger.Info("Updating user story metadata")
+		logger.Debug("Updating user story metadata")
 		
 		// Get command options
 		skipReferences, _ := cmd.Flags().GetBool("skip-references")
@@ -116,20 +118,26 @@ when content has actually changed, making it safe to run as part of automated wo
 		updatedRefs := []string{}
 		unchangedRefs := []string{}
 		referencesUpdated := 0
+		var mismatchedReferences []metadata.MismatchedReference
 		
 		if !skipReferences && len(hashMap) > 0 {
 			// Only update references if there are actually content changes (not just metadata changes)
 			changedHashMap := metadata.FilterChangedContent(hashMap)
 			
 			if len(changedHashMap) > 0 {
-				logger.Info("Updating change request references",
+				logger.Debug("Updating change request references",
 					zap.Int("changed_files", len(changedHashMap)))
 				fmt.Println("🔄 Updating references in change requests...")
 				
 				// Update change request references
-				updatedRefs, unchangedRefs, referencesUpdated, err = metadata.UpdateAllChangeRequestReferences(root, changedHashMap, fs)
+				updatedRefs, unchangedRefs, referencesUpdated, mismatchedReferences, err = metadata.UpdateAllChangeRequestReferences(root, changedHashMap, fs)
 				if err != nil {
 					return fmt.Errorf("failed to update change request references: %w", err)
+				}
+				
+				// Print mismatched references with nice formatting
+				if len(mismatchedReferences) > 0 {
+					printMismatchedReferences(mismatchedReferences)
 				}
 				
 				// Print summary of reference updates
@@ -166,6 +174,62 @@ when content has actually changed, making it safe to run as part of automated wo
 		
 		return nil
 	},
+}
+
+// printMismatchedReferences prints a nicely formatted list of mismatched references
+func printMismatchedReferences(mismatchedRefs []metadata.MismatchedReference) {
+	if len(mismatchedRefs) == 0 {
+		return
+	}
+	
+	// Initialize UI styles
+	s := styles.DefaultStyles()
+	
+	// Group mismatched references by file path
+	mismatchesByFile := make(map[string]int)
+	for _, ref := range mismatchedRefs {
+		mismatchesByFile[ref.FilePath]++
+	}
+	
+	// Create header with warning
+	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
+	warningHeader := warningStyle.Render("⚠️  Hash Mismatch Detected")
+	
+	fmt.Println("\n" + warningHeader)
+	fmt.Println(s.Normal.Render("Some user story hashes in change requests don't match the expected values:"))
+	
+	// Show a count by file
+	for filePath, count := range mismatchesByFile {
+		fileName := filepath.Base(filePath)
+		dirPath := filepath.Dir(filePath)
+		
+		fileInfo := fmt.Sprintf("%s (%d %s)", 
+			fileName, 
+			count, 
+			pluralize("reference", count))
+		
+		fmt.Printf("  %s in %s\n", 
+			s.Error.Render(fileInfo),
+			s.Normal.Render(dirPath))
+	}
+	
+	// Explanation of what this means
+	fmt.Println()
+	fmt.Println(s.Subtle.Render("This usually happens when:"))
+	fmt.Println(s.Subtle.Render("• A change request was created with an user story"))
+	fmt.Println(s.Subtle.Render("• The user story was later modified without updating the change request"))
+	fmt.Println()
+	fmt.Println(s.Normal.Render("All references have been updated to the current hash values."))
+	fmt.Println(s.Normal.Render("You may want to review the updated change requests to ensure they're still valid."))
+	fmt.Println()
+}
+
+// pluralize returns a pluralized version of a word based on count
+func pluralize(word string, count int) string {
+	if count == 1 {
+		return word
+	}
+	return word + "s"
 }
 
 // printGroupedFiles prints files grouped by their directory for better readability

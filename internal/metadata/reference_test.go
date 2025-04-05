@@ -83,10 +83,45 @@ func TestFindChangeRequestFiles(t *testing.T) {
 }
 
 func TestUpdateChangeRequestReferences(t *testing.T) {
-	// This test has been implemented as an integration test in reference_integration_test.go
-	// using a real filesystem instead of a mock to avoid issues with complex file operations.
-	// See TestIntegration_UpdateChangeRequestReferences
-	t.Skip("Test implemented as integration test in reference_integration_test.go")
+	// Setup
+	mockFS := io.NewMockFileSystem()
+	fileContent := `
+---
+title: Test Change Request
+description: This is a test change request
+---
+
+User stories:
+- title: Test User Story
+  file: docs/user-stories/test.md
+  content-hash: oldhash123
+`
+	
+	mockFS.AddFile("test_change_request.md", []byte(fileContent))
+	
+	// Set up hash map
+	hashMap := ContentChangeMap{
+		"docs/user-stories/test.md": ContentHashMap{
+			FilePath: "docs/user-stories/test.md",
+			OldHash: "oldhash123",
+			NewHash: "newhash456",
+			Changed: true,
+		},
+	}
+	
+	// Call the function
+	updated, count, mismatches, err := UpdateChangeRequestReferences("test_change_request.md", hashMap, mockFS)
+	
+	// Assertions
+	assert.NoError(t, err)
+	assert.True(t, updated)
+	assert.Equal(t, 1, count)
+	assert.Equal(t, 0, len(mismatches))
+	
+	// Verify the content was updated
+	updatedContent, err := mockFS.ReadFile("test_change_request.md")
+	assert.NoError(t, err)
+	assert.Contains(t, string(updatedContent), "content-hash: newhash456")
 }
 
 func TestUpdateChangeRequestReferences_NoChanges(t *testing.T) {
@@ -102,10 +137,11 @@ func TestUpdateChangeRequestReferences_NoChanges(t *testing.T) {
 	}
 
 	// Test updating references in a change request
-	updated, refCount, err := UpdateChangeRequestReferences("docs/changes-request/cr2.blueprint.md", hashMap, fs)
+	updated, refCount, mismatches, err := UpdateChangeRequestReferences("docs/changes-request/cr2.blueprint.md", hashMap, fs)
 	assert.NoError(t, err)
 	assert.False(t, updated)
 	assert.Equal(t, 0, refCount)
+	assert.Equal(t, 0, len(mismatches))
 
 	// Verify the change request was not updated
 	content, err := fs.ReadFile("docs/changes-request/cr2.blueprint.md")
@@ -139,50 +175,139 @@ func TestFilterChangedContent(t *testing.T) {
 }
 
 func TestUpdateAllChangeRequestReferences(t *testing.T) {
-	// This test has been implemented as an integration test in reference_integration_test.go
-	// using a real filesystem instead of a mock to avoid issues with complex file operations.
-	// See TestIntegration_UpdateAllChangeRequestReferences
-	t.Skip("Test implemented as integration test in reference_integration_test.go")
+	// Setup
+	mockFS := io.NewMockFileSystem()
+	
+	// Create a mock directory structure
+	mockFS.AddFile("docs/changes-request/test1.md", []byte(`
+---
+title: Test Change Request 1
+description: This is a test change request
+---
+
+User stories:
+- title: Test User Story
+  file: docs/user-stories/test.md
+  content-hash: oldhash123
+`))
+	
+	mockFS.AddFile("docs/changes-request/test2.md", []byte(`
+---
+title: Test Change Request 2
+description: This is another test change request
+---
+
+User stories:
+- title: Another Test User Story
+  file: docs/user-stories/another_test.md
+  content-hash: anotherhash789
+`))
+	
+	// Set up hash map
+	hashMap := ContentChangeMap{
+		"docs/user-stories/test.md": ContentHashMap{
+			FilePath: "docs/user-stories/test.md",
+			OldHash: "oldhash123",
+			NewHash: "newhash456",
+			Changed: true,
+		},
+	}
+	
+	// Call the function
+	updatedFiles, unchangedFiles, referencesUpdated, mismatches, err := UpdateAllChangeRequestReferences("", hashMap, mockFS)
+	
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(updatedFiles))
+	assert.Equal(t, 1, len(unchangedFiles))
+	assert.Equal(t, 1, referencesUpdated)
+	assert.Equal(t, 0, len(mismatches))
 }
 
 func TestUpdateAllChangeRequestReferences_NoChanges(t *testing.T) {
-	fs := setupReferenceTestFiles()
+	// Setup
+	mockFS := io.NewMockFileSystem()
+	
+	// Create a mock directory structure
+	mockFS.AddFile("docs/changes-request/test1.md", []byte(`
+---
+title: Test Change Request 1
+description: This is a test change request
+---
 
-	// Create a hash map with no changes
-	hashMap := make(ContentChangeMap)
-	hashMap["docs/user-stories/story1.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story1.md",
-		OldHash:  "old-hash-1",
-		NewHash:  "old-hash-1",
-		Changed:  false,
-	}
-	hashMap["docs/user-stories/story2.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story2.md",
-		OldHash:  "old-hash-2",
-		NewHash:  "old-hash-2",
-		Changed:  false,
-	}
-
-	// Test updating all change request references
-	updatedFiles, unchangedFiles, refCount, err := UpdateAllChangeRequestReferences("", hashMap, fs)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(updatedFiles))
-	// The unchanged files list should actually be empty because when all content is unchanged, 
-	// we don't actually check any change request files - the function exits early
-	assert.Equal(t, 0, len(unchangedFiles))
-	assert.Equal(t, 0, refCount)
-}
-
-func TestUpdateAllChangeRequestReferences_EmptyHashMap(t *testing.T) {
-	fs := setupReferenceTestFiles()
-
-	// Create an empty hash map
-	hashMap := make(ContentChangeMap)
-
-	// Test updating all change request references
-	updatedFiles, unchangedFiles, refCount, err := UpdateAllChangeRequestReferences("", hashMap, fs)
+User stories:
+- title: Test User Story
+  file: docs/user-stories/test.md
+  content-hash: oldhash123
+`))
+	
+	// Empty hash map (no changes)
+	hashMap := ContentChangeMap{}
+	
+	// Call the function
+	updatedFiles, unchangedFiles, referencesUpdated, mismatches, err := UpdateAllChangeRequestReferences("", hashMap, mockFS)
+	
+	// Assertions
 	assert.NoError(t, err)
 	assert.Nil(t, updatedFiles)
 	assert.Nil(t, unchangedFiles)
-	assert.Equal(t, 0, refCount)
+	assert.Equal(t, 0, referencesUpdated)
+	assert.Nil(t, mismatches)
+}
+
+func TestValidateChangedReferences(t *testing.T) {
+	// Setup test data
+	references := []Reference{
+		{
+			Title:       "Story 1",
+			FilePath:    "docs/user-stories/story1.md",
+			ContentHash: "old-hash-1",
+		},
+		{
+			Title:       "Story 2",
+			FilePath:    "docs/user-stories/story2.md", 
+			ContentHash: "old-hash-2",
+		},
+		{
+			Title:       "Story 3",
+			FilePath:    "docs/user-stories/story3.md",
+			ContentHash: "different-hash-3", // Mismatched hash
+		},
+	}
+	
+	hashMap := ContentChangeMap{
+		"docs/user-stories/story1.md": {
+			FilePath: "docs/user-stories/story1.md",
+			OldHash:  "old-hash-1",
+			NewHash:  "new-hash-1",
+			Changed:  true,
+		},
+		"docs/user-stories/story2.md": {
+			FilePath: "docs/user-stories/story2.md",
+			OldHash:  "old-hash-2",
+			NewHash:  "new-hash-2",
+			Changed:  false, // Unchanged content
+		},
+		"docs/user-stories/story3.md": {
+			FilePath: "docs/user-stories/story3.md",
+			OldHash:  "old-hash-3", // Different from ContentHash in reference
+			NewHash:  "new-hash-3",
+			Changed:  true,
+		},
+	}
+	
+	// Call function
+	changedRefs, mismatchedRefs := ValidateChangedReferences(references, hashMap)
+	
+	// Assertions
+	assert.Equal(t, 2, len(changedRefs))
+	assert.Equal(t, 1, len(mismatchedRefs))
+	
+	// Check the first reference (matches old hash)
+	assert.Equal(t, "docs/user-stories/story1.md", changedRefs[0].FilePath)
+	
+	// Check the mismatched reference
+	assert.Equal(t, "docs/user-stories/story3.md", mismatchedRefs[0].FilePath)
+	assert.Equal(t, "different-hash-3", mismatchedRefs[0].ReferenceHash)
+	assert.Equal(t, "old-hash-3", mismatchedRefs[0].OldHash)
 } 

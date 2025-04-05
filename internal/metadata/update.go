@@ -251,7 +251,7 @@ func UpdateAllUserStoryMetadata(userStoriesDir, root string, fs io.FileSystem) (
 		"errors": len(errors),
 	}
 
-	logger.Info("Completed user story metadata update", 
+	logger.Debug("Completed user story metadata update", 
 		zap.Int("total", stats["total"]),
 		zap.Int("updated", stats["updated"]),
 		zap.Int("unchanged", stats["unchanged"]),
