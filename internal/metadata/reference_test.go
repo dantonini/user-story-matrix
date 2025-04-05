@@ -83,47 +83,10 @@ func TestFindChangeRequestFiles(t *testing.T) {
 }
 
 func TestUpdateChangeRequestReferences(t *testing.T) {
-	// Despite improvements to the mock filesystem implementation, there are still issues with complex
-	// file operations like updating references in files. The test is failing because the updated content
-	// is not being consistently read back after writing, which causes assertions to fail.
-	// Future improvements should consider using integration tests with a real file system or a more
-	// robust mock implementation designed specifically for update-read scenarios.
-	t.Skip("Test skipped due to persistent issues with mock filesystem update/read operations")
-	
-	fs := setupReferenceTestFiles()
-
-	// Create a hash map with changes
-	hashMap := make(ContentChangeMap)
-	hashMap["docs/user-stories/story1.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story1.md",
-		OldHash:  "old-hash-1",
-		NewHash:  "new-hash-1",
-		Changed:  true,
-	}
-	hashMap["docs/user-stories/story2.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story2.md",
-		OldHash:  "old-hash-2",
-		NewHash:  "old-hash-2", // No change
-		Changed:  false,
-	}
-
-	// Test updating references in a change request
-	updated, refCount, err := UpdateChangeRequestReferences("docs/changes-request/cr1.blueprint.md", hashMap, fs)
-	assert.NoError(t, err)
-	assert.True(t, updated)
-	assert.Equal(t, 1, refCount)
-
-	// Verify the change request was updated
-	content, err := fs.ReadFile("docs/changes-request/cr1.blueprint.md")
-	assert.NoError(t, err)
-	contentStr := string(content)
-	
-	// Verify hash was updated
-	assert.Contains(t, contentStr, "content-hash: new-hash-1")
-	assert.NotContains(t, contentStr, "content-hash: old-hash-1")
-	
-	// Verify unchanged hash remains
-	assert.Contains(t, contentStr, "content-hash: old-hash-2") // This one shouldn't change
+	// This test has been implemented as an integration test in reference_integration_test.go
+	// using a real filesystem instead of a mock to avoid issues with complex file operations.
+	// See TestIntegration_UpdateChangeRequestReferences
+	t.Skip("Test implemented as integration test in reference_integration_test.go")
 }
 
 func TestUpdateChangeRequestReferences_NoChanges(t *testing.T) {
@@ -176,56 +139,10 @@ func TestFilterChangedContent(t *testing.T) {
 }
 
 func TestUpdateAllChangeRequestReferences(t *testing.T) {
-	// This test faces similar issues to TestUpdateChangeRequestReferences. It involves multiple file
-	// operations and validations that are not working correctly with the current mock filesystem.
-	// The test is skipped as it requires more substantial improvements to the testing infrastructure.
-	// A recommended approach would be to create a specialized test helper that can validate the
-	// file operations more reliably, or use a temporary directory with real files for testing.
-	t.Skip("Test skipped due to persistent issues with mock filesystem in complex multi-file operations")
-	
-	fs := setupReferenceTestFiles()
-
-	// Create a hash map with changes
-	hashMap := make(ContentChangeMap)
-	hashMap["docs/user-stories/story1.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story1.md",
-		OldHash:  "old-hash-1",
-		NewHash:  "new-hash-1",
-		Changed:  true,
-	}
-	hashMap["docs/user-stories/story2.md"] = ContentHashMap{
-		FilePath: "docs/user-stories/story2.md",
-		OldHash:  "old-hash-2",
-		NewHash:  "new-hash-2",
-		Changed:  true,
-	}
-
-	// Test updating all change request references
-	updatedFiles, unchangedFiles, refCount, err := UpdateAllChangeRequestReferences("", hashMap, fs)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(updatedFiles), "Expected 2 files to be updated")
-	assert.Equal(t, 0, len(unchangedFiles), "Expected 0 files to be unchanged")
-	assert.GreaterOrEqual(t, refCount, 3, "Expected at least 3 references to be updated")
-
-	// Verify the first change request was updated
-	content1, err := fs.ReadFile("docs/changes-request/cr1.blueprint.md")
-	assert.NoError(t, err)
-	contentStr1 := string(content1)
-	
-	// Verify hashes were updated in first file
-	assert.Contains(t, contentStr1, "content-hash: new-hash-1")
-	assert.NotContains(t, contentStr1, "content-hash: old-hash-1")
-	assert.Contains(t, contentStr1, "content-hash: new-hash-2")
-	assert.NotContains(t, contentStr1, "content-hash: old-hash-2")
-
-	// Verify the second change request was updated
-	content2, err := fs.ReadFile("docs/changes-request/cr2.blueprint.md")
-	assert.NoError(t, err)
-	contentStr2 := string(content2)
-	
-	// Verify hash was updated in second file
-	assert.Contains(t, contentStr2, "content-hash: new-hash-1")
-	assert.NotContains(t, contentStr2, "content-hash: old-hash-1")
+	// This test has been implemented as an integration test in reference_integration_test.go
+	// using a real filesystem instead of a mock to avoid issues with complex file operations.
+	// See TestIntegration_UpdateAllChangeRequestReferences
+	t.Skip("Test implemented as integration test in reference_integration_test.go")
 }
 
 func TestUpdateAllChangeRequestReferences_NoChanges(t *testing.T) {

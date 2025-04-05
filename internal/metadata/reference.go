@@ -79,30 +79,34 @@ func FindChangeRequestFiles(root string, fs io.FileSystem) ([]string, error) {
 // ExtractReferences extracts all user story references from a change request file
 func ExtractReferences(content string) []Reference {
 	references := []Reference{}
-	matches := userStoryReferenceRegex.FindAllStringSubmatchIndex(content, -1)
-	
-	// TODO: Extract line numbers for references in future improvement
-	// Count lines in content for future use
-	// lineCount := 0
-	// for _, _ = range strings.Split(content, "\n") {
-	//     lineCount++
-	// }
+	matches := userStoryReferenceRegex.FindAllStringSubmatch(content, -1)
 	
 	for _, match := range matches {
-		filePath := content[match[4]:match[5]]
-		contentHash := content[match[8]:match[9]]
+		// The match array should contain:
+		// [0]: full match
+		// [1]: prefix (spaces + "- title:" + content + newline + spaces + "file:")
+		// [2]: file path
+		// [3]: newline + spaces + "content-hash:"
+		// [4]: content hash
+		// [5]: newline
+		if len(match) < 6 {
+			continue
+		}
+		
+		filePath := match[2]
+		contentHash := match[4]
 		
 		// Extract title from the previous line
-		titleStart := strings.LastIndex(content[:match[0]], "title:")
+		titleStart := strings.LastIndex(match[1], "title:")
 		if titleStart == -1 {
 			continue
 		}
-		titleEnd := strings.Index(content[titleStart:], "\n")
+		titleLine := match[1][titleStart:]
+		titleEnd := strings.Index(titleLine, "\n")
 		if titleEnd == -1 {
 			continue
 		}
-		titleLine := content[titleStart:titleStart+titleEnd]
-		title := strings.TrimSpace(strings.TrimPrefix(titleLine, "title:"))
+		title := strings.TrimSpace(strings.TrimPrefix(titleLine[:titleEnd], "title:"))
 		
 		references = append(references, Reference{
 			Title:       title,
@@ -150,6 +154,7 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 	}
 	
 	contentStr := string(content)
+	
 	changesMade := false
 	updatedReferences := 0
 	
@@ -164,20 +169,26 @@ func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs
 	}
 	
 	// Find all user story references
-	matches := userStoryReferenceRegex.FindAllStringSubmatchIndex(contentStr, -1)
+	matches := userStoryReferenceRegex.FindAllStringSubmatch(contentStr, -1)
+	matchIndices := userStoryReferenceRegex.FindAllStringSubmatchIndex(contentStr, -1)
 	
-	// Process matches in reverse order to avoid index issues
-	for i := len(matches) - 1; i >= 0; i-- {
-		match := matches[i]
+	// Process matches one by one
+	for i, match := range matches {
+		matchIndex := matchIndices[i]
 		
 		// Extract the file path and current hash
-		filePath := contentStr[match[4]:match[5]]
-		currentHash := contentStr[match[8]:match[9]]
+		filePath := match[2]
+		currentHash := match[4]
 		
 		// Check if this file is in our hash map
 		if hashInfo, ok := hashMap[filePath]; ok && hashInfo.Changed {
+			// Update the content hash in the document
+			// We need to find where in the string the content hash starts and ends
+			hashStartPos := matchIndex[8]
+			hashEndPos := matchIndex[9]
+			
 			// Update the content hash
-			newContent := contentStr[:match[8]] + hashInfo.NewHash + contentStr[match[9]:]
+			newContent := contentStr[:hashStartPos] + hashInfo.NewHash + contentStr[hashEndPos:]
 			contentStr = newContent
 			changesMade = true
 			updatedReferences++
