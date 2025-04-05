@@ -37,8 +37,8 @@ func TestDeadCodeDetection(t *testing.T) {
 	}
 }
 
-// TestLintFixDeadcodeTarget checks if the lint-fix-deadcode target is properly defined
-func TestLintFixDeadcodeTarget(t *testing.T) {
+// TestDeadcodeTargets checks if the deadcode targets are properly defined
+func TestDeadcodeTargets(t *testing.T) {
 	// Find the root directory
 	rootDir, err := FindRootDir()
 	if err != nil {
@@ -54,18 +54,23 @@ func TestLintFixDeadcodeTarget(t *testing.T) {
 
 	makefileContent := string(makefile)
 
-	// Check if lint-fix-deadcode target exists
-	if !strings.Contains(makefileContent, "lint-fix-deadcode:") {
-		t.Error("lint-fix-deadcode target not found in Makefile")
+	// Check if deadcode target exists
+	if !strings.Contains(makefileContent, "deadcode:") {
+		t.Error("deadcode target not found in Makefile")
+	}
+
+	// Check if deadcode-remove target exists
+	if !strings.Contains(makefileContent, "deadcode-remove:") {
+		t.Error("deadcode-remove target not found in Makefile")
 	}
 
 	// Check if the target calls the script
-	if !strings.Contains(makefileContent, "scripts/lint-fix-deadcode.sh") {
-		t.Error("lint-fix-deadcode target doesn't call the deadcode script")
+	if !strings.Contains(makefileContent, "scripts/deadcode.sh") {
+		t.Error("deadcode targets don't call the deadcode.sh script")
 	}
 }
 
-// TestDeadcodeScriptExists checks if the lint-fix-deadcode.sh script exists
+// TestDeadcodeScriptExists checks if the deadcode.sh script exists
 func TestDeadcodeScriptExists(t *testing.T) {
 	// Find the root directory
 	rootDir, err := FindRootDir()
@@ -74,40 +79,28 @@ func TestDeadcodeScriptExists(t *testing.T) {
 	}
 
 	// Check if the script exists
-	scriptPath := filepath.Join(rootDir, "scripts", "lint-fix-deadcode.sh")
+	scriptPath := filepath.Join(rootDir, "scripts", "deadcode.sh")
 	info, err := os.Stat(scriptPath)
 	if err != nil {
-		t.Fatalf("lint-fix-deadcode.sh script not found: %v", err)
+		t.Fatalf("deadcode.sh script not found: %v", err)
 	}
 
 	// Check if the script is executable
 	if info.Mode()&0111 == 0 {
-		t.Error("lint-fix-deadcode.sh script is not executable")
+		t.Error("deadcode.sh script is not executable")
 	}
 
 	// Read the script to check its contents
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
-		t.Fatalf("Failed to read lint-fix-deadcode.sh: %v", err)
+		t.Fatalf("Failed to read deadcode.sh: %v", err)
 	}
 
 	// Check if the script contains the required features
 	requiredFeatures := []string{
-		"golangci-lint run",
-		"enable=",
-		"deadcode",
-	}
-
-	// Either deadcode or unused must be in the script to handle deprecated linters
-	var containsDeadcodeHandling bool
-	if strings.Contains(string(script), "deadcode") &&
-		strings.Contains(string(script), "unused") &&
-		strings.Contains(string(script), "deprecated") {
-		containsDeadcodeHandling = true
-	}
-
-	if !containsDeadcodeHandling {
-		t.Error("lint-fix-deadcode.sh doesn't have proper deadcode deprecation handling")
+		"AST-based",
+		"--dry-run",
+		"--verbose",
 	}
 
 	for _, feature := range requiredFeatures {

@@ -96,4 +96,4 @@ issues:
 # Notes on golangci-lint version compatibility:
 # - The 'deadcode' linter is deprecated since v1.49.0 in favor of 'unused'
 # - If using a newer version, this config uses 'unused' instead of 'deadcode'
-# - The scripts/lint-fix-deadcode.sh script is version-aware and will use the appropriate linter 
+# - The AST-based deadcode removal tool is now used instead, which provides better results 

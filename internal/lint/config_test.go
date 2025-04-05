@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package lint
 
 import (
@@ -151,8 +150,8 @@ func TestReadmeContainsLintingInfo(t *testing.T) {
 		}
 	}
 	
-	// Check for the lint-fix-deadcode command or a renamed version
-	if !contains(readmeStr, "lint-fix-deadcode") && !contains(readmeStr, "lint-fix-unused") {
+	// Check for the deadcode command 
+	if !contains(readmeStr, "deadcode") {
 		t.Error("README.md does not contain instructions for removing dead/unused code")
 	}
 }

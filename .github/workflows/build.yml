@@ -127,5 +127,5 @@ jobs:
         run: go test -v ./...
 
       - name: Check for Dead Code
-        run: make lint-fix-deadcode
+        run: make deadcode
         continue-on-error: true  # Continue even if dead code is found

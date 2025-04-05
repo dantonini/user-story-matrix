@@ -232,7 +232,7 @@ make build-full
 make build
 
 # Find and report dead/unused code
-make lint-fix-deadcode
+make deadcode
 ```
 
 ### Pre-commit Hook
@@ -363,3 +363,55 @@ usm ask feature
 This will guide you in writing a feature request as a user story and send it to me directly.
 
 Alternatively, feel free to open an issue or start a discussion here on GitHub.
+
+## Development
+
+### Prerequisites
+- Go 1.22 or newer
+- Git
+
+### Development Commands
+USM offers several commands to help you during development:
+
+```bash
+# Build the tool
+make build
+
+# Run tests
+make test
+
+# Build with all tests and checks
+make build-full
+
+# Run linters to detect code issues
+make lint
+
+# Detect dead code
+make deadcode
+
+# Generate coverage report
+make coverage-report
+```
+
+### Dead Code Detection
+The project includes a tool for identifying and removing unused code:
+
+```bash
+# Show what would be removed (dry run)
+make deadcode
+
+# Actually remove dead code (creates backups first)
+make deadcode-remove
+
+# With more verbose output
+./scripts/deadcode.sh --verbose
+
+# Focus on a specific directory
+./scripts/deadcode.sh --path ./cmd/...
+```
+
+This AST-based tool analyzes the code using Abstract Syntax Trees to properly:
+- Remove entire functions, variables, and types
+- Preserve code structure and formatting
+- Create automatic backups of modified files
+- Maintain correct Go syntax

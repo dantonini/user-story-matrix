@@ -1,4 +1,4 @@
-.PHONY: build test clean run demo-tui lint lint-tests lint-ci build-full lint-fix-deadcode install-hooks lint-report
+.PHONY: build test clean run demo-tui lint lint-tests lint-ci build-full install-hooks lint-report deadcode deadcode-ast deadcode-remove
 
 # Binary name
 BINARY_NAME=usm
@@ -81,11 +81,6 @@ build-full:
 	@echo "Running full build with linting..."
 	go build -o $(BINARY_NAME) -v
 
-# Fix dead code issues automatically (helper target)
-lint-fix-deadcode:
-	@echo "Identifying dead code..."
-	@bash scripts/lint-fix-deadcode.sh
-
 # Run tests
 test:
 	go test -v $(shell go list ./... | grep -v /output/)
@@ -156,6 +151,24 @@ lint-clean:
 	echo "Checking main.go..."; \
 	golangci-lint run $(CACHE_FLAG) main.go; \
 	echo "All linting checks passed!"
+
+# Run the deadcode detection and removal tool
+deadcode:
+	@echo "Running dead code detection and removal (AST-based)..."
+	@chmod +x scripts/deadcode.sh
+	@scripts/deadcode.sh --dry-run
+
+# Run the deadcode tool with actual removal
+deadcode-remove:
+	@echo "Running dead code removal (AST-based)..."
+	@chmod +x scripts/deadcode.sh
+	@scripts/deadcode.sh
+
+# Run the AST-based dead code removal tool (safer and more comprehensive)
+deadcode-ast:
+	@echo "Running AST-based dead code remover (dry run)..."
+	@go run ./cmd/deadcode --dry-run
+	@echo "For actual code removal, run: go run ./cmd/deadcode"
 
 # Default target
 all: clean build 
