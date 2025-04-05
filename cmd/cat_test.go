@@ -113,6 +113,10 @@ _content_hash: auth456
 # Registration Feature
 This story describes the user registration functionality.
 
+As a new user
+I want to create an account
+so that I can access the system
+
 ## First paragraph
 The registration system should allow new users to create accounts with email verification.
 
@@ -442,14 +446,15 @@ func TestCompactOutputMode(t *testing.T) {
 	
 	// Verify that the compact format is used
 	assert.Contains(t, output, "# Registration Feature")
-	assert.Contains(t, output, "The registration system should allow new users to create accounts with email verification.")
+	assert.Contains(t, output, "As a new user")
+	assert.Contains(t, output, "I want to create an account")
+	assert.Contains(t, output, "so that I can access the system")
 	
 	// Verify that additional paragraphs are not included in compact mode
 	assert.NotContains(t, output, "Second paragraph")
 	assert.NotContains(t, output, "Third paragraph")
 	
-	// Use less strict assertion for new line format to account for OS differences
-	assert.True(t, strings.Contains(output, "verification."))
+	// Verify the separator format is correct
 	assert.NotContains(t, output, "---\n")
 }
 

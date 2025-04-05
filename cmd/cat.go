@@ -264,7 +264,7 @@ func shouldExcludeStory(story models.UserStoryReference, excludePatterns []strin
 }
 
 // createCompactOutput creates a compact representation of a user story.
-// It extracts the title and first paragraph for a more concise view.
+// It extracts the title and user story format (As ... I want ... so that ...).
 func createCompactOutput(story models.UserStoryReference, content string) string {
 	// Extract title from content
 	titleRegex := regexp.MustCompile(`(?m)^# (.*)$`)
@@ -279,14 +279,69 @@ func createCompactOutput(story models.UserStoryReference, content string) string
 	contentParts := strings.Split(content, "---")
 	if len(contentParts) >= 3 {
 		mainContent := strings.TrimSpace(contentParts[2])
-		// Keep only first paragraph after title
-		paragraphs := strings.SplitN(mainContent, "\n\n", 3)
-		if len(paragraphs) >= 2 {
-			// Skip the title paragraph, return just the first content paragraph
-			firstPara := strings.TrimSpace(paragraphs[1])
-			return fmt.Sprintf("# %s\n%s", title, firstPara)
+		
+		// Extract the "As ... I want ... so that ..." pattern
+		asRegex := regexp.MustCompile(`(?is)As a[^\n]*\s+I want[^\n]*\s+so that[^\n]*`)
+		userStoryMatches := asRegex.FindString(mainContent)
+		
+		if userStoryMatches != "" {
+			// Format the user story pattern - ensure it's split into multiple lines
+			formattedUserStory := userStoryMatches
+			
+			// Check if it's all on one line, and if so, split it into multiple lines
+			if !strings.Contains(formattedUserStory, "\n") {
+				// Split the single line into multiple lines
+				asPartRegex := regexp.MustCompile(`(?i)(As a[^I]*)I want`)
+				asMatch := asPartRegex.FindStringSubmatch(formattedUserStory)
+				if len(asMatch) > 1 {
+					asPart := strings.TrimSpace(asMatch[1])
+					
+					wantPartRegex := regexp.MustCompile(`(?i)I want([^s]*)so that`)
+					wantMatch := wantPartRegex.FindStringSubmatch(formattedUserStory)
+					wantPart := ""
+					if len(wantMatch) > 1 {
+						wantPart = "I want" + strings.TrimSpace(wantMatch[1])
+					}
+					
+					soThatPartRegex := regexp.MustCompile(`(?i)so that(.*)$`)
+					soThatMatch := soThatPartRegex.FindStringSubmatch(formattedUserStory)
+					soThatPart := ""
+					if len(soThatMatch) > 1 {
+						soThatPart = "so that" + strings.TrimSpace(soThatMatch[1])
+					}
+					
+					return fmt.Sprintf("# %s\n%s\n%s\n%s", title, asPart, wantPart, soThatPart)
+				}
+			}
+			
+			// If we couldn't properly split it, just use the original multiline format
+			return fmt.Sprintf("# %s\n%s", title, formattedUserStory)
 		}
-		return mainContent
+		
+		// Try with individual lines (some user stories use line breaks)
+		asLineRegex := regexp.MustCompile(`(?i)^As a .*$`)
+		wantLineRegex := regexp.MustCompile(`(?i)^I want .*$`)
+		soThatLineRegex := regexp.MustCompile(`(?i)^so that .*$`)
+		
+		lines := strings.Split(mainContent, "\n")
+		var asLine, wantLine, soThatLine string
+		
+		for _, line := range lines {
+			trimmedLine := strings.TrimSpace(line)
+			if asLine == "" && asLineRegex.MatchString(trimmedLine) {
+				asLine = trimmedLine
+			} else if wantLine == "" && wantLineRegex.MatchString(trimmedLine) {
+				wantLine = trimmedLine
+			} else if soThatLine == "" && soThatLineRegex.MatchString(trimmedLine) {
+				soThatLine = trimmedLine
+			}
+		}
+		
+		if asLine != "" && wantLine != "" && soThatLine != "" {
+			return fmt.Sprintf("# %s\n%s\n%s\n%s", title, asLine, wantLine, soThatLine)
+		}
+		
+		return fmt.Sprintf("# %s", title)
 	}
 	
 	return content
@@ -305,6 +360,6 @@ func init() {
 	catCmd.Flags().BoolP("show-content-hash", "c", false, "Show content hash in the output")
 	catCmd.Flags().StringP("filter", "f", "", "Filter stories by regular expression pattern")
 	catCmd.Flags().BoolP("color", "l", false, "Use colorized output")
-	catCmd.Flags().BoolP("compact", "m", false, "Use compact output format (title and first paragraph only)")
+	catCmd.Flags().BoolP("compact", "m", false, "Use compact output format (shows only title and 'As ... I want ... so that ...' format)")
 	catCmd.Flags().StringSliceP("exclude", "e", []string{}, "Exclude stories matching these patterns (comma-separated)")
 } 
