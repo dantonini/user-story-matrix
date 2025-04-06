@@ -40,3 +40,4 @@ output/
 coverage.html
 *.step
 docs/brainstorming/
+.usm
