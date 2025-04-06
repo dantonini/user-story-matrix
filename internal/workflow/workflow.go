@@ -402,11 +402,6 @@ The extended functionalities have been built, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
 - If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
 
-📘 Instructions
-- Clearly document each architectural or structural decision, especially where existing components were modified.
-- Leave TODOs or comments where further implementation will happen in later phases.
-- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
-
 Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
 - Read the blueprint using cat ${change_request_file_path}
@@ -432,14 +427,15 @@ Now, let's start the work:
 	{
 		ID:          "04-final-iteration",
 		Description: "Final iteration - Polishing and final adjustments",
-		Prompt:      `Read a set of user stories using the command: ./usm cat ${change_request_file_path}
+		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
-You have already:
-- Laid the foundation (project structure, placeholders, key abstractions): cat ${change_request_file_path}.01-foundation.accomplished.md
-- Completed the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria: cat ${change_request_file_path}.02-mvi.accomplished.md
-- Extended the implementation to support more scenarios and edge cases: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions) [done]
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria [done]
+- Extend the implementation to support more scenarios and edge cases [done]
+- Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Now, execute the last phase of the iteration: **Refinement & Stabilization**.
+Now, it's time to execute the last phase of the iteration: **Refinement & Stabilization**.
 
 ### 🎯 Objectives:
 - Refine the codebase for clarity, maintainability, and performance
@@ -468,6 +464,7 @@ Now, execute the last phase of the iteration: **Refinement & Stabilization**.
      - Error handling and invalid inputs
      - Performance-sensitive areas
      - Integration between components
+   - Use integration tests to execute at least one smoke test
 
 4. **Stabilize the Codebase:**
    - Resolve any known issues or inconsistencies
@@ -486,32 +483,82 @@ Now, execute the last phase of the iteration: **Refinement & Stabilization**.
 
 ### 📝 Output Requirements:
 
-- Final version of the code with inline comments
+- Final version of the code with inline meaningful comments (don't comment the obvious, comment the "why" and the "how")
 - Updated and complete test suite
-- An accomplishment report in ${change_request_file_path}.04-refinement.accomplished.md
-
-The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
-Use always short code references (no code at all, 
- just a compact/understable reference to lookup for, do not use line numbers) 
- as foundation of your statements
- For example:
- - Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
- - Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
- - Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
- - Include a dedicated section for potentially still not yet well implemented acceptance criteria.
- - Include any changes to original design decisions
----
 
 ### ⚠️ Reminder:
 Do not introduce new features at this stage. Focus only on refining and stabilizing the existing work to make it reliable and production-ready.
 
-Proceed with the **Refinement & Stabilization** phase now.
+Let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+- Read the "Extending functionalities" accomplished summary using the command: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md
+`,
+	},
+	{
+		ID:          "04-final-iteration-accomplished",
+		Description: "Final iteration accomplished - Summary of the changes",
+		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions) [done]
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria [done]
+- Extend the implementation to support more scenarios and edge cases [done]
+- Refine and stabilize the codebase for clarity, maintainability, and performance
+
+Your task is to document what has been accomplished so far in the file ${change_request_file_path}.04-refinement.accomplished.md
+
+The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
+Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
+For example:
+- Instead of "Added tests for ..." / "Updated tests for ... " show me which test case has been added (using code references)
+- Instead of "Message templates are now centralized with clear naming conventions" show me where to find them (using code references)
+- Include a section of "blind spot" if any: leverage test coverage report to reinforce your statements
+- Include a dedicated section for potentially still not yet well implemented acceptance criteria.
+- Include any changes to original design decisions
 `,
 	},
 	{
 		ID:          "04-final-iteration-test",
 		Description: "Final iteration testing - Final verification and validation",
-		Prompt:      "Ensure all the tests are passing for the final iteration based on the blueprint at ${change_request_file_path}. Ensure all requirements are met.",
+		Prompt:      `You are a senior software engineer that is working on the last phase of a software iteration based on a set of user stories described in a blueprint document. 
+
+The whole iteration is divided into 4 phases:
+- Laid the foundation (project structure, placeholders, key abstractions) [done]
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria [done]
+- Extend the implementation to support more scenarios and edge cases [done]
+- Refine and stabilize the codebase for clarity, maintainability, and performance [done]
+
+The final iteration has been completed, now your task is:
+- Run the full test suite to confirm no regressions have been introduced.
+- Increase the coverage percentage. Averall coverage should be > 65%.
+
+Now, let's start the work:
+- Read the user stories using ./usm cat ${change_request_file_path}
+- Read the blueprint using cat ${change_request_file_path}
+- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+- Read the "Extending functionalities" accomplished summary using the command: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md
+- Read the "Final iteration" accomplished summary using the command: cat ${change_request_file_path}.04-refinement.accomplished.md
+`,
+	},
+	{
+		ID:          "04-final-iteration-linter",
+		Description: "Final iteration linter - Verifying the final iteration",
+		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
+	},
+	{
+		ID:          "04-final-iteration-coverage",
+		Description: "Final iteration coverage - Final verification and validation",
+		Prompt:      `Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the final iteration.
+Identify the most useful and valuable areas to improve and add tests for them.
+Don't give up until the overall coverage percentage is enough to satisfy the .github/workflows/coverage.yml file.`,
+	},{
+		ID:          "04-final-iteration-coverage-report",
+		Description: "Final iteration coverage report - Update the accomplishment report",
+		Prompt:      "Update the accomplishment report ${change_request_file_path}.04-refinement.accomplished.md with the new coverage percentage.",
 	},{
 		ID:          "implementation",
 		Description: "The implementation report of the change request",
