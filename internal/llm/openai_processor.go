@@ -16,10 +16,16 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+// OpenAIClientInterface defines the methods we use from the OpenAI client
+// This allows us to mock the client for testing
+type OpenAIClientInterface interface {
+	CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (openai.ChatCompletionResponse, error)
+}
+
 // OpenAIProcessor implements the LLMProcessor interface for OpenAI
 type OpenAIProcessor struct {
 	// client represents the OpenAI API client
-	client *openai.Client
+	client OpenAIClientInterface
 	
 	// apiKey is the OpenAI API key
 	apiKey string

@@ -66,6 +66,12 @@ func RegisterNewSelectionUIMaker() {
 	// The new implementation is already set as default in CurrentNewSelectionUI
 }
 
+// fileSystemFactory is a function to create a file system
+// This can be overridden in tests to inject a mock
+var fileSystemFactory = func() io.FileSystem {
+	return io.NewOSFileSystem()
+}
+
 // CreateUserStoryFormWithLLM creates a new user story form with LLM processing support
 func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
 	if !enableLLM {
@@ -74,15 +80,16 @@ func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
 	}
 	
 	// Create the filesystem for configuration
-	fs := io.NewOSFileSystem()
+	fs := fileSystemFactory()
 	
 	// Create the configuration manager
 	configManager := llm.NewConfigManager(fs)
 	
 	// Load the configuration
 	err := configManager.LoadConfig()
-	if err != nil {
-		// If there's an error loading the config, fall back to the original form
+	if err != nil || !configManager.IsOpenAIKeyConfigured() {
+		// If there's an error loading the config or no API key is configured,
+		// fall back to the original form
 		return io.NewUserStoryForm(us)
 	}
 	

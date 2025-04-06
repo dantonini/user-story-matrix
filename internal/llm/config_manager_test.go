@@ -102,6 +102,39 @@ func TestLoadConfigWithValidFile(t *testing.T) {
 	assert.Equal(t, time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), manager.config.LastValidated)
 }
 
+func TestLoadConfigWithReadError(t *testing.T) {
+	// Arrange
+	mockFS := io.NewMockFileSystem()
+	manager := NewConfigManager(mockFS)
+	
+	// Add file but set up read error
+	mockFS.AddFile(manager.configPath, []byte(`{}`))
+	mockFS.SetReadFileError(manager.configPath, errors.New("read error"))
+	
+	// Act
+	err := manager.LoadConfig()
+	
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read config file")
+}
+
+func TestLoadConfigWithInvalidJSON(t *testing.T) {
+	// Arrange
+	mockFS := io.NewMockFileSystem()
+	manager := NewConfigManager(mockFS)
+	
+	// Create invalid JSON
+	mockFS.AddFile(manager.configPath, []byte(`{invalid json`))
+	
+	// Act
+	err := manager.LoadConfig()
+	
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse config file")
+}
+
 func TestSaveConfig(t *testing.T) {
 	// Arrange
 	mockFS := io.NewMockFileSystem()
@@ -124,6 +157,39 @@ func TestSaveConfig(t *testing.T) {
 	assert.Contains(t, string(data), "test-key")
 	assert.Contains(t, string(data), "true")
 	assert.Contains(t, string(data), "2025-01-01T12:00:00Z")
+}
+
+func TestSaveConfigWithMkdirError(t *testing.T) {
+	// Arrange
+	mockFS := io.NewMockFileSystem()
+	manager := NewConfigManager(mockFS)
+	
+	// Setup mkdir to fail
+	mockFS.SetMkdirAllError(".usm/config", errors.New("mkdir error"))
+	
+	// Act
+	err := manager.SaveConfig()
+	
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create config directory")
+}
+
+func TestSaveConfigWithWriteError(t *testing.T) {
+	// Arrange
+	mockFS := io.NewMockFileSystem()
+	manager := NewConfigManager(mockFS)
+	
+	// Make sure directory exists but write fails
+	mockFS.AddFile(".usm/config", []byte{}) // Creates the directory
+	mockFS.SetWriteFileError(manager.configPath, errors.New("write error"))
+	
+	// Act
+	err := manager.SaveConfig()
+	
+	// Assert
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write config file")
 }
 
 func TestSetOpenAIKey(t *testing.T) {

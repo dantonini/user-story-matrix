@@ -95,6 +95,13 @@ type MockFileSystem struct {
 	FileInfo map[string]os.FileInfo
 	// Track write operations for testing
 	WriteOps []FileWriteOperation
+	
+	// Error simulation maps for testing error handling
+	// These maps allow tests to simulate specific file operation errors
+	readFileErrors   map[string]error
+	writeFileErrors  map[string]error
+	mkdirAllErrors   map[string]error
+	removeFileErrors map[string]error
 }
 
 // FileWriteOperation tracks write operations for testing
@@ -108,11 +115,15 @@ type FileWriteOperation struct {
 // NewMockFileSystem creates a new in-memory file system for testing
 func NewMockFileSystem() *MockFileSystem {
 	return &MockFileSystem{
-		Files:    make(map[string][]byte),
-		DirItems: make(map[string][]os.DirEntry),
-		DirInfo:  make(map[string]os.FileInfo),
-		FileInfo: make(map[string]os.FileInfo),
-		WriteOps: make([]FileWriteOperation, 0),
+		Files:           make(map[string][]byte),
+		DirItems:        make(map[string][]os.DirEntry),
+		DirInfo:         make(map[string]os.FileInfo),
+		FileInfo:        make(map[string]os.FileInfo),
+		WriteOps:        make([]FileWriteOperation, 0),
+		readFileErrors:  make(map[string]error),
+		writeFileErrors: make(map[string]error),
+		mkdirAllErrors:  make(map[string]error),
+		removeFileErrors: make(map[string]error),
 	}
 }
 
@@ -207,6 +218,11 @@ func (fs *MockFileSystem) ReadFile(path string) ([]byte, error) {
 	// Normalize path to avoid inconsistencies
 	path = filepath.Clean(path)
 
+	// Check for simulated error
+	if err, exists := fs.readFileErrors[path]; exists {
+		return nil, err
+	}
+
 	if content, exists := fs.Files[path]; exists {
 		// Return a copy of the content to avoid unexpected modifications
 		contentCopy := make([]byte, len(content))
@@ -220,6 +236,11 @@ func (fs *MockFileSystem) ReadFile(path string) ([]byte, error) {
 func (fs *MockFileSystem) WriteFile(path string, data []byte, perm os.FileMode) error {
 	// Normalize path to avoid inconsistencies
 	path = filepath.Clean(path)
+	
+	// Check for simulated error
+	if err, exists := fs.writeFileErrors[path]; exists {
+		return err
+	}
 	
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
@@ -282,6 +303,11 @@ func (fs *MockFileSystem) WriteFile(path string, data []byte, perm os.FileMode) 
 func (fs *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
 	// Normalize path to avoid inconsistencies
 	path = filepath.Clean(path)
+	
+	// Check for simulated error
+	if err, exists := fs.mkdirAllErrors[path]; exists {
+		return err
+	}
 	
 	// Create all parent directories
 	parts := strings.Split(path, string(filepath.Separator))
@@ -418,4 +444,41 @@ func (fs *MockFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 	}
 	
 	return nil
+}
+
+// SetReadFileError sets a simulated error for ReadFile operations
+// This allows tests to verify error handling without actual file system failures
+// The error will be returned when ReadFile is called with the specified path
+func (fs *MockFileSystem) SetReadFileError(path string, err error) {
+	fs.readFileErrors[filepath.Clean(path)] = err
+}
+
+// SetWriteFileError sets a simulated error for WriteFile operations
+// This allows tests to verify error handling without actual file system failures
+// The error will be returned when WriteFile is called with the specified path
+func (fs *MockFileSystem) SetWriteFileError(path string, err error) {
+	fs.writeFileErrors[filepath.Clean(path)] = err
+}
+
+// SetMkdirAllError sets a simulated error for MkdirAll operations
+// This allows tests to verify error handling without actual file system failures
+// The error will be returned when MkdirAll is called with the specified path
+func (fs *MockFileSystem) SetMkdirAllError(path string, err error) {
+	fs.mkdirAllErrors[filepath.Clean(path)] = err
+}
+
+// SetRemoveFileError sets a simulated error for Remove operations
+// This allows tests to verify error handling without actual file system failures
+// The error will be returned when Remove is called with the specified path
+func (fs *MockFileSystem) SetRemoveFileError(path string, err error) {
+	fs.removeFileErrors[filepath.Clean(path)] = err
+}
+
+// ClearErrors clears all simulated errors
+// This is useful for resetting the mock file system between tests
+func (fs *MockFileSystem) ClearErrors() {
+	fs.readFileErrors = make(map[string]error)
+	fs.writeFileErrors = make(map[string]error)
+	fs.mkdirAllErrors = make(map[string]error)
+	fs.removeFileErrors = make(map[string]error)
 } 
