@@ -73,9 +73,6 @@ func TestCreateUserStoryFormWithLLMDisabled(t *testing.T) {
 	assert.True(t, isOriginalForm, "Expected original UserStoryForm when LLM is disabled")
 }
 
-// Save the original factory function for later restoration
-var originalFileSystemFactory = fileSystemFactory
-
 // TestCreateUserStoryFormWithConfigError tests that the original form is returned when config loading fails
 func TestCreateUserStoryFormWithConfigError(t *testing.T) {
 	// Arrange
