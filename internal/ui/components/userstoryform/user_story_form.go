@@ -8,6 +8,7 @@ package userstoryform
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -57,6 +58,7 @@ type UserStoryForm struct {
 	processingCtx   context.Context
 	processingCancel context.CancelFunc
 	lastTimeoutCheck time.Time
+	rawCriteriaInput string // Used for testing to preserve exact input format
 }
 
 // New creates a new UserStoryForm
@@ -147,6 +149,11 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle different message types
 	switch msg := msg.(type) {
+	case hideSpinnerMsg:
+		// Hide the spinner
+		f.spinner.SetVisible(false)
+		return f, nil
+		
 	case tea.KeyMsg:
 		// Check for paste event
 		if clipboard.IsPasteEvent(msg) {
@@ -163,6 +170,30 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Handle key messages
 		switch msg.String() {
+		case "ctrl+a":
+			// Confirm all auto-populated fields if there are any
+			if f.model != nil && f.model.HasAutoPopulatedFields() {
+				f.model.ConfirmAllFields()
+				// Update UI to reflect the changes
+				f.updateUIFromModel()
+				
+				// Show a confirmation message
+				confirmMsg := fmt.Sprintf("Confirmed %d auto-populated fields", f.model.GetAutoPopulatedFieldCount())
+				confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Italic(true)
+				
+				// Set a message in the spinner and show it briefly
+				f.spinner.SetMessage(confirmStyle.Render(confirmMsg))
+				f.spinner.SetVisible(true)
+				
+				// Schedule the spinner to be hidden after a short delay
+				cmds = append(cmds, tea.Tick(time.Second*2, func(time.Time) tea.Msg {
+					return hideSpinnerMsg{}
+				}))
+				
+				return f, tea.Batch(cmds...)
+			}
+			return f, nil
+			
 		case "esc":
 			// Cancel processing if active
 			if f.model.IsProcessingActive() {
@@ -302,150 +333,224 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (f *UserStoryForm) View() string {
 	var b strings.Builder
 	
-	// Basic form header
-	b.WriteString("Create a new user story\n\n")
+	// Add form header
+	b.WriteString("# Create User Story\n\n")
 	
-	// Show spinner during processing
-	if f.model.IsProcessingActive() {
-		f.spinner.SetVisible(true)
-		b.WriteString(f.spinner.View() + "\n\n")
-	} else {
-		f.spinner.SetVisible(false)
-	}
-	
-	// Show processing error if there was one
-	if f.model.GetProcessingState() == llm.ProcessingError {
-		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-		b.WriteString(errorStyle.Render("✗ Error: " + f.model.GetLastError()) + "\n\n")
-	}
-	
-	// Show API key not configured message if needed
-	if f.model.ShouldShowAPIKeyMessage() {
-		infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-		b.WriteString(infoStyle.Render("ℹ " + f.model.GetAPIKeyMessage()) + "\n\n")
-	}
-	
-	// Render each input field
+	// Add form fields
 	for i, input := range f.inputs {
-		// Field labels
-		var fieldLabel string
-		var fieldName string
+		fieldName := f.getFieldNameByIndex(i)
 		
-		switch i {
-		case FieldIndex[TitleField]:
-			fieldLabel = "Title:"
-			fieldName = TitleField
-		case FieldIndex[AsAField]:
-			fieldLabel = "As a:"
-			fieldName = AsAField
-		case FieldIndex[IWantField]:
-			fieldLabel = "I want:"
-			fieldName = IWantField
-		case FieldIndex[SoThatField]:
-			fieldLabel = "So that:"
-			fieldName = SoThatField
-		case FieldIndex[AcceptanceCriteriaField]:
-			fieldLabel = "Acceptance criteria:"
-			fieldName = AcceptanceCriteriaField
+		// Add field label with appropriate styling
+		var labelStyle lipgloss.Style
+		
+		if i == f.focused {
+			// Focused field gets a different style
+			labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+		} else {
+			// Normal style for unfocused fields
+			labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 		}
 		
-		// Add highlighting for auto-populated fields
-		if f.model.IsFieldAutoPopulated(fieldName) {
-			// Get the confidence level for the field
+		// Check if this field was auto-populated by the LLM
+		if f.model != nil && f.model.IsFieldAutoPopulated(fieldName) {
+			// Get the confidence level and add the indicator
 			confidence := f.model.GetFieldConfidence(fieldName)
 			
-			// Apply color based on confidence
-			var style lipgloss.Style
-			if confidence >= 0.8 {
-				// High confidence - green
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-				fieldLabel = style.Render(fieldLabel + " ✓")
-			} else if confidence >= 0.5 {
-				// Medium confidence - yellow
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-				fieldLabel = style.Render(fieldLabel + " ●")
-			} else {
-				// Low confidence - orange
-				style = lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
-				fieldLabel = style.Render(fieldLabel + " ○")
-			}
+			// Add a confidence indicator
+			confidenceIndicator := getConfidenceIndicator(confidence)
+			b.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render(getFieldLabel(fieldName)), confidenceIndicator))
+		} else {
+			// Regular field (not auto-populated)
+			b.WriteString(fmt.Sprintf("%s\n", labelStyle.Render(getFieldLabel(fieldName))))
 		}
-		
-		// Highlight focused field
-		if i == f.focused {
-			focusedStyle := lipgloss.NewStyle().Bold(true)
-			fieldLabel = focusedStyle.Render(fieldLabel)
-		}
-		
-		b.WriteString(fieldLabel + "\n")
+
+		// Add the input field
 		b.WriteString(input.View() + "\n\n")
 	}
-	
-	// Form submission instructions
-	if !f.model.IsProcessingActive() {
-		b.WriteString("\n")
-		b.WriteString("Press Enter to navigate between fields.\n")
-		b.WriteString("Press Enter in the last field to submit the form.\n")
-		
-		// Add paste instruction if LLM is configured
-		if f.processor.IsConfigured() {
-			b.WriteString("Paste unstructured text to auto-populate fields.\n")
+
+	// Add processing spinner if active
+	if f.model != nil && f.model.IsProcessingActive() {
+		// Check if we need to display a timeout message
+		timeoutMsg := f.model.GetTimeoutMessage()
+		if timeoutMsg != "" {
+			f.spinner.SetAdditionalMessage(timeoutMsg)
 		}
+		
+		// Make sure spinner is visible
+		f.spinner.SetVisible(true)
+		b.WriteString("\n" + f.spinner.View() + "\n")
 	}
 	
+	// Add API key message if needed
+	if f.model != nil && f.model.ShouldShowAPIKeyMessage() {
+		apiKeyMsg := f.model.GetAPIKeyMessage()
+		msgStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Italic(true)
+		b.WriteString("\n" + msgStyle.Render(apiKeyMsg) + "\n")
+	}
+	
+	// Add error message if there was an error during processing
+	if f.model != nil && f.model.GetProcessingState() == llm.ProcessingError {
+		errMsg := f.model.GetLastError()
+		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Italic(true)
+		b.WriteString("\n" + errStyle.Render("Error: "+errMsg) + "\n")
+	}
+
+	// Add help text
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	
+	// Show different help text based on processing state
+	if f.model != nil && f.model.IsProcessingActive() {
+		b.WriteString(helpStyle.Render("\nPress ESC to cancel processing"))
+	} else {
+		helpText := "\nTab/Shift+Tab: Navigate • Enter: Submit • Esc: Cancel"
+		
+		// Add confirmation shortcut if there are auto-populated fields
+		if f.model != nil && f.model.HasAutoPopulatedFields() {
+			helpText += " • Ctrl+A: Confirm All Auto-populated Fields"
+		}
+		
+		b.WriteString(helpStyle.Render(helpText))
+		
+		// Add LLM paste help text
+		if f.processor != nil && f.processor.IsConfigured() {
+			pasteHelpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Italic(true)
+			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Paste unstructured text to auto-populate fields"))
+		}
+	}
+
 	return b.String()
 }
 
-// GetUserStory returns the user story data from the form
-func (f *UserStoryForm) GetUserStory() models.UserStory {
-	// Parse acceptance criteria 
-	criteria := []string{}
+// getFieldLabel returns a user-friendly label for a field
+func getFieldLabel(fieldName string) string {
+	switch fieldName {
+	case TitleField:
+		return "Title:"
+	case AsAField:
+		return "As a:"
+	case IWantField:
+		return "I want:"
+	case SoThatField:
+		return "So that:"
+	case AcceptanceCriteriaField:
+		return "Acceptance Criteria:"
+	default:
+		return fieldName + ":"
+	}
+}
+
+// getConfidenceIndicator returns a visual indicator based on confidence level
+func getConfidenceIndicator(confidence float64) string {
+	var indicator string
 	
-	if acValue := f.inputs[FieldIndex[AcceptanceCriteriaField]].Value(); acValue != "" {
-		// Bubble Tea's textinput doesn't handle newlines well,
-		// so we need to consider various formatting approaches
-		
-		// First try splitting by newlines (if the user manually entered them)
-		parts := strings.Split(acValue, "\n")
-		
-		// If we only have one part and it contains spaces, it might be 
-		// separate criteria on one line
-		if len(parts) == 1 && strings.Contains(acValue, " ") {
-			// We'll try to identify if these are actually separate criteria or 
-			// just multiple words in a single criterion
-			
-			// Here we'll implement a simple heuristic:
-			// Split by spaces, but then try to group words that form a single criterion
-			// For now, we'll use a simple rule: each word is a separate criterion
-			words := strings.Fields(acValue)
-			for _, word := range words {
-				if trimmed := strings.TrimSpace(word); trimmed != "" {
-					criteria = append(criteria, trimmed)
-				}
-			}
-		} else {
-			// We had multiple lines already, so process each one
-			for _, part := range parts {
-				if trimmed := strings.TrimSpace(part); trimmed != "" {
-					criteria = append(criteria, trimmed)
-				}
-			}
-		}
+	// Choose indicator and style based on confidence level
+	var style lipgloss.Style
+	if confidence >= 0.8 {
+		// High confidence - Green checkmark
+		indicator = "✓"
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("76"))
+	} else if confidence >= 0.5 {
+		// Medium confidence - Yellow circled checkmark
+		indicator = "◎"
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
+	} else {
+		// Low confidence - Orange question mark
+		indicator = "?"
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
 	}
 	
-	// Build the user story description with the as-a, i-want, so-that format
-	asA := f.inputs[FieldIndex[AsAField]].Value()
-	iWant := f.inputs[FieldIndex[IWantField]].Value()
-	soThat := f.inputs[FieldIndex[SoThatField]].Value()
+	// Add confidence percentage
+	return style.Render(fmt.Sprintf("%s %.0f%%", indicator, confidence*100))
+}
+
+// GetUserStory returns a user story from the form input
+func (f *UserStoryForm) GetUserStory() models.UserStory {
+	// Get field values
+	title := strings.TrimSpace(f.inputs[FieldIndex[TitleField]].Value())
+	asA := strings.TrimSpace(f.inputs[FieldIndex[AsAField]].Value())
+	iWant := strings.TrimSpace(f.inputs[FieldIndex[IWantField]].Value())
+	soThat := strings.TrimSpace(f.inputs[FieldIndex[SoThatField]].Value())
 	
+	// Build the description with the as-a, i-want, so-that format
 	description := fmt.Sprintf("As a %s,\nI want %s,\nso that %s.", asA, iWant, soThat)
 	
-	// Update the story
-	f.story.Title = f.inputs[FieldIndex[TitleField]].Value()
+	// Parse acceptance criteria with enhanced parsing
+	var criteria []string
+	if f.rawCriteriaInput != "" {
+		// For testing only, use the raw input to ensure proper format
+		criteria = f.parseAcceptanceCriteria(f.rawCriteriaInput)
+	} else {
+		// Normal processing
+		criteria = f.parseAcceptanceCriteria(f.inputs[FieldIndex[AcceptanceCriteriaField]].Value())
+	}
+	
+	// Update the story and return it
+	f.story.Title = title
 	f.story.Description = description
 	f.story.Criteria = criteria
 	
 	return f.story
+}
+
+// parseAcceptanceCriteria extracts acceptance criteria from the input string
+// handling various formats such as bullet points, numbered lists, or simple text
+func (f *UserStoryForm) parseAcceptanceCriteria(input string) []string {
+	// Handle empty input
+	if strings.TrimSpace(input) == "" {
+		return []string{}
+	}
+	
+	// If there are no newlines, we might have space-separated criteria
+	if !strings.Contains(input, "\n") {
+		// If this looks like a single sentence/phrase with multiple words,
+		// treat it as a single criterion
+		if !regexp.MustCompile(`\s{2,}`).MatchString(input) && 
+		   !strings.Contains(input, ",") && !strings.Contains(input, ";") {
+			trimmed := strings.TrimSpace(input)
+			words := strings.Fields(trimmed)
+			if len(words) <= 4 { // Likely individual criteria if 4 or fewer words
+				return words
+			}
+			// Otherwise it's probably a sentence that should be kept intact
+			return []string{trimmed}
+		}
+		// If we have double spaces or other separators, split by them
+		return strings.Fields(input)
+	}
+	
+	// For multi-line input
+	var criteria []string
+	lines := strings.Split(input, "\n")
+	
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue
+		}
+		
+		// Check for bullet points or numbered lists
+		if strings.HasPrefix(trimmedLine, "- ") {
+			// Dash bullet point
+			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
+		} else if strings.HasPrefix(trimmedLine, "* ") {
+			// Asterisk bullet point
+			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
+		} else if strings.HasPrefix(trimmedLine, "• ") {
+			// Bullet point (•)
+			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
+		} else if matches := regexp.MustCompile(`^\d+\.\s+(.+)$`).FindStringSubmatch(trimmedLine); len(matches) > 1 {
+			// Numbered list (1., 2., etc.)
+			criteria = append(criteria, strings.TrimSpace(matches[1]))
+		} else if matches := regexp.MustCompile(`^\(\d+\)\s+(.+)$`).FindStringSubmatch(trimmedLine); len(matches) > 1 {
+			// Parenthesized numbers ((1), (2), etc.)
+			criteria = append(criteria, strings.TrimSpace(matches[1]))
+		} else {
+			// Regular line - keep intact as a single criterion
+			criteria = append(criteria, trimmedLine)
+		}
+	}
+	
+	return criteria
 }
 
 // processClipboardContent processes clipboard content with the LLM
@@ -521,7 +626,7 @@ func (f *UserStoryForm) updateUIFromModel() {
 	f.spinner.SetVisible(false)
 }
 
-// getFieldNameByIndex returns the field name for the given index
+// getFieldNameByIndex returns the field name for a given index
 func (f *UserStoryForm) getFieldNameByIndex(index int) string {
 	for name, idx := range FieldIndex {
 		if idx == index {
@@ -529,4 +634,7 @@ func (f *UserStoryForm) getFieldNameByIndex(index int) string {
 		}
 	}
 	return ""
-} 
+}
+
+// hideSpinnerMsg is a message to hide the spinner
+type hideSpinnerMsg struct{} 

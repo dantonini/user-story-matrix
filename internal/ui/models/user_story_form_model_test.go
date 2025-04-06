@@ -53,6 +53,53 @@ func (m *MockLLMProcessor) GetProcessingState() llm.ProcessingState {
 	return args.Get(0).(llm.ProcessingState)
 }
 
+// mockLLMProcessor is a mock implementation of the LLMProcessor interface for testing
+type mockLLMProcessor struct {
+	isConfigured     bool
+	confidenceScores map[string]float64
+	processingState  llm.ProcessingState
+}
+
+// ProcessUnstructuredText implements the LLMProcessor interface
+func (m *mockLLMProcessor) ProcessUnstructuredText(ctx context.Context, text string) (llm.UserStoryData, error) {
+	return llm.UserStoryData{}, nil
+}
+
+// GetConfidenceScores implements the LLMProcessor interface
+func (m *mockLLMProcessor) GetConfidenceScores() map[string]float64 {
+	return m.confidenceScores
+}
+
+// IsConfigured implements the LLMProcessor interface
+func (m *mockLLMProcessor) IsConfigured() bool {
+	return m.isConfigured
+}
+
+// ValidateConfiguration implements the LLMProcessor interface
+func (m *mockLLMProcessor) ValidateConfiguration(ctx context.Context) error {
+	return nil
+}
+
+// Configure implements the LLMProcessor interface
+func (m *mockLLMProcessor) Configure(config llm.APIKeyConfig) error {
+	m.isConfigured = config.IsValid
+	return nil
+}
+
+// GetProcessingState implements the LLMProcessor interface
+func (m *mockLLMProcessor) GetProcessingState() llm.ProcessingState {
+	return m.processingState
+}
+
+// newMockLLMProcessor creates a new mock LLM processor for testing
+func newMockLLMProcessor() *mockLLMProcessor {
+	return &mockLLMProcessor{
+		isConfigured:     true,
+		confidenceScores: make(map[string]float64),
+		processingState:  llm.ProcessingIdle,
+	}
+}
+
 // Test setup helper functions
 func setupTestEnvironment() (*models.UserStory, *MockLLMProcessor, *llm.ConfigManager) {
 	userStory := &models.UserStory{}
@@ -272,4 +319,53 @@ func TestGetFieldConfidence(t *testing.T) {
 	
 	// Non-existent field
 	assert.Equal(t, 0.0, model.GetFieldConfidence("non_existent"))
+}
+
+func TestBatchConfirmation(t *testing.T) {
+	// Create a basic model with test mocks
+	processor := newMockLLMProcessor()
+	fileSystem := io.NewMockFileSystem()
+	configManager := llm.NewConfigManager(fileSystem)
+	userStory := models.UserStory{
+		Title:       "Test Story",
+		Description: "Test Description",
+	}
+	
+	model := NewUserStoryFormModel(userStory, processor, configManager)
+	
+	// Mark some fields as auto-populated
+	model.AutoPopulatedFields["title"] = true
+	model.AutoPopulatedFields["as_a"] = true
+	model.AutoPopulatedFields["i_want"] = true
+	
+	// Set confidence scores
+	model.ConfidenceScores["title"] = 0.8
+	model.ConfidenceScores["as_a"] = 0.7
+	model.ConfidenceScores["i_want"] = 0.9
+	
+	// Verify that fields are marked as auto-populated
+	assert.True(t, model.IsFieldAutoPopulated("title"))
+	assert.True(t, model.IsFieldAutoPopulated("as_a"))
+	assert.True(t, model.IsFieldAutoPopulated("i_want"))
+	
+	// Get auto-populated field count
+	assert.Equal(t, 3, model.GetAutoPopulatedFieldCount())
+	assert.True(t, model.HasAutoPopulatedFields())
+	
+	// Confirm all fields
+	model.ConfirmAllFields()
+	
+	// Verify that no fields are marked as auto-populated anymore
+	assert.False(t, model.IsFieldAutoPopulated("title"))
+	assert.False(t, model.IsFieldAutoPopulated("as_a"))
+	assert.False(t, model.IsFieldAutoPopulated("i_want"))
+	
+	// Get auto-populated field count after confirmation
+	assert.Equal(t, 0, model.GetAutoPopulatedFieldCount())
+	assert.False(t, model.HasAutoPopulatedFields())
+	
+	// Confidence scores should still be present
+	assert.Equal(t, 0.8, model.GetFieldConfidence("title"))
+	assert.Equal(t, 0.7, model.GetFieldConfidence("as_a"))
+	assert.Equal(t, 0.9, model.GetFieldConfidence("i_want"))
 } 

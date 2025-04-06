@@ -305,4 +305,21 @@ func fieldNameToConfidenceKey(fieldName string) string {
 		return "acceptance_criteria"
 	}
 	return fieldName
+}
+
+// ConfirmAllFields marks all auto-populated fields as confirmed by the user
+func (m *UserStoryFormModel) ConfirmAllFields() {
+	// Remove all fields from the auto-populated map
+	// This indicates the user has confirmed them
+	m.AutoPopulatedFields = make(map[string]bool)
+}
+
+// GetAutoPopulatedFieldCount returns the number of fields that were auto-populated
+func (m *UserStoryFormModel) GetAutoPopulatedFieldCount() int {
+	return len(m.AutoPopulatedFields)
+}
+
+// HasAutoPopulatedFields returns whether any fields were auto-populated
+func (m *UserStoryFormModel) HasAutoPopulatedFields() bool {
+	return len(m.AutoPopulatedFields) > 0
 } 

@@ -96,12 +96,12 @@ func (p *OpenAIProcessor) ProcessUnstructuredText(ctx context.Context, text stri
 	// Create the structured output schema prompt
 	systemPrompt := `You are an AI trained to extract user story information from unstructured text.
 Extract the following components in JSON format:
-- title: A concise title for the user story
+- title: A concise title for the user story (25 words or less)
 - description: A detailed description (if available)
 - as_a: The user type or role (from "As a...")
 - i_want: The capability or feature (from "I want...")
 - so_that: The benefit or reason (from "So that...")
-- acceptance_criteria: Array of acceptance criteria
+- acceptance_criteria: Array of acceptance criteria (bullet points or separate items)
 
 Also include a confidence score (0.0 to 1.0) for each field to indicate how confident you are in the extraction.
 
@@ -143,11 +143,48 @@ If you can't extract a field, provide an empty string for that field or empty ar
 		ResponseFormat: responseFormat,
 	}
 	
-	// Send the request to the OpenAI API
-	resp, err := p.client.CreateChatCompletion(ctx, req)
-	if err != nil {
+	// Try to send the request with retries and exponential backoff
+	var resp openai.ChatCompletionResponse
+	var err error
+	
+	maxRetries := 3
+	retryDelay := 500 * time.Millisecond
+	
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Check if the context has been canceled
+		select {
+		case <-ctx.Done():
+			p.processingState = ProcessingCancelled
+			return UserStoryData{}, ctx.Err()
+		default:
+			// Continue with the request
+		}
+		
+		// Send the request to the OpenAI API
+		resp, err = p.client.CreateChatCompletion(ctx, req)
+		
+		// If successful or non-retryable error, break the loop
+		if err == nil {
+			break
+		}
+		
+		// Check if this is a retryable error (rate limiting, network issues, etc.)
+		if isRetryableError(err) && attempt < maxRetries-1 {
+			// Exponential backoff
+			select {
+			case <-ctx.Done():
+				p.processingState = ProcessingCancelled
+				return UserStoryData{}, ctx.Err()
+			case <-time.After(retryDelay):
+				// Increase delay for next retry
+				retryDelay *= 2
+				continue
+			}
+		}
+		
+		// If we get here, it's a non-retryable error or we've exhausted retries
 		p.processingState = ProcessingError
-		return UserStoryData{}, fmt.Errorf("OpenAI API error: %w", err)
+		return UserStoryData{}, fmt.Errorf("OpenAI API error after %d attempts: %w", attempt+1, err)
 	}
 	
 	// Check if we got a response
@@ -165,6 +202,19 @@ If you can't extract a field, provide an empty string for that field or empty ar
 	if err != nil {
 		p.processingState = ProcessingError
 		return UserStoryData{}, fmt.Errorf("failed to parse OpenAI response: %w", err)
+	}
+	
+	// Validate the response has required fields
+	if userData.Confidence == nil {
+		userData.Confidence = make(map[string]float64)
+	}
+	
+	// Add default confidence values for missing fields
+	requiredFields := []string{"title", "description", "as_a", "i_want", "so_that", "acceptance_criteria"}
+	for _, field := range requiredFields {
+		if _, ok := userData.Confidence[field]; !ok {
+			userData.Confidence[field] = 0.0
+		}
 	}
 	
 	// Clean up the parsed data
@@ -191,10 +241,50 @@ If you can't extract a field, provide an empty string for that field or empty ar
 	// Store confidence scores
 	p.confidenceScores = userData.Confidence
 	
-	// Set processing state to success
-	p.processingState = ProcessingSuccess
+	// Check if we have at least some valid data
+	if userData.Title == "" && userData.AsA == "" && userData.IWant == "" && len(userData.AcceptanceCriteria) == 0 {
+		p.processingState = ProcessingError
+		return userData, errors.New("failed to extract any meaningful data from the text")
+	}
+	
+	// Check if we have partial data
+	if userData.Title == "" || userData.AsA == "" || userData.IWant == "" {
+		p.processingState = ProcessingPartialSuccess
+	} else {
+		// Set processing state to success
+		p.processingState = ProcessingSuccess
+	}
 	
 	return userData, nil
+}
+
+// isRetryableError determines if an error should be retried
+func isRetryableError(err error) bool {
+	// Check for network errors, timeouts, and rate limiting
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	
+	// Check for common retryable error patterns
+	retryablePatterns := []string{
+		"connection reset", 
+		"timeout", 
+		"too many requests",
+		"rate limit",
+		"internal server error",
+		"service unavailable",
+		"bad gateway",
+	}
+	
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(strings.ToLower(errStr), pattern) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // GetConfidenceScores returns confidence scores for each parsed field
