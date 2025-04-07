@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Guidelines for Implementing the Update(msg tea.Msg) Function in Bubble Tea
+The Update function is the heart of any Bubble Tea application. It's where all messages are received and state changes are initiated. Because of this, it’s easy for the function to become bloated and hard to maintain if not carefully structured.
+
+## Think of Update as an orchestrator, not a logic container
+- DO use Update to route messages to the right handlers.
+- DO NOT implement complex business or UI logic directly in Update.
+
+Your goal is to keep Update lean and easy to follow.
+
+## Extract logic into highly cohesive, loosely coupled helper functions
+- Move all non-trivial logic into small, focused functions.
+- Each helper should do one thing well and operate independently of unrelated parts of the model.
+
+These helpers should live in the same file if they’re closely tied to UI behavior, or in a separate package if they’re part of your domain logic.
+
+Example:
+
+    func handleKeyMsg(msg tea.KeyMsg, m model) (model, tea.Cmd) {
+        // just logic related to key presses
+    }
+
+## Write helpers that are easy to test independently
+By isolating logic, you can write targeted unit tests without needing to simulate the entire TUI environment.
+
+## When the app grows, the Update function shouldn't
+By isolating logic into helpers, your Update method remains a high-level overview of how your application responds to events. This makes the behavior easier to understand and maintain, even as the complexity of the app increases.
+
+# TL;DR
+- Treat Update like a controller, not a place for business/UI logic.
+- Keep it short and readable.
+- Push logic into small, testable helper functions.
+- Aim for high cohesion and low coupling.

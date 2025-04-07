@@ -165,329 +165,394 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle different message types
 	switch msg := msg.(type) {
 	case hideSpinnerMsg:
-		// Hide the spinner
-		f.spinner.SetVisible(false)
-		return f, nil
+		return f.handleHideSpinner()
 		
 	case tea.KeyMsg:
 		// Check for paste event
-		if clipboard.IsPasteEvent(msg) {
-			// Get pasted content
-			pastedText := clipboard.ExtractPastedText(msg)
-			
-			// If we can extract it directly
-			if pastedText != "" && clipboard.IsLongEnoughForProcessing(pastedText) {
-				f.processClipboardContent(pastedText)
-				// Return here to prevent the paste from being processed by the text input
-				return f, tea.Batch(cmds...)
-			}
+		if cmd := f.handlePasteEvent(msg); cmd != nil {
+			return f, cmd
 		}
 		
 		// Handle key messages
-		switch msg.String() {
-		case "ctrl+a":
-			// Confirm all auto-populated fields if there are any
-			if f.model != nil && f.model.HasAutoPopulatedFields() {
-				f.model.ConfirmAllFields()
-				// Update UI to reflect the changes
-				f.updateUIFromModel()
-				
-				// Show a confirmation message
-				confirmMsg := fmt.Sprintf("Confirmed %d auto-populated fields", f.model.GetAutoPopulatedFieldCount())
-				confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Italic(true)
-				
-				// Set a message in the spinner and show it briefly
-				f.spinner.SetMessage(confirmStyle.Render(confirmMsg))
-				f.spinner.SetVisible(true)
-				
-				// Schedule the spinner to be hidden after a short delay
-				cmds = append(cmds, tea.Tick(time.Second*2, func(time.Time) tea.Msg {
-					return hideSpinnerMsg{}
-				}))
-				
-				return f, tea.Batch(cmds...)
-			}
-			return f, nil
-			
-		case "esc":
-			// Cancel processing if active
-			if f.model.IsProcessingActive() {
-				f.model.CancelProcessing()
-				if f.processingCancel != nil {
-					f.processingCancel()
-				}
-				f.spinner.SetVisible(false)
-				return f, nil
-			}
-			
-			// If not processing, ESC is used to cancel the form
-			return f, tea.Quit
-			
-		case "tab", "shift+tab":
-			// When in criteria section, tab navigates between criteria fields
-			if f.inCriteriaSection {
-				if msg.String() == "tab" {
-					f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
-					// If we wrapped around back to 0, move to next main section
-					if f.focusedCriteria == 0 {
-						f.inCriteriaSection = false
-						f.focused = 0 // Move back to the first field
-						
-						// Update focus for all fields
-						for i := range f.inputs {
-							if i == f.focused {
-								f.inputs[i].Focus()
-							} else {
-								f.inputs[i].Blur()
-							}
-						}
-						
-						for i := range f.criteriasInputs {
-							f.criteriasInputs[i].Blur()
-						}
-					} else {
-						// Update focus within criteria fields
-						for i := range f.criteriasInputs {
-							if i == f.focusedCriteria {
-								f.criteriasInputs[i].Focus()
-							} else {
-								f.criteriasInputs[i].Blur()
-							}
-						}
-					}
-				} else { // shift+tab
-					f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
-					// If we wrapped around to the last criteria field, go back to main fields
-					if f.focusedCriteria == len(f.criteriasInputs) - 1 && !f.inCriteriaSection {
-						f.inCriteriaSection = true
-						f.focused = len(f.inputs) - 1 // Last normal field
-						
-						// Update focus for all fields
-						for i := range f.inputs {
-							if i == f.focused {
-								f.inputs[i].Focus()
-							} else {
-								f.inputs[i].Blur()
-							}
-						}
-						
-						for i := range f.criteriasInputs {
-							f.criteriasInputs[i].Blur()
-						}
-					} else {
-						// Update focus within criteria fields
-						for i := range f.criteriasInputs {
-							if i == f.focusedCriteria {
-								f.criteriasInputs[i].Focus()
-							} else {
-								f.criteriasInputs[i].Blur()
-							}
-						}
-					}
-				}
-				return f, nil
-			}
-			
-			// Normal tab navigation between main fields
-			if msg.String() == "tab" {
-				f.focused = (f.focused + 1) % len(f.inputs)
-				// If we're at the last field, move to criteria section
-				if f.focused == 0 {
-					// We wrapped around, so go to criteria section
-					f.inCriteriaSection = true
-					f.focusedCriteria = 0
-					
-					// Update focus
-					for i := range f.inputs {
-						f.inputs[i].Blur()
-					}
-					
-					f.criteriasInputs[0].Focus()
-					for i := 1; i < len(f.criteriasInputs); i++ {
-						f.criteriasInputs[i].Blur()
-					}
-					
-					return f, nil
-				}
-			} else { // shift+tab
-				f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
-				// If we're at the last field coming backwards, go to criteria
-				if f.focused == len(f.inputs) - 1 && msg.String() == "shift+tab" {
-					f.inCriteriaSection = true
-					f.focusedCriteria = len(f.criteriasInputs) - 1 // Focus last criteria
-					
-					// Update focus
-					for i := range f.inputs {
-						f.inputs[i].Blur()
-					}
-					
-					f.criteriasInputs[f.focusedCriteria].Focus()
-					for i := 0; i < len(f.criteriasInputs); i++ {
-						if i != f.focusedCriteria {
-							f.criteriasInputs[i].Blur()
-						}
-					}
-					
-					return f, nil
-				}
-			}
-			
-			// Update field focus for main fields
-			for i := range f.inputs {
-				if i == f.focused {
-					f.inputs[i].Focus()
-				} else {
-					f.inputs[i].Blur()
-				}
-			}
-			
-			return f, nil
-			
-		case "up", "down":
-			// Handle up/down navigation
-			if f.inCriteriaSection {
-				// When in criteria section, up/down navigates between criteria fields
-				if msg.String() == "up" {
-					f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
-				} else {
-					f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
-				}
-				
-				// Update focus
-				for i := range f.criteriasInputs {
-					if i == f.focusedCriteria {
-						f.criteriasInputs[i].Focus()
-					} else {
-						f.criteriasInputs[i].Blur()
-					}
-				}
-				
-				return f, nil
-			}
-			
-				// Otherwise navigate between main fields
-			if msg.String() == "up" {
-				f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
-			} else {
-				f.focused = (f.focused + 1) % len(f.inputs)
-			}
-			
-			// Update field focus
-			for i := range f.inputs {
-				if i == f.focused {
-					f.inputs[i].Focus()
-				} else {
-					f.inputs[i].Blur()
-				}
-			}
-			
-			return f, nil
-		
-		case "enter":
-			// When in criteria section, enter moves to next criteria or submits
-			if f.inCriteriaSection {
-				if f.focusedCriteria < len(f.criteriasInputs) - 1 {
-					// Move to next criteria field
-					f.criteriasInputs[f.focusedCriteria].Blur()
-					f.focusedCriteria++
-					f.criteriasInputs[f.focusedCriteria].Focus()
-				} else {
-					// On last criteria field, submit the form
-					f.submitted = true
-					return f, tea.Quit
-				}
-				return f, nil
-			}
-			
-			// When on last regular field, move to criteria section
-			if f.focused == len(f.inputs) - 1 {
-				f.inputs[f.focused].Blur()
-				f.inCriteriaSection = true
-				f.focusedCriteria = 0
-				f.criteriasInputs[f.focusedCriteria].Focus()
-				return f, nil
-			}
-			
-			// Otherwise move to next field
-			f.focused = (f.focused + 1) % len(f.inputs)
-			
-			// Update field focus
-			for i := range f.inputs {
-				if i == f.focused {
-					f.inputs[i].Focus()
-				} else {
-					f.inputs[i].Blur()
-				}
-			}
-			
-			return f, nil
+		if cmd := f.handleKeyPress(msg); cmd != nil {
+			return f, cmd
 		}
 	
 	case tea.WindowSizeMsg:
-		// Update form dimensions
-		f.width = msg.Width
-		f.height = msg.Height
-		
-		// Update spinner width
-		f.spinner.SetWidth(msg.Width)
+		f.handleWindowResize(msg)
 	}
 	
-	// If processing is active, check for timeout
-	if f.model.IsProcessingActive() {
-		// Only check every 500ms to avoid unnecessary overhead
-		if time.Since(f.lastTimeoutCheck) > 500*time.Millisecond {
-			timeoutMsg := f.model.GetTimeoutMessage()
-			if timeoutMsg != "" {
-				f.spinner.SetAdditionalMessage(timeoutMsg)
-			}
-			f.lastTimeoutCheck = time.Now()
-		}
-	}
+	// Handle processing timeout checks
+	f.checkProcessingTimeout()
 	
-	// Update the active input if focused
-	if !f.inCriteriaSection && f.focused >= 0 && f.focused < len(f.inputs) {
-		// Get the current value before the update
-		prevValue := f.fieldPrevValues[f.focused]
-		
-		// Update the input
-		newInput, inputCmd := f.inputs[f.focused].Update(msg)
-		f.inputs[f.focused] = newInput
-		cmds = append(cmds, inputCmd)
-		
-		// Get the current value after the update
-		currentValue := f.inputs[f.focused].Value()
-		
-		// If the value changed, check if it might be a paste event
-		if currentValue != prevValue {
-			// Check if the change is large enough to be a paste event
-			newContent, isPaste := clipboard.GetActiveFieldValue(currentValue, prevValue)
-			if isPaste && clipboard.IsLongEnoughForProcessing(newContent) {
-				f.processClipboardContent(newContent)
-			} else {
-				// If user is typing, mark the field as manually edited
-				f.model.MarkFieldEdited(f.getFieldNameByIndex(f.focused))
-			}
-		}
-		
-		// Store the new value for paste detection
-		f.fieldPrevValues[f.focused] = currentValue
-	} else if f.inCriteriaSection && f.focusedCriteria >= 0 && f.focusedCriteria < len(f.criteriasInputs) {
-		// Update the criteria input
-		newInput, inputCmd := f.criteriasInputs[f.focusedCriteria].Update(msg)
-		f.criteriasInputs[f.focusedCriteria] = newInput
-		cmds = append(cmds, inputCmd)
-		
-		// Get the current value after the update
-		currentValue := f.criteriasInputs[f.focusedCriteria].Value()
-		
-		// Store the new value for paste detection
-		f.criteriaPrevValues[f.focusedCriteria] = currentValue
-		
-		// Since criteria have changed, mark the field as manually edited
-		f.model.MarkFieldEdited(AcceptanceCriteriaField)
+	// Update active input field
+	if cmd := f.updateActiveField(msg); cmd != nil {
+		cmds = append(cmds, cmd)
 	}
 	
 	return f, tea.Batch(cmds...)
+}
+
+// handleHideSpinner handles the hideSpinnerMsg
+func (f *UserStoryForm) handleHideSpinner() (tea.Model, tea.Cmd) {
+	f.spinner.SetVisible(false)
+	return f, nil
+}
+
+// handlePasteEvent checks for and processes paste events
+func (f *UserStoryForm) handlePasteEvent(msg tea.KeyMsg) tea.Cmd {
+	if !clipboard.IsPasteEvent(msg) {
+		return nil
+	}
+	
+	// Get pasted content
+	pastedText := clipboard.ExtractPastedText(msg)
+	
+	// If we can extract it directly
+	if pastedText != "" && clipboard.IsLongEnoughForProcessing(pastedText) {
+		f.processClipboardContent(pastedText)
+		// Return here to prevent the paste from being processed by the text input
+		return tea.Batch()
+	}
+	
+	return nil
+}
+
+// handleKeyPress processes individual key presses
+func (f *UserStoryForm) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case "ctrl+a":
+		return f.handleConfirmAllFields()
+			
+	case "esc":
+		return f.handleEscapeKey()
+			
+	case "tab", "shift+tab":
+		return f.handleTabNavigation(msg)
+			
+	case "up", "down":
+		return f.handleUpDownNavigation(msg)
+		
+	case "enter":
+		return f.handleEnterKey()
+	}
+	
+	return nil
+}
+
+// handleConfirmAllFields handles the Ctrl+A key combination for confirming auto-populated fields
+func (f *UserStoryForm) handleConfirmAllFields() tea.Cmd {
+	if f.model == nil || !f.model.HasAutoPopulatedFields() {
+		return nil
+	}
+	
+	f.model.ConfirmAllFields()
+	f.updateUIFromModel()
+	
+	// Show a confirmation message
+	confirmMsg := fmt.Sprintf("Confirmed %d auto-populated fields", f.model.GetAutoPopulatedFieldCount())
+	confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Italic(true)
+	
+	// Set a message in the spinner and show it briefly
+	f.spinner.SetMessage(confirmStyle.Render(confirmMsg))
+	f.spinner.SetVisible(true)
+	
+	// Schedule the spinner to be hidden after a short delay
+	return tea.Tick(time.Second*2, func(time.Time) tea.Msg {
+		return hideSpinnerMsg{}
+	})
+}
+
+// handleEscapeKey handles the Escape key press
+func (f *UserStoryForm) handleEscapeKey() tea.Cmd {
+	// Cancel processing if active
+	if f.model.IsProcessingActive() {
+		f.model.CancelProcessing()
+		if f.processingCancel != nil {
+			f.processingCancel()
+		}
+		f.spinner.SetVisible(false)
+		return nil
+	}
+	
+	// If not processing, ESC is used to cancel the form
+	return tea.Quit
+}
+
+// handleTabNavigation handles Tab and Shift+Tab navigation
+func (f *UserStoryForm) handleTabNavigation(msg tea.KeyMsg) tea.Cmd {
+	if f.inCriteriaSection {
+		return f.handleTabInCriteriaSection(msg)
+	}
+	return f.handleTabInMainFields(msg)
+}
+
+// handleTabInCriteriaSection handles Tab/Shift+Tab when in criteria section
+func (f *UserStoryForm) handleTabInCriteriaSection(msg tea.KeyMsg) tea.Cmd {
+	if msg.String() == "tab" {
+		f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
+		// If we wrapped around back to 0, move to next main section
+		if f.focusedCriteria == 0 {
+			f.inCriteriaSection = false
+			f.focused = 0 // Move back to the first field
+			f.updateAllFocus()
+		} else {
+			f.updateCriteriaFocus()
+		}
+	} else { // shift+tab
+		f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
+		// If we wrapped around to the last criteria field, go back to main fields
+		if f.focusedCriteria == len(f.criteriasInputs) - 1 && !f.inCriteriaSection {
+			f.inCriteriaSection = true
+			f.focused = len(f.inputs) - 1 // Last normal field
+			f.updateAllFocus()
+		} else {
+			f.updateCriteriaFocus()
+		}
+	}
+	return nil
+}
+
+// handleTabInMainFields handles Tab/Shift+Tab when in main fields section
+func (f *UserStoryForm) handleTabInMainFields(msg tea.KeyMsg) tea.Cmd {
+	if msg.String() == "tab" {
+		f.focused = (f.focused + 1) % len(f.inputs)
+		// If we're at the last field, move to criteria section
+		if f.focused == 0 {
+			// We wrapped around, so go to criteria section
+			f.inCriteriaSection = true
+			f.focusedCriteria = 0
+			
+			// Update focus
+			for i := range f.inputs {
+				f.inputs[i].Blur()
+			}
+			
+			f.criteriasInputs[0].Focus()
+			for i := 1; i < len(f.criteriasInputs); i++ {
+				f.criteriasInputs[i].Blur()
+			}
+			
+			return nil
+		}
+	} else { // shift+tab
+		f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+		// If we're at the last field coming backwards, go to criteria
+		if f.focused == len(f.inputs) - 1 && msg.String() == "shift+tab" {
+			f.inCriteriaSection = true
+			f.focusedCriteria = len(f.criteriasInputs) - 1 // Focus last criteria
+			
+			// Update focus
+			for i := range f.inputs {
+				f.inputs[i].Blur()
+			}
+			
+			f.criteriasInputs[f.focusedCriteria].Focus()
+			for i := 0; i < len(f.criteriasInputs); i++ {
+				if i != f.focusedCriteria {
+					f.criteriasInputs[i].Blur()
+				}
+			}
+			
+			return nil
+		}
+	}
+	
+	// Update field focus for main fields
+	f.updateMainFieldsFocus()
+	
+	return nil
+}
+
+// handleUpDownNavigation handles Up and Down arrow key navigation
+func (f *UserStoryForm) handleUpDownNavigation(msg tea.KeyMsg) tea.Cmd {
+	if f.inCriteriaSection {
+		// When in criteria section, up/down navigates between criteria fields
+		if msg.String() == "up" {
+			f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
+		} else {
+			f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
+		}
+		
+		// Update focus
+		f.updateCriteriaFocus()
+		
+		return nil
+	}
+	
+	// Otherwise navigate between main fields
+	if msg.String() == "up" {
+		f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+	} else {
+		f.focused = (f.focused + 1) % len(f.inputs)
+	}
+	
+	// Update field focus
+	f.updateMainFieldsFocus()
+	
+	return nil
+}
+
+// handleEnterKey handles the Enter key press
+func (f *UserStoryForm) handleEnterKey() tea.Cmd {
+	// When in criteria section, enter moves to next criteria or submits
+	if f.inCriteriaSection {
+		if f.focusedCriteria < len(f.criteriasInputs) - 1 {
+			// Move to next criteria field
+			f.criteriasInputs[f.focusedCriteria].Blur()
+			f.focusedCriteria++
+			f.criteriasInputs[f.focusedCriteria].Focus()
+		} else {
+			// On last criteria field, submit the form
+			f.submitted = true
+			return tea.Quit
+		}
+		return nil
+	}
+	
+	// When on last regular field, move to criteria section
+	if f.focused == len(f.inputs) - 1 {
+		f.inputs[f.focused].Blur()
+		f.inCriteriaSection = true
+		f.focusedCriteria = 0
+		f.criteriasInputs[f.focusedCriteria].Focus()
+		return nil
+	}
+	
+	// Otherwise move to next field
+	f.focused = (f.focused + 1) % len(f.inputs)
+	
+	// Update field focus
+	f.updateMainFieldsFocus()
+	
+	return nil
+}
+
+// handleWindowResize handles window resize events
+func (f *UserStoryForm) handleWindowResize(msg tea.WindowSizeMsg) {
+	// Update form dimensions
+	f.width = msg.Width
+	f.height = msg.Height
+	
+	// Update spinner width
+	f.spinner.SetWidth(msg.Width)
+}
+
+// checkProcessingTimeout checks for timeout during processing
+func (f *UserStoryForm) checkProcessingTimeout() {
+	if !f.model.IsProcessingActive() {
+		return
+	}
+	
+	// Only check every 500ms to avoid unnecessary overhead
+	if time.Since(f.lastTimeoutCheck) > 500*time.Millisecond {
+		timeoutMsg := f.model.GetTimeoutMessage()
+		if timeoutMsg != "" {
+			f.spinner.SetAdditionalMessage(timeoutMsg)
+		}
+		f.lastTimeoutCheck = time.Now()
+	}
+}
+
+// updateActiveField updates the active input field based on current focus
+func (f *UserStoryForm) updateActiveField(msg tea.Msg) tea.Cmd {
+	if !f.inCriteriaSection && f.focused >= 0 && f.focused < len(f.inputs) {
+		return f.updateMainField(msg)
+	} else if f.inCriteriaSection && f.focusedCriteria >= 0 && f.focusedCriteria < len(f.criteriasInputs) {
+		return f.updateCriteriaField(msg)
+	}
+	return nil
+}
+
+// updateMainField updates the currently focused main field
+func (f *UserStoryForm) updateMainField(msg tea.Msg) tea.Cmd {
+	// Get the current value before the update
+	prevValue := f.fieldPrevValues[f.focused]
+	
+	// Update the input
+	newInput, inputCmd := f.inputs[f.focused].Update(msg)
+	f.inputs[f.focused] = newInput
+	
+	// Get the current value after the update
+	currentValue := f.inputs[f.focused].Value()
+	
+	// If the value changed, check if it might be a paste event
+	if currentValue != prevValue {
+		// Check if the change is large enough to be a paste event
+		newContent, isPaste := clipboard.GetActiveFieldValue(currentValue, prevValue)
+		if isPaste && clipboard.IsLongEnoughForProcessing(newContent) {
+			f.processClipboardContent(newContent)
+		} else {
+			// If user is typing, mark the field as manually edited
+			f.model.MarkFieldEdited(f.getFieldNameByIndex(f.focused))
+		}
+	}
+	
+	// Store the new value for paste detection
+	f.fieldPrevValues[f.focused] = currentValue
+	
+	return inputCmd
+}
+
+// updateCriteriaField updates the currently focused criteria field
+func (f *UserStoryForm) updateCriteriaField(msg tea.Msg) tea.Cmd {
+	// Update the criteria input
+	newInput, inputCmd := f.criteriasInputs[f.focusedCriteria].Update(msg)
+	f.criteriasInputs[f.focusedCriteria] = newInput
+	
+	// Get the current value after the update
+	currentValue := f.criteriasInputs[f.focusedCriteria].Value()
+	
+	// Store the new value for paste detection
+	f.criteriaPrevValues[f.focusedCriteria] = currentValue
+	
+	// Since criteria have changed, mark the field as manually edited
+	f.model.MarkFieldEdited(AcceptanceCriteriaField)
+	
+	return inputCmd
+}
+
+// updateMainFieldsFocus updates the focus state for all main fields
+func (f *UserStoryForm) updateMainFieldsFocus() {
+	for i := range f.inputs {
+		if i == f.focused {
+			f.inputs[i].Focus()
+		} else {
+			f.inputs[i].Blur()
+		}
+	}
+}
+
+// updateCriteriaFocus updates the focus state for all criteria fields
+func (f *UserStoryForm) updateCriteriaFocus() {
+	for i := range f.criteriasInputs {
+		if i == f.focusedCriteria {
+			f.criteriasInputs[i].Focus()
+		} else {
+			f.criteriasInputs[i].Blur()
+		}
+	}
+}
+
+// updateAllFocus updates focus state for both main fields and criteria fields
+func (f *UserStoryForm) updateAllFocus() {
+	// Update main fields focus
+	for i := range f.inputs {
+		if i == f.focused && !f.inCriteriaSection {
+			f.inputs[i].Focus()
+		} else {
+			f.inputs[i].Blur()
+		}
+	}
+	
+	// Update criteria fields focus
+	for i := range f.criteriasInputs {
+		if i == f.focusedCriteria && f.inCriteriaSection {
+			f.criteriasInputs[i].Focus()
+		} else {
+			f.criteriasInputs[i].Blur()
+		}
+	}
 }
 
 // View renders the form
