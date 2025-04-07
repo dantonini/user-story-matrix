@@ -21,6 +21,7 @@ import (
 	"github.com/user-story-matrix/usm/internal/models"
 	"github.com/user-story-matrix/usm/internal/ui/clipboard"
 	"github.com/user-story-matrix/usm/internal/ui/components/spinner"
+	"github.com/user-story-matrix/usm/internal/ui/contracts"
 	formModels "github.com/user-story-matrix/usm/internal/ui/models"
 )
 
@@ -41,6 +42,9 @@ var FieldIndex = map[string]int{
 	SoThatField:             3,
 	AcceptanceCriteriaField: 4,
 }
+
+// Verify UserStoryForm implements the contracts.UserStorySubmitter interface
+var _ contracts.UserStorySubmitter = (*UserStoryForm)(nil)
 
 // UserStoryForm represents the form for creating a user story with LLM processing
 type UserStoryForm struct {
@@ -947,4 +951,9 @@ func (f *UserStoryForm) parseAcceptanceCriteria(input string) []string {
 	}
 	
 	return criteria
-} 
+}
+
+// GetConfirmSubmission returns whether the form was submitted
+func (f *UserStoryForm) GetConfirmSubmission() bool {
+	return f.submitted
+}

@@ -17,6 +17,7 @@ import (
 	"github.com/user-story-matrix/usm/internal/logger"
 	"github.com/user-story-matrix/usm/internal/models"
 	"github.com/user-story-matrix/usm/internal/ui"
+	"github.com/user-story-matrix/usm/internal/ui/contracts"
 )
 
 var (
@@ -107,10 +108,18 @@ Example:
 			}
 			userStory = ptrForm.GetUserStory()
 			// Don't need to set confirmSubmission here since we already checked it
+		} else if formResult, ok := result.(contracts.UserStorySubmitter); ok {
+			// New form implementation using the explicit interface
+			userStory = formResult.GetUserStory()
+			confirmSubmission = formResult.GetConfirmSubmission()
+			
+			if !confirmSubmission {
+				terminal.Print("User story empty, creation cancelled")
+				return
+			}
 		} else {
-			// Try to use the new form's API via type assertions
-			// We use reflection-like approach since we can't directly import the package
-			// to avoid import cycles
+			// Fallback to type assertions for backward compatibility
+			// This branch should be removed once all forms implement the contracts.FormResult interface
 			if getter, ok := result.(interface{ GetUserStory() models.UserStory }); ok {
 				userStory = getter.GetUserStory()
 			} else {
