@@ -95,49 +95,10 @@ Example:
 			return
 		}
 		
-		// Process the result based on its type
-		var userStory models.UserStory
-		var confirmSubmission bool
-		
-		// Handle different form types
-		if ptrForm, ok := result.(*io.UserStoryForm); ok {
-			// Legacy form
-			if !ptrForm.ConfirmSubmission {
-				terminal.Print("User story empty, creation cancelled")
-				return
-			}
-			userStory = ptrForm.GetUserStory()
-			// Don't need to set confirmSubmission here since we already checked it
-		} else if formResult, ok := result.(contracts.UserStorySubmitter); ok {
-			// New form implementation using the explicit interface
-			userStory = formResult.GetUserStory()
-			confirmSubmission = formResult.GetConfirmSubmission()
-			
-			if !confirmSubmission {
-				terminal.Print("User story empty, creation cancelled")
-				return
-			}
-		} else {
-			// Fallback to type assertions for backward compatibility
-			// This branch should be removed once all forms implement the contracts.FormResult interface
-			if getter, ok := result.(interface{ GetUserStory() models.UserStory }); ok {
-				userStory = getter.GetUserStory()
-			} else {
-				terminal.PrintError("Error: could not get user story from form")
-				return
-			}
-			
-			if confirmGetter, ok := result.(interface{ GetConfirmSubmission() bool }); ok {
-				confirmSubmission = confirmGetter.GetConfirmSubmission()
-			} else {
-				terminal.PrintError("Error: could not determine if submission was confirmed")
-				return
-			}
-			
-			if !confirmSubmission {
-				terminal.Print("User story empty, creation cancelled")
-				return
-			}
+		// Process the form result
+		userStory, shouldContinue := processFormResult(result, terminal)
+		if !shouldContinue {
+			return
 		}
 		
 		// Generate the filename
@@ -173,6 +134,59 @@ Example:
 		
 		logger.Debug("User story created with sequential number: " + sequentialNumber)
 	},
+}
+
+// processFormResult handles the form result and returns the user story and a boolean indicating
+// if the process should continue. This function is extracted to make it more testable.
+func processFormResult(result interface{}, terminal io.UserOutput) (models.UserStory, bool) {
+	// Handle different form types
+	if formResult, ok := result.(contracts.UserStorySubmitter); ok {
+		// New form implementation using the explicit interface
+		userStory := formResult.GetUserStory()
+		confirmSubmission := formResult.GetConfirmSubmission()
+		
+		if !confirmSubmission {
+			terminal.Print("User story empty, creation cancelled")
+			return models.UserStory{}, false
+		}
+		
+		return userStory, true
+	}
+	
+	// Legacy form
+	if ptrForm, ok := result.(*io.UserStoryForm); ok {
+		if !ptrForm.ConfirmSubmission {
+			terminal.Print("User story empty, creation cancelled")
+			return models.UserStory{}, false
+		}
+		return ptrForm.GetUserStory(), true
+	}
+	
+	// Fallback to type assertions for backward compatibility
+	// This branch should be removed once all forms implement the contracts.FormResult interface
+	var userStory models.UserStory
+	var confirmSubmission bool
+	
+	if getter, ok := result.(interface{ GetUserStory() models.UserStory }); ok {
+		userStory = getter.GetUserStory()
+	} else {
+		terminal.PrintError("Error: could not get user story from form")
+		return models.UserStory{}, false
+	}
+	
+	if confirmGetter, ok := result.(interface{ GetConfirmSubmission() bool }); ok {
+		confirmSubmission = confirmGetter.GetConfirmSubmission()
+	} else {
+		terminal.PrintError("Error: could not determine if submission was confirmed")
+		return models.UserStory{}, false
+	}
+	
+	if !confirmSubmission {
+		terminal.Print("User story empty, creation cancelled")
+		return models.UserStory{}, false
+	}
+	
+	return userStory, true
 }
 
 func init() {

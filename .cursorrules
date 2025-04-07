@@ -64,7 +64,7 @@ USM is a cli tool with a small interactive UI (a similar tool is github cli) to 
 - Keyboard-first navigation without mouse support
 - Context-aware help that adapts to current workflow state
 
-# UX
+# UX / UI
 You are obsessed with user experience: the UI should be designed to be easy to use and understand.
 - Provide clear affordances about how to interact with the component
 - Maintain context even when focus is elsewhere
@@ -93,6 +93,13 @@ When to use simple components:
     - Cognitive load reduction - Easier to understand at a glance
     - Exception: Core framework components (like base models) can have more methods when absolutely necessary.
 - Use interfaces for cross-component communication
+
+# Cobra cmd
+- Cobra cmd should be a thin wrapper around the business logic
+- Allow to test the business logic in isolation:
+  - Extract the business logic into a separate function
+  - Return the result instead of managing its own state
+  - Allow the caller to handle the result
 
 # Testing
 Ensure to include tests for all the code you write.
