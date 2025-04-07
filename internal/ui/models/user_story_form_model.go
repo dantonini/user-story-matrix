@@ -108,7 +108,7 @@ func NewUserStoryFormModel(userStory models.UserStory, processor llm.LLMProcesso
 		AutoPopulatedFields: make(map[string]bool),
 		ConfidenceScores:   make(map[string]float64),
 		ProcessingState:    llm.ProcessingIdle,
-		TimeoutThreshold:   5 * time.Second, // 5 second default timeout threshold
+		TimeoutThreshold:   10 * time.Second, // 5 second default timeout threshold
 		ProcessingCancelled: false,
 		ShowAPIKeyMessage:  false,
 		FormData: FormData{

@@ -124,7 +124,7 @@ func TestNewUserStoryFormModel(t *testing.T) {
 	assert.Equal(t, mockProcessor, model.LLMProcessor)
 	assert.Equal(t, configManager, model.ConfigManager)
 	assert.Equal(t, llm.ProcessingIdle, model.ProcessingState)
-	assert.Equal(t, 5*time.Second, model.TimeoutThreshold)
+	assert.Equal(t, 10*time.Second, model.TimeoutThreshold)
 	assert.Equal(t, "Test Story", model.FormData.Title)
 	
 	// TODO: In the Extension phase, we'll implement proper tracking of acceptance criteria count

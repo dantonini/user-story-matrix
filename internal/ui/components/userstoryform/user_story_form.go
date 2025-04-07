@@ -8,6 +8,7 @@ package userstoryform
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
@@ -205,25 +206,81 @@ func (f *UserStoryForm) handleHideSpinner() (tea.Model, tea.Cmd) {
 
 // handlePasteEvent checks for and processes paste events
 func (f *UserStoryForm) handlePasteEvent(msg tea.KeyMsg) tea.Cmd {
+	// Only do paste detection for specific events, ignore normal typing
+	// This prevents debug messages from interfering with normal input
 	if !clipboard.IsPasteEvent(msg) {
 		return nil
 	}
 	
-	// Get pasted content
-	pastedText := clipboard.ExtractPastedText(msg)
+	// For regular paste events, get the pasted text
+	pastedText := getClipboardContent()
 	
-	// If we can extract it directly
+	// Process the pasted content if it's long enough
 	if pastedText != "" && clipboard.IsLongEnoughForProcessing(pastedText) {
+		f.spinner.SetMessage("Processing pasted content...")
+		f.spinner.SetVisible(true)
 		f.processClipboardContent(pastedText)
-		// Return here to prevent the paste from being processed by the text input
-		return tea.Batch()
 	}
 	
 	return nil
 }
 
+
+// getClipboardContent retrieves content from the system clipboard
+func getClipboardContent() string {
+	// Try to run the appropriate clipboard command based on OS
+	var cmd *exec.Cmd
+	
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("pbpaste")
+	case "windows":
+		cmd = exec.Command("powershell.exe", "-command", "Get-Clipboard")
+	default: // Linux and others
+		cmd = exec.Command("xclip", "-selection", "clipboard", "-o")
+	}
+	
+	output, err := cmd.Output()
+	if err != nil {
+		// If command fails, try fallback for Linux
+		if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+			fallbackCmd := exec.Command("xsel", "--clipboard", "--output")
+			output, err = fallbackCmd.Output()
+			if err != nil {
+				return ""
+			}
+		} else {
+			return ""
+		}
+	}
+	
+	return string(output)
+}
+
+
 // handleKeyPress processes individual key presses
 func (f *UserStoryForm) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
+	// Handle F2 key for processing clipboard content
+	if msg.String() == "f2" || msg.Type == tea.KeyF2 {
+		// Process current field content on F2 press
+		if !f.inCriteriaSection && f.focused >= 0 && f.focused < len(f.inputs) {
+			content := f.inputs[f.focused].Value()
+			if content != "" {
+				f.spinner.SetMessage("Processing field content...")
+				f.spinner.SetVisible(true)
+				f.processClipboardContent(content)
+			}
+		} else if f.inCriteriaSection && f.focusedCriteria >= 0 && f.focusedCriteria < len(f.criteriasInputs) {
+			content := f.criteriasInputs[f.focusedCriteria].Value()
+			if content != "" {
+				f.spinner.SetMessage("Processing criteria content...")
+				f.spinner.SetVisible(true)
+				f.processClipboardContent(content)
+			}
+		}
+		return nil
+	}
+	
 	switch msg.String() {
 	case "ctrl+a":
 		return f.handleConfirmAllFields()
@@ -710,12 +767,8 @@ func (f *UserStoryForm) View() string {
 		// Add LLM paste help text if available
 		if f.processor != nil && f.processor.IsConfigured() {
 			pasteHelpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Italic(true)
-			// Mac systems use ⌘ (Command) instead of Ctrl
-			if runtime.GOOS == "darwin" {
-				b.WriteString("\n" + pasteHelpStyle.Render("Tip: Use ⌘+P to process text with LLM"))
-			} else {
-				b.WriteString("\n" + pasteHelpStyle.Render("Tip: Use Ctrl+P to process text with LLM"))
-			}
+			// F2 key works the same on all platforms
+			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Press F2 to process text with LLM"))
 		}
 	}
 
@@ -783,10 +836,43 @@ func (f *UserStoryForm) GetUserStory() models.UserStory {
 		}
 	}
 	
-	// Update the story and return it
+	// Update the story fields
 	f.story.Title = title
 	f.story.Description = description
 	f.story.Criteria = criteria
+	f.story.LastUpdated = time.Now()
+	
+	// Build the content without metadata
+	var contentWithoutMetadata strings.Builder
+	
+	// Add title
+	contentWithoutMetadata.WriteString(fmt.Sprintf("# %s\n\n", title))
+	
+	// Add user story description
+	contentWithoutMetadata.WriteString(description + "\n\n")
+	
+	// Add acceptance criteria
+	contentWithoutMetadata.WriteString("## Acceptance criteria\n\n")
+	for _, criterion := range criteria {
+		contentWithoutMetadata.WriteString(fmt.Sprintf("- %s\n", criterion))
+	}
+	
+	// Calculate the content hash
+	contentHash := models.GenerateContentHash(contentWithoutMetadata.String())
+	f.story.ContentHash = contentHash
+	
+	// Build the final content with metadata
+	var finalContent strings.Builder
+	finalContent.WriteString("---\n")
+	finalContent.WriteString(fmt.Sprintf("file_path: %s\n", f.story.FilePath))
+	finalContent.WriteString(fmt.Sprintf("created_at: %s\n", f.story.CreatedAt.Format(time.RFC3339)))
+	finalContent.WriteString(fmt.Sprintf("last_updated: %s\n", f.story.LastUpdated.Format(time.RFC3339)))
+	finalContent.WriteString(fmt.Sprintf("_content_hash: %s\n", contentHash))
+	finalContent.WriteString("---\n\n")
+	finalContent.WriteString(contentWithoutMetadata.String())
+	
+	// Set the final content
+	f.story.Content = finalContent.String()
 	
 	return f.story
 }

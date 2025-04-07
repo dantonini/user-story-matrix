@@ -14,7 +14,7 @@ import (
 
 // PasteThresholdLength is the minimum length of text that will be considered
 // as a potential user story to process.
-const PasteThresholdLength = 50
+const PasteThresholdLength = 20
 
 // PasteMsg represents a clipboard paste event
 type PasteMsg struct {
@@ -24,18 +24,21 @@ type PasteMsg struct {
 // IsPasteEvent checks if a keyboard message is a paste event
 func IsPasteEvent(msg tea.KeyMsg) bool {
 	// Check for common paste key combinations
-	isPaste := (msg.Type == tea.KeyCtrlV) ||
-		(msg.Type == tea.KeyRunes && len(msg.Runes) > 0 && msg.Runes[0] == 22) // ASCII 22 (SYN) - Ctrl+V on some terminals
-	
-	// Check if this is a Ctrl+P event to specifically trigger LLM processing
-	isLLMPaste := false
-	if msg.String() == "ctrl+p" {
-		isLLMPaste = true
+	if msg.Type == tea.KeyCtrlV {
+		return true
 	}
-	// Many terminals don't distinguish between Cmd and Ctrl, especially in Bubbletea,
-	// so this should work on Mac as well (⌘+P)
 	
-	return isPaste || isLLMPaste
+	// Check for SYN character (ASCII 22) which is sometimes sent for paste events
+	if msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == 22 {
+		return true
+	}
+	
+	// Check for F2 key (legacy support)
+	if msg.Type == tea.KeyF2 {
+		return true
+	}
+	
+	return false
 }
 
 // IsLongEnoughForProcessing checks if the content is long enough to be processed as a user story

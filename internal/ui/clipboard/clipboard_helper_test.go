@@ -30,6 +30,11 @@ func TestIsPasteEvent(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "F2 key",
+			keyMsg:   tea.KeyMsg{Type: tea.KeyF2},
+			expected: true,
+		},
+		{
 			name:     "Regular key press",
 			keyMsg:   tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			expected: false,
