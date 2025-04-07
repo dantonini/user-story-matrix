@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -43,42 +44,49 @@ var FieldIndex = map[string]int{
 
 // UserStoryForm represents the form for creating a user story with LLM processing
 type UserStoryForm struct {
-	model           *formModels.UserStoryFormModel
-	story           models.UserStory
-	inputs          []textinput.Model
-	cursor          cursor.Model
-	focused         int
-	submitted       bool
-	width           int
-	height          int
-	spinner         spinner.Model
-	fieldPrevValues map[int]string
-	processor       llm.LLMProcessor
-	configManager   *llm.ConfigManager
-	processingCtx   context.Context
-	processingCancel context.CancelFunc
-	lastTimeoutCheck time.Time
-	rawCriteriaInput string // Used for testing to preserve exact input format
+	model             *formModels.UserStoryFormModel
+	story             models.UserStory
+	inputs            []textinput.Model
+	criteriasInputs   []textinput.Model // Add separate inputs for acceptance criteria
+	cursor            cursor.Model
+	focused           int
+	focusedCriteria   int // Track which criteria field has focus
+	submitted         bool
+	width             int
+	height            int
+	spinner           spinner.Model
+	fieldPrevValues   map[int]string
+	criteriaPrevValues map[int]string // Track previous values for criteria fields
+	processor         llm.LLMProcessor
+	configManager     *llm.ConfigManager
+	processingCtx     context.Context
+	processingCancel  context.CancelFunc
+	lastTimeoutCheck  time.Time
+	rawCriteriaInput  string // Used for testing to preserve exact input format
+	inCriteriaSection bool   // Track if we're in the criteria section
 }
 
 // New creates a new UserStoryForm
 func New(us models.UserStory, processor llm.LLMProcessor, configManager *llm.ConfigManager) *UserStoryForm {
 	form := &UserStoryForm{
-		story:           us,
-		cursor:          cursor.New(),
-		focused:         0,
-		processor:       processor,
-		configManager:   configManager,
-		spinner:         spinner.New(),
-		fieldPrevValues: make(map[int]string),
-		lastTimeoutCheck: time.Now(),
+		story:             us,
+		cursor:            cursor.New(),
+		focused:           0,
+		focusedCriteria:   0,
+		processor:         processor,
+		configManager:     configManager,
+		spinner:           spinner.New(),
+		fieldPrevValues:   make(map[int]string),
+		criteriaPrevValues: make(map[int]string),
+		lastTimeoutCheck:  time.Now(),
+		inCriteriaSection: false,
 	}
 
 	// Initialize the model
 	form.model = formModels.NewUserStoryFormModel(us, processor, configManager)
 
 	// Initialize inputs
-	form.inputs = make([]textinput.Model, 5)
+	form.inputs = make([]textinput.Model, 4) // Basic fields (not including criteria)
 	
 	// Initialize title input
 	form.inputs[0] = textinput.New()
@@ -105,17 +113,20 @@ func New(us models.UserStory, processor llm.LLMProcessor, configManager *llm.Con
 	form.inputs[3].Width = 60
 	form.inputs[3].Prompt = ""
 	
-	// Initialize acceptance criteria input
-	form.inputs[4] = textinput.New()
-	form.inputs[4].Placeholder = "Acceptance criteria (one per line)"
-	form.inputs[4].Width = 60
-	form.inputs[4].Prompt = ""
-	form.inputs[4].CharLimit = 0
+	// Initialize five separate criteria inputs
+	form.criteriasInputs = make([]textinput.Model, 5)
+	for i := 0; i < 5; i++ {
+		form.criteriasInputs[i] = textinput.New()
+		form.criteriasInputs[i].Placeholder = fmt.Sprintf("Enter acceptance criteria %d", i+1)
+		form.criteriasInputs[i].Width = 60
+		form.criteriasInputs[i].Prompt = ""
+	}
 	
 	// Set existing criteria if any
-	if len(us.Criteria) > 0 {
-		// Join criteria with spaces since textinput seems to replace newlines with spaces
-		form.inputs[4].SetValue(strings.Join(us.Criteria, " "))
+	for i, criteria := range us.Criteria {
+		if i < len(form.criteriasInputs) {
+			form.criteriasInputs[i].SetValue(criteria)
+		}
 	}
 
 	// Set values from user story
@@ -126,6 +137,10 @@ func New(us models.UserStory, processor llm.LLMProcessor, configManager *llm.Con
 	// Store initial values for paste detection
 	for i, input := range form.inputs {
 		form.fieldPrevValues[i] = input.Value()
+	}
+	
+	for i, input := range form.criteriasInputs {
+		form.criteriaPrevValues[i] = input.Value()
 	}
 	
 	return form
@@ -209,14 +224,115 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return f, tea.Quit
 			
 		case "tab", "shift+tab":
-			// Handle tab navigation
-			if msg.String() == "tab" {
-				f.focused = (f.focused + 1) % len(f.inputs)
-			} else {
-				f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+			// When in criteria section, tab navigates between criteria fields
+			if f.inCriteriaSection {
+				if msg.String() == "tab" {
+					f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
+					// If we wrapped around back to 0, move to next main section
+					if f.focusedCriteria == 0 {
+						f.inCriteriaSection = false
+						f.focused = 0 // Move back to the first field
+						
+						// Update focus for all fields
+						for i := range f.inputs {
+							if i == f.focused {
+								f.inputs[i].Focus()
+							} else {
+								f.inputs[i].Blur()
+							}
+						}
+						
+						for i := range f.criteriasInputs {
+							f.criteriasInputs[i].Blur()
+						}
+					} else {
+						// Update focus within criteria fields
+						for i := range f.criteriasInputs {
+							if i == f.focusedCriteria {
+								f.criteriasInputs[i].Focus()
+							} else {
+								f.criteriasInputs[i].Blur()
+							}
+						}
+					}
+				} else { // shift+tab
+					f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
+					// If we wrapped around to the last criteria field, go back to main fields
+					if f.focusedCriteria == len(f.criteriasInputs) - 1 && !f.inCriteriaSection {
+						f.inCriteriaSection = true
+						f.focused = len(f.inputs) - 1 // Last normal field
+						
+						// Update focus for all fields
+						for i := range f.inputs {
+							if i == f.focused {
+								f.inputs[i].Focus()
+							} else {
+								f.inputs[i].Blur()
+							}
+						}
+						
+						for i := range f.criteriasInputs {
+							f.criteriasInputs[i].Blur()
+						}
+					} else {
+						// Update focus within criteria fields
+						for i := range f.criteriasInputs {
+							if i == f.focusedCriteria {
+								f.criteriasInputs[i].Focus()
+							} else {
+								f.criteriasInputs[i].Blur()
+							}
+						}
+					}
+				}
+				return f, nil
 			}
 			
-			// Update field focus
+			// Normal tab navigation between main fields
+			if msg.String() == "tab" {
+				f.focused = (f.focused + 1) % len(f.inputs)
+				// If we're at the last field, move to criteria section
+				if f.focused == 0 {
+					// We wrapped around, so go to criteria section
+					f.inCriteriaSection = true
+					f.focusedCriteria = 0
+					
+					// Update focus
+					for i := range f.inputs {
+						f.inputs[i].Blur()
+					}
+					
+					f.criteriasInputs[0].Focus()
+					for i := 1; i < len(f.criteriasInputs); i++ {
+						f.criteriasInputs[i].Blur()
+					}
+					
+					return f, nil
+				}
+			} else { // shift+tab
+				f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+				// If we're at the last field coming backwards, go to criteria
+				if f.focused == len(f.inputs) - 1 && msg.String() == "shift+tab" {
+					f.inCriteriaSection = true
+					f.focusedCriteria = len(f.criteriasInputs) - 1 // Focus last criteria
+					
+					// Update focus
+					for i := range f.inputs {
+						f.inputs[i].Blur()
+					}
+					
+					f.criteriasInputs[f.focusedCriteria].Focus()
+					for i := 0; i < len(f.criteriasInputs); i++ {
+						if i != f.focusedCriteria {
+							f.criteriasInputs[i].Blur()
+						}
+					}
+					
+					return f, nil
+				}
+			}
+			
+			// Update field focus for main fields
 			for i := range f.inputs {
 				if i == f.focused {
 					f.inputs[i].Focus()
@@ -228,16 +344,28 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return f, nil
 			
 		case "up", "down":
-			// Only navigate between fields with up/down when in the acceptance criteria field
-			if f.focused == FieldIndex[AcceptanceCriteriaField] {
-				// Handle navigation within multi-line text
-				newInput, inputCmd := f.inputs[f.focused].Update(msg)
-				f.inputs[f.focused] = newInput
-				cmds = append(cmds, inputCmd)
-				return f, tea.Batch(cmds...)
+			// Handle up/down navigation
+			if f.inCriteriaSection {
+				// When in criteria section, up/down navigates between criteria fields
+				if msg.String() == "up" {
+					f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
+				} else {
+					f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
+				}
+				
+				// Update focus
+				for i := range f.criteriasInputs {
+					if i == f.focusedCriteria {
+						f.criteriasInputs[i].Focus()
+					} else {
+						f.criteriasInputs[i].Blur()
+					}
+				}
+				
+				return f, nil
 			}
 			
-			// Otherwise navigate between fields
+				// Otherwise navigate between main fields
 			if msg.String() == "up" {
 				f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
 			} else {
@@ -256,12 +384,31 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return f, nil
 		
 		case "enter":
-			if f.focused == len(f.inputs)-1 {
-				// Submit the form if the last input is focused
-				f.submitted = true
-				return f, tea.Quit
+			// When in criteria section, enter moves to next criteria or submits
+			if f.inCriteriaSection {
+				if f.focusedCriteria < len(f.criteriasInputs) - 1 {
+					// Move to next criteria field
+					f.criteriasInputs[f.focusedCriteria].Blur()
+					f.focusedCriteria++
+					f.criteriasInputs[f.focusedCriteria].Focus()
+				} else {
+					// On last criteria field, submit the form
+					f.submitted = true
+					return f, tea.Quit
+				}
+				return f, nil
 			}
-			// Move to the next field
+			
+			// When on last regular field, move to criteria section
+			if f.focused == len(f.inputs) - 1 {
+				f.inputs[f.focused].Blur()
+				f.inCriteriaSection = true
+				f.focusedCriteria = 0
+				f.criteriasInputs[f.focusedCriteria].Focus()
+				return f, nil
+			}
+			
+			// Otherwise move to next field
 			f.focused = (f.focused + 1) % len(f.inputs)
 			
 			// Update field focus
@@ -298,7 +445,7 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	
 	// Update the active input if focused
-	if f.focused >= 0 && f.focused < len(f.inputs) {
+	if !f.inCriteriaSection && f.focused >= 0 && f.focused < len(f.inputs) {
 		// Get the current value before the update
 		prevValue := f.fieldPrevValues[f.focused]
 		
@@ -324,6 +471,20 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Store the new value for paste detection
 		f.fieldPrevValues[f.focused] = currentValue
+	} else if f.inCriteriaSection && f.focusedCriteria >= 0 && f.focusedCriteria < len(f.criteriasInputs) {
+		// Update the criteria input
+		newInput, inputCmd := f.criteriasInputs[f.focusedCriteria].Update(msg)
+		f.criteriasInputs[f.focusedCriteria] = newInput
+		cmds = append(cmds, inputCmd)
+		
+		// Get the current value after the update
+		currentValue := f.criteriasInputs[f.focusedCriteria].Value()
+		
+		// Store the new value for paste detection
+		f.criteriaPrevValues[f.focusedCriteria] = currentValue
+		
+		// Since criteria have changed, mark the field as manually edited
+		f.model.MarkFieldEdited(AcceptanceCriteriaField)
 	}
 	
 	return f, tea.Batch(cmds...)
@@ -332,89 +493,160 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the form
 func (f *UserStoryForm) View() string {
 	var b strings.Builder
-	
-	// Add form header
-	b.WriteString("# Create User Story\n\n")
-	
-	// Add form fields
-	for i, input := range f.inputs {
-		fieldName := f.getFieldNameByIndex(i)
-		
-		// Add field label with appropriate styling
-		var labelStyle lipgloss.Style
-		
-		if i == f.focused {
-			// Focused field gets a different style
-			labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-		} else {
-			// Normal style for unfocused fields
-			labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		}
-		
-		// Check if this field was auto-populated by the LLM
-		if f.model != nil && f.model.IsFieldAutoPopulated(fieldName) {
-			// Get the confidence level and add the indicator
-			confidence := f.model.GetFieldConfidence(fieldName)
-			
-			// Add a confidence indicator
-			confidenceIndicator := getConfidenceIndicator(confidence)
-			b.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render(getFieldLabel(fieldName)), confidenceIndicator))
-		} else {
-			// Regular field (not auto-populated)
-			b.WriteString(fmt.Sprintf("%s\n", labelStyle.Render(getFieldLabel(fieldName))))
-		}
 
-		// Add the input field
-		b.WriteString(input.View() + "\n\n")
+	// Define styles
+	labelStyle := lipgloss.NewStyle().Width(12)
+	focusedLabelStyle := lipgloss.NewStyle().Width(12).Foreground(lipgloss.Color("205")).Bold(true)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
+
+	// Title field (special handling - first field)
+	titleLabel := getFieldLabel(TitleField)
+	var titleLabelStyle lipgloss.Style
+	if f.focused == 0 && !f.inCriteriaSection {
+		titleLabelStyle = focusedLabelStyle
+	} else {
+		titleLabelStyle = labelStyle
+	}
+	b.WriteString(titleLabelStyle.Render(titleLabel))
+	
+	// Add confidence indicator if needed
+	if f.model != nil && f.model.IsFieldAutoPopulated(TitleField) {
+		confidence := f.model.GetFieldConfidence(TitleField)
+		confidenceIndicator := getConfidenceIndicator(confidence)
+		b.WriteString(" " + confidenceIndicator)
+	}
+	
+	b.WriteString(" > " + f.inputs[0].View() + "\n\n")
+
+	// User Story section with header
+	b.WriteString(headerStyle.Render("User Story") + "\n")
+	
+	// As a field
+	asALabel := getFieldLabel(AsAField)
+	var asALabelStyle lipgloss.Style
+	if f.focused == 1 && !f.inCriteriaSection {
+		asALabelStyle = focusedLabelStyle
+	} else {
+		asALabelStyle = labelStyle
+	}
+	b.WriteString(asALabelStyle.Render(asALabel))
+	
+	if f.model != nil && f.model.IsFieldAutoPopulated(AsAField) {
+		confidence := f.model.GetFieldConfidence(AsAField)
+		confidenceIndicator := getConfidenceIndicator(confidence)
+		b.WriteString(" " + confidenceIndicator)
+	}
+	
+	b.WriteString(" > " + f.inputs[1].View() + "\n")
+	
+	// I want field
+	iWantLabel := getFieldLabel(IWantField)
+	var iWantLabelStyle lipgloss.Style
+	if f.focused == 2 && !f.inCriteriaSection {
+		iWantLabelStyle = focusedLabelStyle
+	} else {
+		iWantLabelStyle = labelStyle
+	}
+	b.WriteString(iWantLabelStyle.Render(iWantLabel))
+	
+	if f.model != nil && f.model.IsFieldAutoPopulated(IWantField) {
+		confidence := f.model.GetFieldConfidence(IWantField)
+		confidenceIndicator := getConfidenceIndicator(confidence)
+		b.WriteString(" " + confidenceIndicator)
+	}
+	
+	b.WriteString(" > " + f.inputs[2].View() + "\n")
+	
+	// So that field
+	soThatLabel := getFieldLabel(SoThatField)
+	var soThatLabelStyle lipgloss.Style
+	if f.focused == 3 && !f.inCriteriaSection {
+		soThatLabelStyle = focusedLabelStyle
+	} else {
+		soThatLabelStyle = labelStyle
+	}
+	b.WriteString(soThatLabelStyle.Render(soThatLabel))
+	
+	if f.model != nil && f.model.IsFieldAutoPopulated(SoThatField) {
+		confidence := f.model.GetFieldConfidence(SoThatField)
+		confidenceIndicator := getConfidenceIndicator(confidence)
+		b.WriteString(" " + confidenceIndicator)
+	}
+	
+	b.WriteString(" > " + f.inputs[3].View() + "\n\n")
+	
+	// Acceptance Criteria section
+	b.WriteString(headerStyle.Render("Acceptance Criteria") + "\n")
+	
+	// Render all five criteria fields with numbers
+	for i := 0; i < 5; i++ {
+		var criteriaLabelStyle lipgloss.Style
+		if f.inCriteriaSection && f.focusedCriteria == i {
+			criteriaLabelStyle = focusedLabelStyle
+		} else {
+			criteriaLabelStyle = labelStyle
+		}
+		
+		b.WriteString(criteriaLabelStyle.Render(fmt.Sprintf("%d.", i+1)))
+		
+		// Add confidence indicator if needed
+		if f.model != nil && f.model.IsFieldAutoPopulated(AcceptanceCriteriaField) {
+			confidence := f.model.GetFieldConfidence(AcceptanceCriteriaField)
+			confidenceIndicator := getConfidenceIndicator(confidence)
+			b.WriteString(" " + confidenceIndicator)
+		}
+		
+		b.WriteString(" > " + f.criteriasInputs[i].View() + "\n")
 	}
 
-	// Add processing spinner if active
+	// Processing indicator
 	if f.model != nil && f.model.IsProcessingActive() {
-		// Check if we need to display a timeout message
-		timeoutMsg := f.model.GetTimeoutMessage()
-		if timeoutMsg != "" {
+		if timeoutMsg := f.model.GetTimeoutMessage(); timeoutMsg != "" {
 			f.spinner.SetAdditionalMessage(timeoutMsg)
 		}
 		
-		// Make sure spinner is visible
 		f.spinner.SetVisible(true)
 		b.WriteString("\n" + f.spinner.View() + "\n")
 	}
 	
-	// Add API key message if needed
+	// API key message if needed
 	if f.model != nil && f.model.ShouldShowAPIKeyMessage() {
 		apiKeyMsg := f.model.GetAPIKeyMessage()
 		msgStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Italic(true)
 		b.WriteString("\n" + msgStyle.Render(apiKeyMsg) + "\n")
 	}
 	
-	// Add error message if there was an error during processing
+	// Error message if there was an error
 	if f.model != nil && f.model.GetProcessingState() == llm.ProcessingError {
 		errMsg := f.model.GetLastError()
 		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Italic(true)
 		b.WriteString("\n" + errStyle.Render("Error: "+errMsg) + "\n")
 	}
 
-	// Add help text
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	// Help text
+	helpStyle := lipgloss.NewStyle().Faint(true)
 	
-	// Show different help text based on processing state
 	if f.model != nil && f.model.IsProcessingActive() {
-		b.WriteString(helpStyle.Render("\nPress ESC to cancel processing"))
+		b.WriteString("\n" + helpStyle.Render("Press ESC to cancel processing"))
 	} else {
-		helpText := "\nTab/Shift+Tab: Navigate • Enter: Submit • Esc: Cancel"
+		helpText := "Tab/Shift+Tab: Navigate • Enter: Next • Esc: Cancel"
 		
 		// Add confirmation shortcut if there are auto-populated fields
 		if f.model != nil && f.model.HasAutoPopulatedFields() {
 			helpText += " • Ctrl+A: Confirm All Auto-populated Fields"
 		}
 		
-		b.WriteString(helpStyle.Render(helpText))
+		b.WriteString("\n" + helpStyle.Render(helpText))
 		
-		// Add LLM paste help text
+		// Add LLM paste help text if available
 		if f.processor != nil && f.processor.IsConfigured() {
 			pasteHelpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Italic(true)
-			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Paste unstructured text to auto-populate fields"))
+			// Mac systems use ⌘ (Command) instead of Ctrl
+			if runtime.GOOS == "darwin" {
+				b.WriteString("\n" + pasteHelpStyle.Render("Tip: Use ⌘+P to process text with LLM"))
+			} else {
+				b.WriteString("\n" + pasteHelpStyle.Render("Tip: Use Ctrl+P to process text with LLM"))
+			}
 		}
 	}
 
@@ -466,22 +698,20 @@ func getConfidenceIndicator(confidence float64) string {
 // GetUserStory returns a user story from the form input
 func (f *UserStoryForm) GetUserStory() models.UserStory {
 	// Get field values
-	title := strings.TrimSpace(f.inputs[FieldIndex[TitleField]].Value())
-	asA := strings.TrimSpace(f.inputs[FieldIndex[AsAField]].Value())
-	iWant := strings.TrimSpace(f.inputs[FieldIndex[IWantField]].Value())
-	soThat := strings.TrimSpace(f.inputs[FieldIndex[SoThatField]].Value())
+	title := strings.TrimSpace(f.inputs[0].Value())
+	asA := strings.TrimSpace(f.inputs[1].Value())
+	iWant := strings.TrimSpace(f.inputs[2].Value())
+	soThat := strings.TrimSpace(f.inputs[3].Value())
 	
 	// Build the description with the as-a, i-want, so-that format
 	description := fmt.Sprintf("As a %s,\nI want %s,\nso that %s.", asA, iWant, soThat)
 	
-	// Parse acceptance criteria with enhanced parsing
+	// Collect acceptance criteria from all criteria inputs
 	var criteria []string
-	if f.rawCriteriaInput != "" {
-		// For testing only, use the raw input to ensure proper format
-		criteria = f.parseAcceptanceCriteria(f.rawCriteriaInput)
-	} else {
-		// Normal processing
-		criteria = f.parseAcceptanceCriteria(f.inputs[FieldIndex[AcceptanceCriteriaField]].Value())
+	for _, input := range f.criteriasInputs {
+		if value := strings.TrimSpace(input.Value()); value != "" {
+			criteria = append(criteria, value)
+		}
 	}
 	
 	// Update the story and return it
@@ -492,8 +722,109 @@ func (f *UserStoryForm) GetUserStory() models.UserStory {
 	return f.story
 }
 
+// processClipboardContent processes clipboard content with the LLM
+func (f *UserStoryForm) processClipboardContent(content string) {
+	// Show spinner
+	f.spinner.SetVisible(true)
+	f.spinner.SetMessage("Processing pasted text...")
+	
+	// Create cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+	f.processingCtx = ctx
+	f.processingCancel = cancel
+	
+	// Process the content
+	f.model.ProcessClipboardContent(ctx, content)
+	
+	// Start polling for updates to update the UI with results
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-f.processingCtx.Done():
+				return
+			case <-ticker.C:
+				if f.model.GetProcessingState() != llm.ProcessingActive {
+					// Processing finished, update UI
+					f.updateUIFromModel()
+					return
+				}
+			}
+		}
+	}()
+}
+
+// updateUIFromModel updates the form fields from the model data
+func (f *UserStoryForm) updateUIFromModel() {
+	formData := f.model.GetFormData()
+	
+	// Update the title field
+	if f.model.IsFieldAutoPopulated(TitleField) {
+		f.inputs[0].SetValue(formData.Title)
+		f.fieldPrevValues[0] = formData.Title
+	}
+	
+	// Update the as-a field
+	if f.model.IsFieldAutoPopulated(AsAField) {
+		f.inputs[1].SetValue(formData.AsA)
+		f.fieldPrevValues[1] = formData.AsA
+	}
+	
+	// Update the i-want field
+	if f.model.IsFieldAutoPopulated(IWantField) {
+		f.inputs[2].SetValue(formData.IWant)
+		f.fieldPrevValues[2] = formData.IWant
+	}
+	
+	// Update the so-that field
+	if f.model.IsFieldAutoPopulated(SoThatField) {
+		f.inputs[3].SetValue(formData.SoThat)
+		f.fieldPrevValues[3] = formData.SoThat
+	}
+	
+	// Update the acceptance criteria fields
+	if f.model.IsFieldAutoPopulated(AcceptanceCriteriaField) {
+		// Clear all criteria fields first
+		for i := range f.criteriasInputs {
+			f.criteriasInputs[i].SetValue("")
+		}
+		
+		// Set the new criteria values
+		for i, criterion := range formData.AcceptanceCriteria {
+			if i < len(f.criteriasInputs) {
+				f.criteriasInputs[i].SetValue(criterion)
+				f.criteriaPrevValues[i] = criterion
+			}
+		}
+	}
+	
+	// Hide spinner
+	f.spinner.SetVisible(false)
+}
+
+// getFieldNameByIndex returns the field name for a given index
+func (f *UserStoryForm) getFieldNameByIndex(index int) string {
+	switch index {
+	case 0:
+		return TitleField
+	case 1:
+		return AsAField
+	case 2:
+		return IWantField
+	case 3:
+		return SoThatField
+	default:
+		return ""
+	}
+}
+
+// hideSpinnerMsg is a message to hide the spinner
+type hideSpinnerMsg struct{}
+
 // parseAcceptanceCriteria extracts acceptance criteria from the input string
-// handling various formats such as bullet points, numbered lists, or simple text
+// This method is kept for testing compatibility
 func (f *UserStoryForm) parseAcceptanceCriteria(input string) []string {
 	// Handle empty input
 	if strings.TrimSpace(input) == "" {
@@ -551,90 +882,4 @@ func (f *UserStoryForm) parseAcceptanceCriteria(input string) []string {
 	}
 	
 	return criteria
-}
-
-// processClipboardContent processes clipboard content with the LLM
-func (f *UserStoryForm) processClipboardContent(content string) {
-	// Show spinner
-	f.spinner.SetVisible(true)
-	f.spinner.SetMessage("Processing pasted text...")
-	
-	// Create cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-	f.processingCtx = ctx
-	f.processingCancel = cancel
-	
-	// Process the content
-	f.model.ProcessClipboardContent(ctx, content)
-	
-	// Start polling for updates to update the UI with results
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-		
-		for {
-			select {
-			case <-f.processingCtx.Done():
-				return
-			case <-ticker.C:
-				if f.model.GetProcessingState() != llm.ProcessingActive {
-					// Processing finished, update UI
-					f.updateUIFromModel()
-					return
-				}
-			}
-		}
-	}()
-}
-
-// updateUIFromModel updates the form fields from the model data
-func (f *UserStoryForm) updateUIFromModel() {
-	formData := f.model.GetFormData()
-	
-	// Update the title field
-	if f.model.IsFieldAutoPopulated(TitleField) {
-		f.inputs[FieldIndex[TitleField]].SetValue(formData.Title)
-		f.fieldPrevValues[FieldIndex[TitleField]] = formData.Title
-	}
-	
-	// Update the as-a field
-	if f.model.IsFieldAutoPopulated(AsAField) {
-		f.inputs[FieldIndex[AsAField]].SetValue(formData.AsA)
-		f.fieldPrevValues[FieldIndex[AsAField]] = formData.AsA
-	}
-	
-	// Update the i-want field
-	if f.model.IsFieldAutoPopulated(IWantField) {
-		f.inputs[FieldIndex[IWantField]].SetValue(formData.IWant)
-		f.fieldPrevValues[FieldIndex[IWantField]] = formData.IWant
-	}
-	
-	// Update the so-that field
-	if f.model.IsFieldAutoPopulated(SoThatField) {
-		f.inputs[FieldIndex[SoThatField]].SetValue(formData.SoThat)
-		f.fieldPrevValues[FieldIndex[SoThatField]] = formData.SoThat
-	}
-	
-	// Update the acceptance criteria field
-	if f.model.IsFieldAutoPopulated(AcceptanceCriteriaField) {
-		// Join criteria with spaces since textinput seems to replace newlines with spaces
-		f.inputs[FieldIndex[AcceptanceCriteriaField]].SetValue(strings.Join(formData.AcceptanceCriteria, " "))
-		f.fieldPrevValues[FieldIndex[AcceptanceCriteriaField]] = strings.Join(formData.AcceptanceCriteria, " ")
-	}
-	
-	// Hide spinner
-	f.spinner.SetVisible(false)
-}
-
-// getFieldNameByIndex returns the field name for a given index
-func (f *UserStoryForm) getFieldNameByIndex(index int) string {
-	for name, idx := range FieldIndex {
-		if idx == index {
-			return name
-		}
-	}
-	return ""
-}
-
-// hideSpinnerMsg is a message to hide the spinner
-type hideSpinnerMsg struct{} 
+} 

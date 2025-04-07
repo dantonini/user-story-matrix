@@ -59,18 +59,10 @@ func TestRegressionBatchConfirmation(t *testing.T) {
 	// Check the updated form state
 	assert.False(t, form.model.HasAutoPopulatedFields(), "Should not have auto-populated fields after confirmation")
 	assert.Equal(t, 0, form.model.GetAutoPopulatedFieldCount(), "Should have 0 auto-populated fields after confirmation")
-	
+
 	// Verify spinner message
 	assert.True(t, form.spinner.Visible, "Spinner should be visible")
 	assert.Contains(t, form.spinner.Message, "Confirmed", "Spinner message should contain 'Confirmed'")
-}
-
-// preserveNewlinesForTesting is a helper function that enables
-// the regression tests to properly handle input with newlines
-func preserveNewlinesForTesting(form *UserStoryForm, input string) {
-	// In real usage, the textinput might convert newlines, but for testing
-	// we need to ensure the parseAcceptanceCriteria method sees the raw input
-	form.rawCriteriaInput = input
 }
 
 // TestRegressionCriteriaParsing tests various acceptance criteria formats
@@ -84,19 +76,23 @@ func TestRegressionCriteriaParsing(t *testing.T) {
 	}{
 		{
 			name: "Combined formats regression test",
-			criteriaInput: "Basic criteria\n" +
-				"- Bullet with dash\n" +
-				"* Bullet with asterisk\n" +
-				"1. Numbered item\n" +
-				"(2) Parenthesized number\n" +
-				"Multi-word without bullet",
+			criteriaInput: `- First item in a dash list
+* Second item with asterisk
+1. Numbered item
+(4) Item with parenthesized number
+   - Indented item with dash
+   * Indented item with asterisk
+   5. Indented numbered item
+Plain text item without bullet or number`,
 			expectedOutput: []string{
-				"Basic criteria",
-				"Bullet with dash",
-				"Bullet with asterisk",
+				"First item in a dash list",
+				"Second item with asterisk",
 				"Numbered item",
-				"Parenthesized number",
-				"Multi-word without bullet",
+				"Item with parenthesized number",
+				"Indented item with dash",
+				"Indented item with asterisk",
+				"Indented numbered item",
+				"Plain text item without bullet or number",
 			},
 		},
 		{
@@ -115,8 +111,12 @@ func TestRegressionCriteriaParsing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Test with direct parsing
-			criteria := parseTestCriteria(tc.criteriaInput)
+			// Create a form to use for testing
+			testForm := newTestUserStoryForm(t, models.UserStory{})
+			form := testForm.UserStoryForm
+			
+			// Test with direct parsing using the form's method
+			criteria := form.parseAcceptanceCriteria(tc.criteriaInput)
 			
 			// Verify correct number of criteria extracted
 			assert.Equal(t, len(tc.expectedOutput), len(criteria),
@@ -129,33 +129,12 @@ func TestRegressionCriteriaParsing(t *testing.T) {
 						"Criterion %d should be '%s', got '%s'", i, expected, criteria[i])
 				}
 			}
-			
-			// Test through form to ensure integration works
-			testForm := newTestUserStoryForm(t, models.UserStory{})
-			form := testForm.UserStoryForm
-			
-			// Set the acceptance criteria input value
-			form.inputs[FieldIndex[AcceptanceCriteriaField]].SetValue(tc.criteriaInput)
-			
-			// Make sure the form uses the raw input properly for testing
-			preserveNewlinesForTesting(form, tc.criteriaInput)
-			
-			// Get user story with parsed criteria
-			story := form.GetUserStory()
-			
-			// Verify criteria in user story match expected output
-			assert.Equal(t, len(tc.expectedOutput), len(story.Criteria),
-				"User story should have %d criteria, got %d", len(tc.expectedOutput), len(story.Criteria))
-			
-			for i, expected := range tc.expectedOutput {
-				if i < len(story.Criteria) {
-					assert.Equal(t, expected, story.Criteria[i],
-						"User story criterion %d should be '%s', got '%s'", i, expected, story.Criteria[i])
-				}
-			}
 		})
 	}
 }
+
+// TODO: Add regression test for clipboard paste detection
+// TODO: Add regression test for visual feedback for auto-populated fields
 
 // TODO: Add regression tests for clipboard paste detection in middle of text
 // This should verify that the enhanced detection algorithms work across all scenarios

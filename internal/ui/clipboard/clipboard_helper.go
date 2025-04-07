@@ -24,8 +24,18 @@ type PasteMsg struct {
 // IsPasteEvent checks if a keyboard message is a paste event
 func IsPasteEvent(msg tea.KeyMsg) bool {
 	// Check for common paste key combinations
-	return (msg.Type == tea.KeyCtrlV) ||
+	isPaste := (msg.Type == tea.KeyCtrlV) ||
 		(msg.Type == tea.KeyRunes && len(msg.Runes) > 0 && msg.Runes[0] == 22) // ASCII 22 (SYN) - Ctrl+V on some terminals
+	
+	// Check if this is a Ctrl+P event to specifically trigger LLM processing
+	isLLMPaste := false
+	if msg.String() == "ctrl+p" {
+		isLLMPaste = true
+	}
+	// Many terminals don't distinguish between Cmd and Ctrl, especially in Bubbletea,
+	// so this should work on Mac as well (⌘+P)
+	
+	return isPaste || isLLMPaste
 }
 
 // IsLongEnoughForProcessing checks if the content is long enough to be processed as a user story

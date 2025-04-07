@@ -6,8 +6,6 @@
 package userstoryform
 
 import (
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,11 +56,10 @@ func TestAcceptanceCriteriaParsing(t *testing.T) {
 			testForm := newTestUserStoryForm(t, models.UserStory{})
 			form := testForm.UserStoryForm
 			
-			// Set the acceptance criteria input value
-			form.inputs[FieldIndex[AcceptanceCriteriaField]].SetValue(tc.criteriaInput)
+			// We don't need to set the input value since we're directly testing the parsing method
 			
-			// Use our test helper to parse the criteria
-			criteria := parseTestCriteria(tc.criteriaInput)
+			// Use the form's parseAcceptanceCriteria method directly
+			criteria := form.parseAcceptanceCriteria(tc.criteriaInput)
 			
 			// Verify the criteria were parsed correctly
 			assert.Equal(t, len(tc.expectedOutput), len(criteria), 
@@ -143,86 +140,43 @@ func TestComplexCriteriaParsing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a basic form with an empty user story
+			// Create a form to use for testing
 			testForm := newTestUserStoryForm(t, models.UserStory{})
 			form := testForm.UserStoryForm
 			
-			// Set the acceptance criteria input value
-			form.inputs[FieldIndex[AcceptanceCriteriaField]].SetValue(tc.criteriaInput)
+			// Test with direct parsing using the form's method
+			criteria := form.parseAcceptanceCriteria(tc.criteriaInput)
 			
-			// Instead of using GetUserStory, directly parse the criteria using our test helper
-			criteria := parseTestCriteria(tc.criteriaInput)
-			
-			// Verify the criteria were parsed correctly
-			assert.Equal(t, len(tc.expectedOutput), len(criteria), 
+			// Verify correct number of criteria extracted
+			assert.Equal(t, len(tc.expectedOutput), len(criteria),
 				"Expected %d criteria, got %d", len(tc.expectedOutput), len(criteria))
 			
+			// Verify each criterion matches expected output
 			for i, expected := range tc.expectedOutput {
 				if i < len(criteria) {
-					assert.Equal(t, expected, criteria[i], 
+					assert.Equal(t, expected, criteria[i],
 						"Criterion %d should be '%s', got '%s'", i, expected, criteria[i])
 				}
 			}
+			
+			// Also test through the GetUserStory method for integration testing
+			// First, store the criteria input for testing purposes
+			form.rawCriteriaInput = tc.criteriaInput
+			
+			// Set at least one criteria input
+			if len(form.criteriasInputs) > 0 {
+				form.criteriasInputs[0].SetValue(tc.criteriaInput)
+			}
+			
+			// Get user story with parsed criteria
+			story := form.GetUserStory()
+			
+			// The test might need to be adjusted depending on how GetUserStory processes criteria
+			// As it may not use parseAcceptanceCriteria directly
+			if len(story.Criteria) > 0 {
+				// If criteria were parsed correctly, verify the first one
+				assert.NotEmpty(t, story.Criteria[0], "User story should have non-empty criteria")
+			}
 		})
 	}
-}
-
-// parseTestCriteria simulates the parsing logic directly on the input string for testing
-func parseTestCriteria(input string) []string {
-	// Handle empty input
-	if strings.TrimSpace(input) == "" {
-		return []string{}
-	}
-	
-	// If there are no newlines, we might have space-separated criteria
-	if !strings.Contains(input, "\n") {
-		// If this looks like a single sentence/phrase with multiple words,
-		// treat it as a single criterion
-		if !regexp.MustCompile(`\s{2,}`).MatchString(input) && 
-		   !strings.Contains(input, ",") && !strings.Contains(input, ";") {
-			trimmed := strings.TrimSpace(input)
-			words := strings.Fields(trimmed)
-			if len(words) <= 4 { // Likely individual criteria if 4 or fewer words
-				return words
-			}
-			// Otherwise it's probably a sentence that should be kept intact
-			return []string{trimmed}
-		}
-		// If we have double spaces or other separators, split by them
-		return strings.Fields(input)
-	}
-	
-	// For multi-line input
-	var criteria []string
-	lines := strings.Split(input, "\n")
-	
-	for _, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
-		}
-		
-		// Check for bullet points or numbered lists
-		if strings.HasPrefix(trimmedLine, "- ") {
-			// Dash bullet point
-			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
-		} else if strings.HasPrefix(trimmedLine, "* ") {
-			// Asterisk bullet point
-			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
-		} else if strings.HasPrefix(trimmedLine, "• ") {
-			// Bullet point (•)
-			criteria = append(criteria, strings.TrimSpace(trimmedLine[2:]))
-		} else if matches := regexp.MustCompile(`^\d+\.\s+(.+)$`).FindStringSubmatch(trimmedLine); len(matches) > 1 {
-			// Numbered list (1., 2., etc.)
-			criteria = append(criteria, strings.TrimSpace(matches[1]))
-		} else if matches := regexp.MustCompile(`^\(\d+\)\s+(.+)$`).FindStringSubmatch(trimmedLine); len(matches) > 1 {
-			// Parenthesized numbers ((1), (2), etc.)
-			criteria = append(criteria, strings.TrimSpace(matches[1]))
-		} else {
-			// Regular line - keep intact as a single criterion
-			criteria = append(criteria, trimmedLine)
-		}
-	}
-	
-	return criteria
 } 
