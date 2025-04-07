@@ -31,6 +31,32 @@ Build the CLI tool using the following frameworks:
 - Inject IO Providers: move IO out of the function by injecting an IO provider. Do this by accepting an interface argument in the function, which is often referred to as "dependency injection."
 - Making Our Own IO Providers: Sometimes we don't have nice IO providers premade for us, but the concept stays the same — you just need to create the provider and a version of it suitable for testing, then use it in the consumer.
 
+# Naming convention
+
+## Implementation files naming
+- Use snake_case
+- Be descriptive and specific
+- Include domain concept + component type
+Example: user_story_form.go
+
+## Interface files naming
+- Use the primary interface or concept name
+- Prefer domain-specific names over generic ones
+Example: user_story_submitter.go instead of form.go
+
+## Test files naming
+- Match the implementation file name with _test suffix
+- For different test types, add a descriptor before _test
+
+Examples: 
+- user_story_form_test.go
+- user_story_form_integration_test.go
+
+## Interface naming
+A good interface naming convention should:
+- Use a verb or action to describe what the interface does
+- Be clear and consistent across the codebase
+- Follow Go's interface naming practices
 
 # TUI 
 USM is a cli tool with a small interactive UI (a similar tool is github cli) to guide the user through the user story creation and management efficiently:

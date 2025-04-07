@@ -1,0 +1,52 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Interface Design Guidelines for TUI Form Components
+How to define and use interfaces, so we can reduce fragility, improve clarity, and avoid testing the obvious.
+
+## Avoid: Implicit Interfaces with Type Assertions
+This creates tight coupling and hidden dependencies:
+- It’s less maintainable: changes in one place can silently break another.
+- It hides the contract: it's hard to tell what a component is expected to do.
+
+You’re forced to write tests just to check obvious things.
+
+Do This Instead
+1. Define interfaces where they’re consumed, not where they’re implemented
+Interfaces are contracts, not blueprints.
+
+The consumer defines the contract it expects — not the implementer.
+
+Place these interfaces in a shared package: ui/contracts to make dependencies explicit and decoupled.
+
+This makes your components interchangeable and easier to test.
+
+2. Use explicit interface declarations
+    
+    var _ FormComponent = (*MyForm)(nil)
+
+Use this at the implementation site, so it’s crystal clear what interfaces are being satisfied.
+
+This catches problems at compile time, not runtime.
+
+3. Test interface compliance at both ends
+✅ The form component should assert it implements the required interface.
+
+✅ The command handler should work only through that interface, and be tested with a mock or minimal stub.
+
+That way, we can test behavior, not plumbing — no need to test the obvious.
+
+# Why this matters
+Your goal is to write code that:
+- Doesn’t break when you refactor.
+- Makes expectations obvious.
+- Doesn’t need boilerplate tests to prove basic things like “yes, this type has a method.”
+
+# TL;DR
+- Stop relying on type assertions.
+- Define interfaces in shared packages, at the point of use.
+- Explicitly declare compliance (var _ Interface = (*Type)(nil)).
+- Keep form logic and command handling decoupled.
+- Aim to test behavior, not structure.
