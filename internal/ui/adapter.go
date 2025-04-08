@@ -73,12 +73,7 @@ var fileSystemFactory = func() io.FileSystem {
 }
 
 // CreateUserStoryFormWithLLM creates a new user story form with LLM processing support
-func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
-	if !enableLLM {
-		// If LLM processing is disabled, use the original form
-		return io.NewUserStoryForm(us)
-	}
-	
+func CreateUserStoryFormWithLLM(us models.UserStory) tea.Model {
 	// Create the filesystem for configuration
 	fs := fileSystemFactory()
 	
@@ -89,8 +84,8 @@ func CreateUserStoryFormWithLLM(us models.UserStory, enableLLM bool) tea.Model {
 	err := configManager.LoadConfig()
 	if err != nil || !configManager.IsOpenAIKeyConfigured() {
 		// If there's an error loading the config or no API key is configured,
-		// fall back to the original form
-		return io.NewUserStoryForm(us)
+		// fall back to the form without LLM capabilities
+		return userstoryform.New(us, nil, configManager)
 	}
 	
 	// Create the LLM processor

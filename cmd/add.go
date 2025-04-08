@@ -23,9 +23,6 @@ import (
 var (
 	// Directory to save the user story
 	intoDir string
-	
-	// Enable LLM processing for user stories (true by default)
-	enableLLM bool
 )
 
 // addCmd represents the add command
@@ -47,7 +44,6 @@ or in the default directory (docs/user-stories) if not specified.
 Example:
   usm add user-story
   usm add user-story --into docs/user-stories/my-feature
-  usm add user-story --no-llm  (disable LLM processing)
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create filesystem and IO interfaces
@@ -84,8 +80,8 @@ Example:
 			LastUpdated: time.Now(),
 		}
 		
-		// Create the form, using the LLM-enabled version if available and run it
-		formModel := ui.CreateUserStoryFormWithLLM(us, enableLLM)
+		// Create the form
+		formModel := ui.CreateUserStoryFormWithLLM(us)
 		
 		// Run the form
 		p := tea.NewProgram(formModel)
@@ -153,17 +149,7 @@ func processFormResult(result interface{}, terminal io.UserOutput) (models.UserS
 		return userStory, true
 	}
 	
-	// Legacy form
-	if ptrForm, ok := result.(*io.UserStoryForm); ok {
-		if !ptrForm.ConfirmSubmission {
-			terminal.Print("User story empty, creation cancelled")
-			return models.UserStory{}, false
-		}
-		return ptrForm.GetUserStory(), true
-	}
-	
 	// Fallback to type assertions for backward compatibility
-	// This branch should be removed once all forms implement the contracts.FormResult interface
 	var userStory models.UserStory
 	var confirmSubmission bool
 	
@@ -197,8 +183,4 @@ func init() {
 	
 	// Add flags
 	addUserStoryCmd.Flags().StringVar(&intoDir, "into", "", "Directory to save the user story (default is docs/user-stories)")
-	addUserStoryCmd.Flags().BoolVar(&enableLLM, "no-llm", false, "Disable LLM processing of pasted text")
-	
-	// Invert the flag meaning (--no-llm sets enableLLM to false)
-	enableLLM = !enableLLM
 } 

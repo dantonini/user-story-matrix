@@ -55,25 +55,7 @@ func (m *MockLLMProcessor) GetProcessingState() llm.ProcessingState {
 	return args.Get(0).(llm.ProcessingState)
 }
 
-// TestCreateUserStoryFormWithLLMDisabled tests that the original form is returned when LLM is disabled
-func TestCreateUserStoryFormWithLLMDisabled(t *testing.T) {
-	// Arrange
-	us := models.UserStory{
-		Title: "Test User Story",
-	}
-	
-	// Act
-	form := CreateUserStoryFormWithLLM(us, false) // enableLLM = false
-	
-	// Assert
-	assert.NotNil(t, form)
-	
-	// Verify it's the original form type by checking the type
-	_, isOriginalForm := form.(*io.UserStoryForm)
-	assert.True(t, isOriginalForm, "Expected original UserStoryForm when LLM is disabled")
-}
-
-// TestCreateUserStoryFormWithConfigError tests that the original form is returned when config loading fails
+// TestCreateUserStoryFormWithConfigError tests that the form is returned when config loading fails
 func TestCreateUserStoryFormWithConfigError(t *testing.T) {
 	// Arrange
 	us := models.UserStory{
@@ -96,17 +78,14 @@ func TestCreateUserStoryFormWithConfigError(t *testing.T) {
 	}()
 	
 	// Act
-	form := CreateUserStoryFormWithLLM(us, true) // enableLLM = true, but config loading will fail
+	form := CreateUserStoryFormWithLLM(us)
 	
 	// Assert
 	assert.NotNil(t, form)
 	
-	// Print debugging info
-	fmt.Printf("Form type: %T\n", form)
-	
-	// Verify it's the original form type by checking the type
-	_, isOriginalForm := form.(*io.UserStoryForm)
-	assert.True(t, isOriginalForm, "Expected original UserStoryForm when config loading fails")
+	// Verify it's an instance of UserStoryForm
+	_, isEnhancedForm := form.(*userstoryform.UserStoryForm)
+	assert.True(t, isEnhancedForm, "Expected UserStoryForm when config loading fails")
 }
 
 // createTestConfigFileWithContent creates a config file with the specified content in the mock filesystem
@@ -114,7 +93,7 @@ func createTestConfigFileWithContent(mockFS *io.MockFileSystem, content string) 
 	mockFS.AddFile(".usm/config/llm_config.json", []byte(content))
 }
 
-// TestCreateUserStoryFormWithValidConfig tests that the enhanced form is returned when everything works correctly
+// TestCreateUserStoryFormWithValidConfig tests that the form with LLM processor is returned when everything works correctly
 func TestCreateUserStoryFormWithValidConfig(t *testing.T) {
 	// Arrange
 	us := models.UserStory{
@@ -136,17 +115,17 @@ func TestCreateUserStoryFormWithValidConfig(t *testing.T) {
 	}()
 	
 	// Act
-	form := CreateUserStoryFormWithLLM(us, true)
+	form := CreateUserStoryFormWithLLM(us)
 	
 	// Assert
 	assert.NotNil(t, form)
 	
-	// Verify it's the enhanced form type by checking the type
+	// Verify it's the form type by checking the type
 	_, isEnhancedForm := form.(*userstoryform.UserStoryForm)
-	assert.True(t, isEnhancedForm, "Expected enhanced UserStoryForm when config is valid")
+	assert.True(t, isEnhancedForm, "Expected UserStoryForm when config is valid")
 }
 
-// TestCreateUserStoryFormWithEmptyAPIKey tests that the original form is returned when the API key is empty
+// TestCreateUserStoryFormWithEmptyAPIKey tests that the form without LLM processor is returned when the API key is empty
 func TestCreateUserStoryFormWithEmptyAPIKey(t *testing.T) {
 	// Arrange
 	us := models.UserStory{
@@ -168,14 +147,14 @@ func TestCreateUserStoryFormWithEmptyAPIKey(t *testing.T) {
 	}()
 	
 	// Act
-	form := CreateUserStoryFormWithLLM(us, true)
+	form := CreateUserStoryFormWithLLM(us)
 	
 	// Assert
 	assert.NotNil(t, form)
 	
-	// With our updated logic, an empty API key should result in the original form
-	_, isOriginalForm := form.(*io.UserStoryForm)
-	assert.True(t, isOriginalForm, "Expected original UserStoryForm when API key is empty")
+	// Verify it's the UserStoryForm type
+	_, isEnhancedForm := form.(*userstoryform.UserStoryForm)
+	assert.True(t, isEnhancedForm, "Expected UserStoryForm when API key is empty")
 }
 
 // TestNewSelectionAdapter tests the creation of a new selection adapter
