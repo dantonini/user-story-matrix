@@ -288,11 +288,8 @@ func (f *UserStoryForm) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 	case "esc":
 		return f.handleEscapeKey()
 			
-	case "tab", "shift+tab":
+	case "tab", "shift+tab", "up", "down":
 		return f.handleTabNavigation(msg)
-			
-	case "up", "down":
-		return f.handleUpDownNavigation(msg)
 		
 	case "enter":
 		return f.handleEnterKey()
@@ -342,81 +339,47 @@ func (f *UserStoryForm) handleEscapeKey() tea.Cmd {
 
 // handleTabNavigation handles Tab and Shift+Tab navigation
 func (f *UserStoryForm) handleTabNavigation(msg tea.KeyMsg) tea.Cmd {
-	if f.inCriteriaSection {
-		return f.handleTabInCriteriaSection(msg)
-	}
-	return f.handleTabInMainFields(msg)
-}
-
-// handleTabInCriteriaSection handles Tab/Shift+Tab when in criteria section
-func (f *UserStoryForm) handleTabInCriteriaSection(msg tea.KeyMsg) tea.Cmd {
-	if msg.String() == "tab" {
-		f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
-		// If we wrapped around back to 0, move to next main section
-		if f.focusedCriteria == 0 {
-			f.inCriteriaSection = false
-			f.focused = 0 // Move back to the first field
-			f.updateAllFocus()
-		} else {
-			f.updateCriteriaFocus()
+	// Get the key string
+	keyStr := msg.String()
+	
+	// Handle forward/backward navigation based on key
+	if keyStr == "tab" || keyStr == "down" {
+		// Forward navigation
+		if f.inCriteriaSection {
+			return f.handleForwardCriteriaNavigation()
 		}
-	} else { // shift+tab
-		f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
-		// If we wrapped around to the last criteria field, go back to main fields
-		if f.focusedCriteria == len(f.criteriasInputs) - 1 && !f.inCriteriaSection {
-			f.inCriteriaSection = true
-			f.focused = len(f.inputs) - 1 // Last normal field
-			f.updateAllFocus()
-		} else {
-			f.updateCriteriaFocus()
+		return f.handleForwardMainNavigation()
+	} else if keyStr == "shift+tab" || keyStr == "up" {
+		// Backward navigation
+		if f.inCriteriaSection {
+			return f.handleBackwardCriteriaNavigation()
 		}
+		return f.handleBackwardMainNavigation()
 	}
+	
 	return nil
 }
 
-// handleTabInMainFields handles Tab/Shift+Tab when in main fields section
-func (f *UserStoryForm) handleTabInMainFields(msg tea.KeyMsg) tea.Cmd {
-	if msg.String() == "tab" {
-		f.focused = (f.focused + 1) % len(f.inputs)
-		// If we're at the last field, move to criteria section
-		if f.focused == 0 {
-			// We wrapped around, so go to criteria section
-			f.inCriteriaSection = true
-			f.focusedCriteria = 0
-			
-			// Update focus
-			for i := range f.inputs {
-				f.inputs[i].Blur()
-			}
-			
-			f.criteriasInputs[0].Focus()
-			for i := 1; i < len(f.criteriasInputs); i++ {
-				f.criteriasInputs[i].Blur()
-			}
-			
-			return nil
+// handleForwardMainNavigation handles Tab/Down key when in main fields section
+func (f *UserStoryForm) handleForwardMainNavigation() tea.Cmd {
+	f.focused = (f.focused + 1) % len(f.inputs)
+	
+	// If we wrapped around back to first field, move to criteria section
+	if f.focused == 0 {
+		f.inCriteriaSection = true
+		f.focusedCriteria = 0
+		
+		// Update focus
+		for i := range f.inputs {
+			f.inputs[i].Blur()
 		}
-	} else { // shift+tab
-		f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
-		// If we're at the last field coming backwards, go to criteria
-		if f.focused == len(f.inputs) - 1 && msg.String() == "shift+tab" {
-			f.inCriteriaSection = true
-			f.focusedCriteria = len(f.criteriasInputs) - 1 // Focus last criteria
-			
-			// Update focus
-			for i := range f.inputs {
-				f.inputs[i].Blur()
-			}
-			
-			f.criteriasInputs[f.focusedCriteria].Focus()
-			for i := 0; i < len(f.criteriasInputs); i++ {
-				if i != f.focusedCriteria {
-					f.criteriasInputs[i].Blur()
-				}
-			}
-			
-			return nil
+		
+		f.criteriasInputs[0].Focus()
+		for i := 1; i < len(f.criteriasInputs); i++ {
+			f.criteriasInputs[i].Blur()
 		}
+		
+		return nil
 	}
 	
 	// Update field focus for main fields
@@ -425,31 +388,66 @@ func (f *UserStoryForm) handleTabInMainFields(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// handleUpDownNavigation handles Up and Down arrow key navigation
-func (f *UserStoryForm) handleUpDownNavigation(msg tea.KeyMsg) tea.Cmd {
-	if f.inCriteriaSection {
-		// When in criteria section, up/down navigates between criteria fields
-		if msg.String() == "up" {
-			f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
-		} else {
-			f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
-		}
+// handleBackwardMainNavigation handles Shift+Tab/Up key when in main fields section
+func (f *UserStoryForm) handleBackwardMainNavigation() tea.Cmd {
+	// If we're already at the first field, go to criteria section
+	if f.focused == 0 {
+		f.inCriteriaSection = true
+		f.focusedCriteria = len(f.criteriasInputs) - 1
 		
 		// Update focus
-		f.updateCriteriaFocus()
+		for i := range f.inputs {
+			f.inputs[i].Blur()
+		}
+		
+		f.criteriasInputs[f.focusedCriteria].Focus()
+		for i := 0; i < len(f.criteriasInputs); i++ {
+			if i != f.focusedCriteria {
+				f.criteriasInputs[i].Blur()
+			}
+		}
 		
 		return nil
 	}
 	
-	// Otherwise navigate between main fields
-	if msg.String() == "up" {
-		f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+	// Otherwise, move to previous field
+	f.focused = (f.focused - 1 + len(f.inputs)) % len(f.inputs)
+	
+	// Update field focus for main fields
+	f.updateMainFieldsFocus()
+	
+	return nil
+}
+
+// handleForwardCriteriaNavigation handles Tab/Down key when in criteria section
+func (f *UserStoryForm) handleForwardCriteriaNavigation() tea.Cmd {
+	f.focusedCriteria = (f.focusedCriteria + 1) % len(f.criteriasInputs)
+	
+	// If we wrapped around back to the first criteria, go to main section
+	if f.focusedCriteria == 0 {
+		f.inCriteriaSection = false
+		f.focused = 0 // Go to first main field
+		f.updateAllFocus()
 	} else {
-		f.focused = (f.focused + 1) % len(f.inputs)
+		f.updateCriteriaFocus()
 	}
 	
-	// Update field focus
-	f.updateMainFieldsFocus()
+	return nil
+}
+
+// handleBackwardCriteriaNavigation handles Shift+Tab/Up key when in criteria section
+func (f *UserStoryForm) handleBackwardCriteriaNavigation() tea.Cmd {
+	// If already at the first criteria, move to main fields
+	if f.focusedCriteria == 0 {
+		f.inCriteriaSection = false
+		f.focused = len(f.inputs) - 1 // Go to last main field
+		f.updateAllFocus()
+		return nil
+	}
+	
+	// Otherwise, move to previous criteria
+	f.focusedCriteria = (f.focusedCriteria - 1 + len(f.criteriasInputs)) % len(f.criteriasInputs)
+	f.updateCriteriaFocus()
 	
 	return nil
 }

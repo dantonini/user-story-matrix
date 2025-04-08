@@ -662,4 +662,179 @@ func TestUpdateUIFromModel(t *testing.T) {
 	
 	// Check that spinner is hidden after UI update
 	assert.False(t, form.spinner.Visible)
+}
+
+// TestCompleteNavigation tests the complete navigation flow through all fields
+// using both up/down and tab/shift+tab keys
+func TestCompleteNavigation(t *testing.T) {
+	// Create a sample user story
+	us := models.UserStory{
+		Title:    "Test Story",
+		Criteria: []string{"Criteria 1", "Criteria 2", "Criteria 3", "Criteria 4", "Criteria 5"},
+	}
+	
+	// Create the test form
+	testForm := newTestUserStoryForm(t, us)
+	form := testForm.UserStoryForm
+	
+	// FORWARD NAVIGATION TESTS (down/tab)
+	
+	// Test 1: Navigate forward through all main fields using down key
+	t.Run("Forward navigation with down key - main fields", func(t *testing.T) {
+		// Start with focus on title (index 0)
+		form.focused = 0
+		form.inCriteriaSection = false
+		form.updateAllFocus()
+		
+		// title -> as_a
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyDown})
+		updatedForm := model.(*UserStoryForm)
+		assert.Equal(t, 1, updatedForm.focused, "Should move from title to as_a")
+		assert.False(t, updatedForm.inCriteriaSection)
+		
+		// as_a -> i_want
+		model, _ = updatedForm.Update(tea.KeyMsg{Type: tea.KeyDown})
+		updatedForm = model.(*UserStoryForm)
+		assert.Equal(t, 2, updatedForm.focused, "Should move from as_a to i_want")
+		assert.False(t, updatedForm.inCriteriaSection)
+		
+		// i_want -> so_that
+		model, _ = updatedForm.Update(tea.KeyMsg{Type: tea.KeyDown})
+		updatedForm = model.(*UserStoryForm)
+		assert.Equal(t, 3, updatedForm.focused, "Should move from i_want to so_that")
+		assert.False(t, updatedForm.inCriteriaSection)
+	})
+	
+	// Test 2: Navigate from last main field to criteria using down key
+	t.Run("Forward navigation with down key - main to criteria", func(t *testing.T) {
+		// Start with focus on so_that (last main field)
+		form.focused = 3
+		form.inCriteriaSection = false
+		form.updateAllFocus()
+		
+		// so_that -> 1st criteria
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyDown})
+		updatedForm := model.(*UserStoryForm)
+		assert.True(t, updatedForm.inCriteriaSection, "Should move to criteria section")
+		assert.Equal(t, 0, updatedForm.focusedCriteria, "Should focus first criteria field")
+	})
+	
+	// Test 3: Navigate through all criteria fields using down key
+	t.Run("Forward navigation with down key - criteria fields", func(t *testing.T) {
+		// Start with focus on 1st criteria
+		form.inCriteriaSection = true
+		form.focusedCriteria = 0
+		form.updateAllFocus()
+		
+		// Navigate through all criteria fields
+		for i := 0; i < len(form.criteriasInputs)-1; i++ {
+			model, _ := form.Update(tea.KeyMsg{Type: tea.KeyDown})
+			updatedForm := model.(*UserStoryForm)
+			assert.True(t, updatedForm.inCriteriaSection, "Should stay in criteria section")
+			assert.Equal(t, i+1, updatedForm.focusedCriteria, "Should move to next criteria field")
+			form = updatedForm
+		}
+	})
+	
+	// Test 4: Navigate from last criteria back to title using down key
+	t.Run("Forward navigation with down key - criteria to title", func(t *testing.T) {
+		// Start with focus on last criteria
+		form.inCriteriaSection = true
+		form.focusedCriteria = len(form.criteriasInputs) - 1
+		form.updateAllFocus()
+		
+		// last criteria -> title
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyDown})
+		updatedForm := model.(*UserStoryForm)
+		assert.False(t, updatedForm.inCriteriaSection, "Should exit criteria section")
+		assert.Equal(t, 0, updatedForm.focused, "Should wrap back to title field")
+	})
+	
+	// BACKWARD NAVIGATION TESTS (up/shift+tab)
+	
+	// Test 5: Navigate backward from title to last criteria using up key
+	t.Run("Backward navigation with up key - title to criteria", func(t *testing.T) {
+		// Start with focus on title
+		form.focused = 0
+		form.inCriteriaSection = false
+		form.updateAllFocus()
+		
+		// title -> last criteria
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyUp})
+		updatedForm := model.(*UserStoryForm)
+		assert.True(t, updatedForm.inCriteriaSection, "Should enter criteria section")
+		assert.Equal(t, len(updatedForm.criteriasInputs)-1, updatedForm.focusedCriteria, "Should focus last criteria field")
+	})
+	
+	// Test 6: Navigate backward through criteria fields using up key
+	t.Run("Backward navigation with up key - criteria fields", func(t *testing.T) {
+		// Start with focus on last criteria
+		form.inCriteriaSection = true
+		form.focusedCriteria = len(form.criteriasInputs) - 1
+		form.updateAllFocus()
+		
+		// Navigate backward through all criteria fields
+		for i := len(form.criteriasInputs) - 1; i > 0; i-- {
+			model, _ := form.Update(tea.KeyMsg{Type: tea.KeyUp})
+			updatedForm := model.(*UserStoryForm)
+			assert.True(t, updatedForm.inCriteriaSection, "Should stay in criteria section")
+			assert.Equal(t, i-1, updatedForm.focusedCriteria, "Should move to previous criteria field")
+			form = updatedForm
+		}
+	})
+	
+	// Test 7: Navigate from first criteria to so_that using up key
+	t.Run("Backward navigation with up key - criteria to main", func(t *testing.T) {
+		// Start with focus on first criteria
+		form.inCriteriaSection = true
+		form.focusedCriteria = 0
+		form.updateAllFocus()
+		
+		// 1st criteria -> so_that
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyUp})
+		updatedForm := model.(*UserStoryForm)
+		assert.False(t, updatedForm.inCriteriaSection, "Should exit criteria section")
+		assert.Equal(t, len(updatedForm.inputs)-1, updatedForm.focused, "Should focus last main field (so_that)")
+	})
+	
+	// Test 8: Navigate backward through main fields using up key
+	t.Run("Backward navigation with up key - main fields", func(t *testing.T) {
+		// Start with focus on so_that (last main field)
+		form.focused = len(form.inputs) - 1
+		form.inCriteriaSection = false
+		form.updateAllFocus()
+		
+		// so_that -> i_want
+		model, _ := form.Update(tea.KeyMsg{Type: tea.KeyUp})
+		updatedForm := model.(*UserStoryForm)
+		assert.Equal(t, 2, updatedForm.focused, "Should move from so_that to i_want")
+		assert.False(t, updatedForm.inCriteriaSection)
+		
+		// i_want -> as_a
+		model, _ = updatedForm.Update(tea.KeyMsg{Type: tea.KeyUp})
+		updatedForm = model.(*UserStoryForm)
+		assert.Equal(t, 1, updatedForm.focused, "Should move from i_want to as_a")
+		assert.False(t, updatedForm.inCriteriaSection)
+		
+		// as_a -> title
+		model, _ = updatedForm.Update(tea.KeyMsg{Type: tea.KeyUp})
+		updatedForm = model.(*UserStoryForm)
+		assert.Equal(t, 0, updatedForm.focused, "Should move from as_a to title")
+		assert.False(t, updatedForm.inCriteriaSection)
+	})
+}
+
+// TestKeyStringRepresentation tests how key message strings are represented
+func TestKeyStringRepresentation(t *testing.T) {
+	// Create key messages
+	upKey := tea.KeyMsg{Type: tea.KeyUp}
+	downKey := tea.KeyMsg{Type: tea.KeyDown}
+	tabKey := tea.KeyMsg{Type: tea.KeyTab}
+	shiftTabKey := tea.KeyMsg{Type: tea.KeyShiftTab}
+	
+	// Print the string representations
+	t.Logf("Up key string: %q", upKey.String())
+	t.Logf("Down key string: %q", downKey.String())
+	t.Logf("Tab key string: %q", tabKey.String())
+	t.Logf("Shift+Tab key string: %q", shiftTabKey.String())
 } 
