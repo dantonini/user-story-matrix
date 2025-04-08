@@ -153,7 +153,11 @@ func New(us models.UserStory, processor llm.LLMProcessor, configManager *llm.Con
 
 // Init initializes the form
 func (f *UserStoryForm) Init() tea.Cmd {
-	return textinput.Blink
+	// Return both text input blink and spinner tick commands
+	return tea.Batch(
+		textinput.Blink,
+		f.spinner.Init(), // Initialize spinner animation
+	)
 }
 
 // Update handles messages and updates the form
@@ -200,7 +204,8 @@ func (f *UserStoryForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleHideSpinner handles the hideSpinnerMsg
 func (f *UserStoryForm) handleHideSpinner() (tea.Model, tea.Cmd) {
-	f.spinner.SetVisible(false)
+	// Set visibility directly rather than using SetVisible
+	f.spinner.Visible = false
 	return f, nil
 }
 
@@ -217,6 +222,8 @@ func (f *UserStoryForm) handlePasteEvent(msg tea.KeyMsg) tea.Cmd {
 	
 	// Process the pasted content if it's long enough
 	if pastedText != "" && clipboard.IsLongEnoughForProcessing(pastedText) {
+		// Use a more animated spinner for clipboard processing
+		f.spinner.SetStyle(spinner.StyleBars)  // Changed from Points to Bars for smoother animation
 		f.spinner.SetMessage("Processing pasted content...")
 		f.spinner.SetVisible(true)
 		f.processClipboardContent(pastedText)
@@ -260,27 +267,6 @@ func getClipboardContent() string {
 
 // handleKeyPress processes individual key presses
 func (f *UserStoryForm) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
-	// Handle F2 key for processing clipboard content
-	if msg.String() == "f2" || msg.Type == tea.KeyF2 {
-		// Process current field content on F2 press
-		if !f.inCriteriaSection && f.focused >= 0 && f.focused < len(f.inputs) {
-			content := f.inputs[f.focused].Value()
-			if content != "" {
-				f.spinner.SetMessage("Processing field content...")
-				f.spinner.SetVisible(true)
-				f.processClipboardContent(content)
-			}
-		} else if f.inCriteriaSection && f.focusedCriteria >= 0 && f.focusedCriteria < len(f.criteriasInputs) {
-			content := f.criteriasInputs[f.focusedCriteria].Value()
-			if content != "" {
-				f.spinner.SetMessage("Processing criteria content...")
-				f.spinner.SetVisible(true)
-				f.processClipboardContent(content)
-			}
-		}
-		return nil
-	}
-	
 	switch msg.String() {
 	case "ctrl+a":
 		return f.handleConfirmAllFields()
@@ -311,7 +297,8 @@ func (f *UserStoryForm) handleConfirmAllFields() tea.Cmd {
 	confirmMsg := fmt.Sprintf("Confirmed %d auto-populated fields", f.model.GetAutoPopulatedFieldCount())
 	confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Italic(true)
 	
-	// Set a message in the spinner and show it briefly
+	// Set a message in the spinner and show it briefly with a growing bar spinner
+	f.spinner.SetStyle(spinner.StyleGrowingBar)  // Changed from Pulse to GrowingBar
 	f.spinner.SetMessage(confirmStyle.Render(confirmMsg))
 	f.spinner.SetVisible(true)
 	
@@ -329,7 +316,8 @@ func (f *UserStoryForm) handleEscapeKey() tea.Cmd {
 		if f.processingCancel != nil {
 			f.processingCancel()
 		}
-		f.spinner.SetVisible(false)
+		// Set visibility directly rather than using SetVisible
+		f.spinner.Visible = false
 		return nil
 	}
 	
@@ -507,6 +495,8 @@ func (f *UserStoryForm) checkProcessingTimeout() {
 	if time.Since(f.lastTimeoutCheck) > 500*time.Millisecond {
 		timeoutMsg := f.model.GetTimeoutMessage()
 		if timeoutMsg != "" {
+			// When we're experiencing a delay, change the spinner style to show progress
+			f.spinner.SetStyle(spinner.StyleGrowingBar)  // Changed from Meter to GrowingBar
 			f.spinner.SetAdditionalMessage(timeoutMsg)
 		}
 		f.lastTimeoutCheck = time.Now()
@@ -729,7 +719,8 @@ func (f *UserStoryForm) View() string {
 			f.spinner.SetAdditionalMessage(timeoutMsg)
 		}
 		
-		f.spinner.SetVisible(true)
+		// Just set visibility flag - animation command comes from the Update method
+		f.spinner.Visible = true
 		b.WriteString("\n" + f.spinner.View() + "\n")
 	}
 	
@@ -743,8 +734,15 @@ func (f *UserStoryForm) View() string {
 	// Error message if there was an error
 	if f.model != nil && f.model.GetProcessingState() == llm.ProcessingError {
 		errMsg := f.model.GetLastError()
-		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Italic(true)
-		b.WriteString("\n" + errStyle.Render("Error: "+errMsg) + "\n")
+		
+		// Show error with a special spinner style
+		f.spinner.SetStyle(spinner.StyleBars)  // Changed from Pulse to Bars
+		f.spinner.SetForegroundColor(lipgloss.Color("196")) // Red color for error
+		f.spinner.SetMessage("Error occurred")
+		f.spinner.SetAdditionalMessage(errMsg)
+		f.spinner.SetVisible(true)
+		
+		b.WriteString("\n" + f.spinner.View() + "\n")
 	}
 
 	// Help text
@@ -766,7 +764,7 @@ func (f *UserStoryForm) View() string {
 		if f.processor != nil && f.processor.IsConfigured() {
 			pasteHelpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Italic(true)
 			// F2 key works the same on all platforms
-			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Press F2 to process text with LLM"))
+			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Press F2 to process clipboard text with LLM"))
 		}
 	}
 
@@ -877,9 +875,18 @@ func (f *UserStoryForm) GetUserStory() models.UserStory {
 
 // processClipboardContent processes clipboard content with the LLM
 func (f *UserStoryForm) processClipboardContent(content string) {
-	// Show spinner
-	f.spinner.SetVisible(true)
+	// Show spinner with a more animated style for large content processing
+	spinnerCmd := f.spinner.SetVisible(true)
 	f.spinner.SetMessage("Processing pasted text...")
+	
+	// We need to send the spinner tick command to the main program loop
+	// This is done via a goroutine to avoid blocking
+	go func() {
+		time.Sleep(10 * time.Millisecond) // Brief delay
+		if spinnerCmd != nil {
+			spinnerCmd()
+		}
+	}()
 	
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -953,8 +960,20 @@ func (f *UserStoryForm) updateUIFromModel() {
 		}
 	}
 	
-	// Hide spinner
-	f.spinner.SetVisible(false)
+	// Reset spinner appearance to default
+	f.resetSpinnerAppearance()
+	
+	// Hide spinner by setting visibility directly
+	f.spinner.Visible = false
+}
+
+// resetSpinnerAppearance resets the spinner to its default appearance after special states
+func (f *UserStoryForm) resetSpinnerAppearance() {
+	// Reset to default style and color
+	f.spinner.SetStyle(spinner.StyleCircle)  // Changed from MinimalDot to Circle
+	f.spinner.SetForegroundColor(lipgloss.Color("205"))
+	f.spinner.SetMessage("Processing...")
+	f.spinner.SetAdditionalMessage("")
 }
 
 // getFieldNameByIndex returns the field name for a given index

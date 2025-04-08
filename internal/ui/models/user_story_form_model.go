@@ -37,7 +37,7 @@ type UserStoryFormModel struct {
 	// ProcessingStartTime tracks when the LLM processing started
 	ProcessingStartTime time.Time
 	
-	// TimeoutThreshold is the threshold for displaying a timeout warning (default: 5s)
+	// TimeoutThreshold is the threshold for displaying a timeout warning (default: 10s)
 	TimeoutThreshold time.Duration
 	
 	// ProcessingCancelled indicates whether the processing was cancelled
