@@ -1,6 +1,6 @@
 # Add workflow loading from filesystem
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to implement the ability to load workflow definitions from the filesystem,  
 So that  

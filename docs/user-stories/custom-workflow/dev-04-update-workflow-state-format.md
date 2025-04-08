@@ -1,6 +1,6 @@
 # Update workflow state format
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to update the workflow state file format to include workflow identification,  
 So that  

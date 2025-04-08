@@ -1,6 +1,6 @@
 # Implement template variables support
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to implement support for variables in prompt templates,  
 So that  

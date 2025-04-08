@@ -1,6 +1,6 @@
 # Refactor StandardWorkflowSteps structure
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to refactor the current StandardWorkflowSteps implementation into a more modular structure,  
 So that  

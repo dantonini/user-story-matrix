@@ -1,6 +1,6 @@
 # Create workflow subcommand
 As a  
-USM developer,  
+CLI user,  
 I want  
 to create a new `workflow` subcommand with management operations,  
 So that  

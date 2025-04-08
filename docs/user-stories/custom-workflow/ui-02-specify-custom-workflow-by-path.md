@@ -1,6 +1,6 @@
 # Specify custom workflow by path
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to specify a custom workflow by directly providing its path,  
 So that  

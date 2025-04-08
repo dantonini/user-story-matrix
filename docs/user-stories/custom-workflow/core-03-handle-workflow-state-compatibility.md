@@ -1,6 +1,6 @@
 # Handle workflow state compatibility
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 the system to properly handle transitions between different workflows,  
 So that  

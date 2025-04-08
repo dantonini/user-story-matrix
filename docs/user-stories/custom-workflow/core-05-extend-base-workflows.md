@@ -1,6 +1,6 @@
 # Extend base workflows
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to extend existing workflows with additional or overridden steps,  
 So that  

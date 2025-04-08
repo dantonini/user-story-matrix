@@ -1,6 +1,6 @@
 # Create minimal workflow template
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to create a "minimal" workflow template with fewer steps,  
 So that  

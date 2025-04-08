@@ -1,6 +1,6 @@
 # Reuse prompt files with variable substitution
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to reuse the same prompt file in multiple workflow steps with different variables,  
 So that  

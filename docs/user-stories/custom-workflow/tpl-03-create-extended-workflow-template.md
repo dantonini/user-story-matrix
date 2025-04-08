@@ -1,6 +1,6 @@
 # Create extended workflow template
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to create an "extended" workflow template with additional quality and testing steps,  
 So that  

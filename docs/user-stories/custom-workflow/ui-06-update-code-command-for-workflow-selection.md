@@ -1,6 +1,6 @@
 # Update code command for workflow selection
 As a  
-USM developer,  
+CLI user,  
 I want  
 to update the code command to support workflow selection,  
 So that  

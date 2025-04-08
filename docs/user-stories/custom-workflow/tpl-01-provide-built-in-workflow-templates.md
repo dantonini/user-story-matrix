@@ -1,6 +1,6 @@
 # Provide built-in workflow templates
 As a  
-software engineer using USM,  
+USM developer (internal),  
 I want  
 the system to provide a set of built-in workflow templates,  
 So that  

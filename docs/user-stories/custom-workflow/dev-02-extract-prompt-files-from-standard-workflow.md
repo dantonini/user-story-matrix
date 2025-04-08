@@ -1,6 +1,6 @@
 # Extract prompt files from standard workflow
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to extract the long prompt strings from StandardWorkflowSteps into separate Markdown files,  
 So that  

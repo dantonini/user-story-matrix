@@ -1,6 +1,6 @@
 # Validate workflow definitions
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 the system to validate workflow definitions and prompt files,  
 So that  

@@ -1,6 +1,6 @@
 # Workflow documentation command
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to view documentation about available workflows and their steps,  
 So that  

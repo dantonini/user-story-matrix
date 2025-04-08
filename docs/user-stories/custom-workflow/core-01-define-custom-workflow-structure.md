@@ -1,6 +1,6 @@
 # Define custom workflow with directory structure
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to define custom workflows using a directory-based structure with a YAML configuration file and separate prompt files,  
 So that  

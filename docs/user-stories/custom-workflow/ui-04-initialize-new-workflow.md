@@ -1,6 +1,6 @@
 # Initialize new workflow
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to initialize a new workflow from a template,  
 So that  

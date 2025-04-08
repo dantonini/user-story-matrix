@@ -1,6 +1,6 @@
 # List available workflows
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to list all available workflows with their descriptions,  
 So that  

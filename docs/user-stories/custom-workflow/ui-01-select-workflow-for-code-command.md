@@ -1,6 +1,6 @@
 # Select workflow for code command
 As a  
-software engineer using USM,  
+CLI user,  
 I want  
 to select which workflow to use when running the `code` command,  
 So that  

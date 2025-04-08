@@ -1,6 +1,6 @@
 # Migrate legacy workflows
 As a  
-software engineer using USM,  
+USM developer (internal),  
 I want  
 the system to migrate from the legacy hardcoded workflow to the new custom workflow system,  
 So that  

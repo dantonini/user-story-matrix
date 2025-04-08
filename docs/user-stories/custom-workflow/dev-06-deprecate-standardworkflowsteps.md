@@ -1,6 +1,6 @@
 # Deprecate StandardWorkflowSteps
 As a  
-USM developer,  
+USM developer (internal),  
 I want  
 to deprecate the direct use of StandardWorkflowSteps while maintaining backward compatibility,  
 So that  
