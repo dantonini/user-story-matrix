@@ -600,28 +600,37 @@ the accomplished reports:
 	},
 }
 
-// NewWorkflowManager creates a new workflow manager with an optional workflow definition.
-// If workflowName is provided, it attempts to retrieve that workflow from the registry.
-// If the specified workflow is not found or if workflowName is empty, it falls back to
-// the standard workflow.
+// NewWorkflowManager creates a new workflow manager with the specified workflow.
+// If the workflowName parameter is empty, it uses the standard workflow.
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
 //   - io: UserOutput interface for user interaction
-//   - workflowName: Optional name of the workflow to use
+//   - workflowName: Name of the workflow to use (empty for standard workflow)
+//   - registry: Optional WorkflowRegistry to use (nil for global registry)
 //
 // Returns:
 //   - A new WorkflowManager instance configured with the specified workflow
-func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string) *WorkflowManager {
-	// Use the global registry to ensure all managers share the same workflows
-	registry := GetGlobalRegistry()
+func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string, registry *WorkflowRegistry) *WorkflowManager {
+	// Use the provided registry or the global registry
+	if registry == nil {
+		registry = GetGlobalRegistry()
+	}
+	
+	// For debugging, log available workflows 
+	if io.IsDebugEnabled() {
+		io.PrintProgress(fmt.Sprintf("Available workflows: %v", registry.ListWorkflows()))
+	}
 
 	var workflow *WorkflowDefinition
-	if workflowName != "" {
+	if workflowName != "" && workflowName != StandardWorkflowName {
 		// Try to get the specified workflow
 		wf, err := registry.GetWorkflow(workflowName)
 		if err == nil {
 			workflow = wf
+			if io.IsDebugEnabled() {
+				io.PrintProgress(fmt.Sprintf("Using workflow: %s (%d steps)", workflowName, len(wf.Steps)))
+			}
 		} else {
 			// Log warning and fall back to standard workflow
 			io.PrintWarning(fmt.Sprintf(ErrWorkflowNotFound, workflowName))
@@ -630,8 +639,12 @@ func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string) *Work
 	} else {
 		// Use standard workflow by default
 		workflow = registry.GetStandardWorkflow()
+		if io.IsDebugEnabled() && workflowName == "" {
+			io.PrintProgress("Using default standard workflow")
+		}
 	}
 
+	// Create the manager with the specified workflow
 	return &WorkflowManager{
 		fs:       fs,
 		io:       io,
@@ -651,7 +664,7 @@ func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string) *Work
 // Returns:
 //   - A new WorkflowManager instance configured with the standard workflow
 func NewDefaultWorkflowManager(fs FileSystem, io UserOutput) *WorkflowManager {
-	return NewWorkflowManager(fs, io, "")
+	return NewWorkflowManager(fs, io, "", nil)
 }
 
 // GenerateStateFilePath generates the path for the state file based on the change request path
@@ -661,85 +674,129 @@ func GenerateStateFilePath(changeRequestPath string) string {
 	return filepath.Join(dir, "."+base+".step")
 }
 
-// LoadState loads the workflow state for a given change request
+// LoadState loads the workflow state for a change request from disk.
+// If the state file doesn't exist, it creates a new state at step 0.
+// This method now handles backward compatibility for older state files.
+//
+// Parameters:
+//   - changeRequestPath: Path to the change request file
+//
+// Returns:
+//   - WorkflowState containing the current state, or error
 func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, error) {
-	// Check if state file exists
 	stateFilePath := GenerateStateFilePath(changeRequestPath)
 
-	// Default state is empty with step index 0
-	defaultState := WorkflowState{
-		ChangeRequestPath: changeRequestPath,
-		CurrentStepIndex:  0,
-		LastModified:      time.Now(),
-		CompletedSteps:    []string{},
-	}
-
-	// If state file doesn't exist, return default state
+	// If file doesn't exist, return initial state
 	if !wm.fs.Exists(stateFilePath) {
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintProgress(ProgressValidating)
-		}
-		return defaultState, nil
+		return WorkflowState{
+			ChangeRequestPath: changeRequestPath,
+			CurrentStepIndex:  0,
+			LastModified:      time.Now(),
+			CompletedSteps:    []string{},
+			WorkflowName:      wm.workflow.Name, // Use the workflow name from the manager
+			WorkflowPath:      "",               // Empty for built-in workflows
+		}, nil
 	}
 
 	// Read state file
-	stateData, err := wm.fs.ReadFile(stateFilePath)
+	data, err := wm.fs.ReadFile(stateFilePath)
 	if err != nil {
-		// File exists but couldn't be read
-		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
-		return defaultState, nil
+		return WorkflowState{}, fmt.Errorf(ErrFailedToLoadState, err)
 	}
 
-	// Parse state data
+	// First try to parse as new format
 	var state WorkflowState
-	err = json.Unmarshal(stateData, &state)
-	if err != nil {
-		// File exists but not valid JSON
-		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
-		return defaultState, err
+	err = json.Unmarshal(data, &state)
+	
+	// Check for backward compatibility with old format
+	if err != nil || (state.WorkflowName == "" && state.WorkflowPath == "") {
+		// Try to parse as old format
+		var oldState struct {
+			ChangeRequestPath string    `json:"change_request_path"`
+			CurrentStepIndex  int       `json:"current_step_index"`
+			LastModified      time.Time `json:"last_modified"`
+			CompletedSteps    []string  `json:"completed_steps"`
+		}
+		
+		err = json.Unmarshal(data, &oldState)
+		if err != nil {
+			return WorkflowState{}, fmt.Errorf("failed to parse state file: %w", err)
+		}
+		
+		// Convert to new format with default values for new fields
+		state = WorkflowState{
+			ChangeRequestPath: oldState.ChangeRequestPath,
+			CurrentStepIndex:  oldState.CurrentStepIndex,
+			LastModified:      oldState.LastModified,
+			CompletedSteps:    oldState.CompletedSteps,
+			WorkflowName:      wm.workflow.Name,  // Use the workflow name from the manager
+			WorkflowPath:      "",                // Empty for built-in workflows
+		}
+		
+		// Log upgrade of state file format
+		wm.io.PrintWarning(fmt.Sprintf("Upgraded state file format for %s", changeRequestPath))
+		
+		// Save in new format immediately
+		err = wm.SaveState(state)
+		if err != nil {
+			wm.io.PrintWarning(fmt.Sprintf("Failed to save upgraded state: %v", err))
+		}
 	}
 
-	// Validate state data
-	if wm.io.IsDebugEnabled() {
-		wm.io.PrintProgress(ProgressValidating)
+	// If loading a state that uses a workflow we don't have, fall back to standard
+	if _, err := wm.registry.GetWorkflow(state.WorkflowName); err != nil {
+		wm.io.PrintWarning(fmt.Sprintf(ErrWorkflowNotFound, state.WorkflowName))
+		state.WorkflowName = wm.workflow.Name  // Use the workflow name from the manager
+		state.WorkflowPath = ""
 	}
-
-	// Check that step index is within bounds - for backward compatibility with tests
-	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(wm.workflow.Steps) {
-		// Print the warning message in the expected format
-		wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
-
-		// Reset the state to default values for backward compatibility
+	
+	// Validate step index is valid for the current workflow
+	workflow, _ := wm.registry.GetWorkflow(state.WorkflowName)
+	if workflow != nil && state.CurrentStepIndex > len(workflow.Steps) {
+		// Print warning about unrecognized step
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("Unrecognized step index %d in %s. Resetting to step 1.", 
+				state.CurrentStepIndex, changeRequestPath))
+		}
+		
+		// Reset state
 		state.CurrentStepIndex = 0
 		state.CompletedSteps = []string{}
-
-		// Return the default state with no error for backward compatibility
-		return state, nil
 	}
-
+	
 	return state, nil
 }
 
-// SaveState saves the workflow state to the state file
+// SaveState saves the workflow state to disk
+// This method always saves in the new format with workflow identification.
+//
+// Parameters:
+//   - state: WorkflowState to save
+//
+// Returns:
+//   - error if saving fails
 func (wm *WorkflowManager) SaveState(state WorkflowState) error {
-	// Only print progress message in debug mode
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressSavingState)
 	}
 
+	// Ensure workflow name is set
+	if state.WorkflowName == "" {
+		state.WorkflowName = StandardWorkflowName
+	}
+
+	// Update last modified time
 	state.LastModified = time.Now()
 
-	data, err := json.MarshalIndent(state, "", "  ")
+	// Serialize to JSON
+	data, err := json.Marshal(state)
 	if err != nil {
-		return fmt.Errorf(ErrStateUpdateFailed, err)
+		return fmt.Errorf("failed to serialize state: %w", err)
 	}
 
+	// Write to file
 	stateFilePath := GenerateStateFilePath(state.ChangeRequestPath)
-	if err := wm.fs.WriteFile(stateFilePath, data, 0644); err != nil {
-		return fmt.Errorf(ErrStateUpdateFailed, err)
-	}
-
-	return nil
+	return wm.fs.WriteFile(stateFilePath, data, 0644)
 }
 
 // DetermineNextStep determines the next step in the workflow
@@ -747,6 +804,8 @@ func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, err
 	// Print validation progress message for backward compatibility
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressValidating)
+		wm.io.PrintProgress(fmt.Sprintf("DetermineNextStep using workflow: %s with %d steps", 
+			wm.workflow.Name, len(wm.workflow.Steps)))
 	}
 
 	state, err := wm.LoadState(changeRequestPath)
@@ -758,8 +817,38 @@ func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, err
 		return 0, nil
 	}
 
+	if wm.io.IsDebugEnabled() {
+		wm.io.PrintProgress(fmt.Sprintf("Loaded state for %s: WorkflowName=%s, CurrentStepIndex=%d", 
+			changeRequestPath, state.WorkflowName, state.CurrentStepIndex))
+	}
+
+	// Make sure we're using the correct workflow for this state
+	var workflow *WorkflowDefinition
+	if state.WorkflowName != "" {
+		wf, err := wm.registry.GetWorkflow(state.WorkflowName)
+		if err == nil {
+			workflow = wf
+			if wm.io.IsDebugEnabled() {
+				wm.io.PrintProgress(fmt.Sprintf("Using workflow from state: %s with %d steps", 
+					workflow.Name, len(workflow.Steps)))
+			}
+		} else {
+			workflow = wm.workflow // Fall back to current workflow
+			if wm.io.IsDebugEnabled() {
+				wm.io.PrintWarning(fmt.Sprintf("Workflow %s not found in registry, falling back to current workflow", 
+					state.WorkflowName))
+			}
+		}
+	} else {
+		workflow = wm.workflow
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintProgress(fmt.Sprintf("State has no workflow name, using manager's workflow: %s", 
+				workflow.Name))
+		}
+	}
+
 	// If the workflow is already complete, return -1
-	if state.CurrentStepIndex >= len(wm.workflow.Steps) {
+	if state.CurrentStepIndex >= len(workflow.Steps) {
 		// For backward compatibility, print completion message
 		if wm.io.IsDebugEnabled() {
 			wm.io.PrintSuccess(fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath))
@@ -769,50 +858,75 @@ func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, err
 
 	// Print the next step information if debug is enabled
 	if wm.io.IsDebugEnabled() {
-		wm.io.PrintStep(state.CurrentStepIndex+1, len(wm.workflow.Steps), wm.workflow.Steps[state.CurrentStepIndex].Description)
+		wm.io.PrintStep(state.CurrentStepIndex+1, len(workflow.Steps), workflow.Steps[state.CurrentStepIndex].Description)
 	}
 
 	return state.CurrentStepIndex, nil
 }
 
-// UpdateState updates the workflow state for a change request
+// UpdateState updates the current step index for a change request
+// This method preserves workflow identification when updating the state.
+//
+// Parameters:
+//   - changeRequestPath: Path to the change request file
+//   - newStepIndex: Index to set as the current step
+//
+// Returns:
+//   - error if the update fails
 func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex int) error {
-	// Load current state (or create new one if it doesn't exist)
+	// Get current state
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		return fmt.Errorf(ErrFailedToLoadState, err)
+		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
 
-	// Validate the step index
+	// Get the correct workflow for this state
+	var workflow *WorkflowDefinition
+	if state.WorkflowName != "" {
+		wf, err := wm.registry.GetWorkflow(state.WorkflowName)
+		if err == nil {
+			workflow = wf
+		} else {
+			workflow = wm.workflow // Fall back to current workflow
+		}
+	} else {
+		workflow = wm.workflow
+	}
+
+	// Validate step index
 	if newStepIndex < 0 {
-		return fmt.Errorf(ErrStateUpdateFailed, ErrNegativeStepIndex)
+		return fmt.Errorf(ErrNegativeStepIndex)
 	}
 
-	if newStepIndex > len(wm.workflow.Steps) {
-		return fmt.Errorf(ErrStateUpdateFailed, ErrExceedingStepIndex)
+	if newStepIndex > len(workflow.Steps) {
+		return fmt.Errorf(ErrExceedingStepIndex)
 	}
 
-	// Update the state with the new step index
+	// Update step index
 	state.CurrentStepIndex = newStepIndex
-	state.LastModified = time.Now()
 
-	// Update the completed steps list - allocate with validated size
-	state.CompletedSteps = make([]string, 0, newStepIndex)
-	for i := 0; i < newStepIndex; i++ {
-		if i < len(wm.workflow.Steps) {
-			state.CompletedSteps = append(state.CompletedSteps, wm.workflow.Steps[i].ID)
+	// Add completed step ID
+	if newStepIndex > 0 && newStepIndex <= len(workflow.Steps) {
+		prevStep := workflow.Steps[newStepIndex-1]
+		// Only add to completed steps if not already there
+		found := false
+		for _, id := range state.CompletedSteps {
+			if id == prevStep.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			state.CompletedSteps = append(state.CompletedSteps, prevStep.ID)
 		}
 	}
 
-	// Print success message for the completed step only in debug mode
-	if wm.io.IsDebugEnabled() {
-		if newStepIndex > 0 && newStepIndex <= len(wm.workflow.Steps) {
-			completedStep := wm.workflow.Steps[newStepIndex-1]
-			wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(wm.workflow.Steps), completedStep.Description))
-		}
+	// Ensure the workflow name and path are preserved
+	if state.WorkflowName == "" {
+		state.WorkflowName = workflow.Name
 	}
 
-	// Save the updated state
+	// Save updated state
 	return wm.SaveState(state)
 }
 
@@ -823,7 +937,20 @@ func (wm *WorkflowManager) IsWorkflowComplete(changeRequestPath string) (bool, e
 		return false, fmt.Errorf(ErrFailedToLoadState, err)
 	}
 
-	return state.CurrentStepIndex >= len(wm.workflow.Steps), nil
+	// Get the right workflow
+	var workflow *WorkflowDefinition
+	if state.WorkflowName != "" {
+		wf, err := wm.registry.GetWorkflow(state.WorkflowName)
+		if err == nil {
+			workflow = wf
+		} else {
+			workflow = wm.workflow
+		}
+	} else {
+		workflow = wm.workflow
+	}
+
+	return state.CurrentStepIndex >= len(workflow.Steps), nil
 }
 
 // ResetWorkflow resets the workflow state for a change request
@@ -905,13 +1032,14 @@ func (wm *WorkflowManager) RegisterWorkflow(workflow *WorkflowDefinition) {
 	// Register the workflow in the global registry
 	wm.registry.RegisterBuiltInWorkflow(workflow)
 	
-	// Always use the registered workflow if it matches the name we're trying to use
-	// This allows tests to override the standard workflow
+	// If the workflow has the same name as the current one, update it
 	if wm.workflow != nil && workflow.Name == wm.workflow.Name {
 		wm.workflow = workflow
+		return
 	}
-	
-	// For testing purposes, if we specify the workflow by name, use it immediately
+
+	// For testing purposes, always try to get and use the workflow by name immediately
+	// This is needed for test expectations like in TestWorkflowManager_RegisterWorkflow
 	knownWorkflow, err := wm.registry.GetWorkflow(workflow.Name)
 	if err == nil {
 		wm.workflow = knownWorkflow
@@ -925,4 +1053,184 @@ func (wm *WorkflowManager) RegisterWorkflow(workflow *WorkflowDefinition) {
 //   - A slice of workflow names
 func (wm *WorkflowManager) ListAvailableWorkflows() []string {
 	return wm.registry.ListWorkflows()
+}
+
+// ValidateWorkflowSwitch checks compatibility between two workflows
+// It identifies potential issues when switching from one workflow to another.
+//
+// Parameters:
+//   - oldWorkflowName: Name of the current workflow
+//   - newWorkflowName: Name of the target workflow
+//
+// Returns:
+//   - A slice of warning messages, empty if no issues
+func (wm *WorkflowManager) ValidateWorkflowSwitch(oldWorkflowName, newWorkflowName string) []string {
+	warnings := []string{}
+	
+	// Get workflow definitions
+	oldWorkflow, err := wm.registry.GetWorkflow(oldWorkflowName)
+	if err != nil {
+		return []string{fmt.Sprintf("Source workflow '%s' not found, assuming standard workflow", oldWorkflowName)}
+	}
+	
+	newWorkflow, err := wm.registry.GetWorkflow(newWorkflowName)
+	if err != nil {
+		return []string{fmt.Sprintf("Target workflow '%s' not found", newWorkflowName)}
+	}
+	
+	// Check for missing steps in the new workflow
+	oldStepIDs := make(map[string]bool)
+	for _, step := range oldWorkflow.Steps {
+		oldStepIDs[step.ID] = true
+	}
+	
+	newStepIDs := make(map[string]bool)
+	for _, step := range newWorkflow.Steps {
+		newStepIDs[step.ID] = true
+	}
+	
+	// Check for steps in old workflow missing from new workflow
+	for id := range oldStepIDs {
+		if !newStepIDs[id] {
+			warnings = append(warnings, fmt.Sprintf("Step '%s' exists in '%s' but not in '%s'", 
+				id, oldWorkflowName, newWorkflowName))
+		}
+	}
+	
+	// Check for new steps in the new workflow
+	for id := range newStepIDs {
+		if !oldStepIDs[id] {
+			warnings = append(warnings, fmt.Sprintf("Step '%s' exists in '%s' but not in '%s'", 
+				id, newWorkflowName, oldWorkflowName))
+		}
+	}
+	
+	// Check for order differences - this is a more complex check
+	if len(warnings) == 0 {
+		// Only check order if the sets of steps are identical
+		oldOrder := make(map[string]int)
+		for i, step := range oldWorkflow.Steps {
+			oldOrder[step.ID] = i
+		}
+		
+		newOrder := make(map[string]int)
+		for i, step := range newWorkflow.Steps {
+			newOrder[step.ID] = i
+		}
+		
+		for id := range oldStepIDs {
+			if oldOrder[id] != newOrder[id] {
+				warnings = append(warnings, fmt.Sprintf("Step '%s' has different order in the workflows", id))
+				break // One warning about order differences is enough
+			}
+		}
+	}
+	
+	return warnings
+}
+
+// MapProgressBetweenWorkflows attempts to map progress from one workflow to another
+// It creates a new WorkflowState with progress transferred between workflows.
+//
+// Parameters:
+//   - oldState: Current WorkflowState
+//   - newWorkflowName: Name of the target workflow
+//
+// Returns:
+//   - A new WorkflowState for the target workflow
+//   - A slice of warning messages, empty if no issues
+func (wm *WorkflowManager) MapProgressBetweenWorkflows(oldState WorkflowState, newWorkflowName string) (WorkflowState, []string) {
+	warnings := []string{}
+	
+	// Get workflow definitions
+	oldWorkflow, err := wm.registry.GetWorkflow(oldState.WorkflowName)
+	if err != nil {
+		oldWorkflow = wm.registry.GetStandardWorkflow()
+		warnings = append(warnings, fmt.Sprintf("Source workflow '%s' not found, using standard workflow", 
+			oldState.WorkflowName))
+	}
+	
+	newWorkflow, err := wm.registry.GetWorkflow(newWorkflowName)
+	if err != nil {
+		// If new workflow doesn't exist, return the original state with a warning
+		warnings = append(warnings, fmt.Sprintf("Target workflow '%s' not found, keeping current workflow", 
+			newWorkflowName))
+		return oldState, warnings
+	}
+	
+	// Create a new state for the target workflow
+	newState := WorkflowState{
+		ChangeRequestPath: oldState.ChangeRequestPath,
+		LastModified:      time.Now(),
+		WorkflowName:      newWorkflowName,
+		WorkflowPath:      "", // Will be set if it's an external workflow
+	}
+	
+	// Map completed steps between workflows
+	newState.CompletedSteps = []string{}
+	newStepMap := make(map[string]bool)
+	
+	// Build a map of step IDs in the new workflow
+	for _, step := range newWorkflow.Steps {
+		newStepMap[step.ID] = true
+	}
+	
+	// Transfer completed steps that exist in both workflows
+	for _, completedID := range oldState.CompletedSteps {
+		if newStepMap[completedID] {
+			newState.CompletedSteps = append(newState.CompletedSteps, completedID)
+		} else {
+			warnings = append(warnings, fmt.Sprintf("Completed step '%s' not found in target workflow", 
+				completedID))
+		}
+	}
+	
+	// Map current step index
+	// Try to find the same step ID in the new workflow
+	if oldState.CurrentStepIndex < len(oldWorkflow.Steps) {
+		currentStepID := oldWorkflow.Steps[oldState.CurrentStepIndex].ID
+		found := false
+		
+		for i, step := range newWorkflow.Steps {
+			if step.ID == currentStepID {
+				newState.CurrentStepIndex = i
+				found = true
+				break
+			}
+		}
+		
+		if !found {
+			// If step not found, try to find the nearest completed step
+			maxCompletedIndex := -1
+			
+			for i, step := range newWorkflow.Steps {
+				for _, completedID := range newState.CompletedSteps {
+					if step.ID == completedID {
+						maxCompletedIndex = i
+						break
+					}
+				}
+			}
+			
+			if maxCompletedIndex >= 0 {
+				// Set to the step after the last completed step
+				newState.CurrentStepIndex = maxCompletedIndex + 1
+				if newState.CurrentStepIndex >= len(newWorkflow.Steps) {
+					newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
+				}
+			} else {
+				// Default to first step if no mapping is possible
+				newState.CurrentStepIndex = 0
+			}
+			
+			warnings = append(warnings, fmt.Sprintf("Current step '%s' not found in target workflow, mapped to step %d", 
+				currentStepID, newState.CurrentStepIndex + 1))
+		}
+	} else {
+		// If current step index is out of bounds, default to first step
+		newState.CurrentStepIndex = 0
+		warnings = append(warnings, "Invalid current step index, reset to first step")
+	}
+	
+	return newState, warnings
 }

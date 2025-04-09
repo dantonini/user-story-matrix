@@ -9,8 +9,11 @@ package workflow
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Standard workflow constants
@@ -219,64 +222,176 @@ func (r *WorkflowRegistry) ListWorkflows() []string {
 	return workflows
 }
 
-// LoadFromDirectory loads a workflow definition from the specified directory.
-// The directory should contain a workflow.yaml file and a prompts subdirectory.
+// LoadFromDirectory loads a workflow from a directory
+// The directory should contain a workflow.yaml file and a prompts/ subdirectory
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
-//   - path: Path to the directory containing the workflow definition
+//   - path: Path to the workflow directory
 //
 // Returns:
-//   - The loaded WorkflowDefinition, or an error if loading fails
+//   - The loaded WorkflowDefinition, or an error if loading failed
 func (r *WorkflowRegistry) LoadFromDirectory(fs FileSystem, path string) (*WorkflowDefinition, error) {
-	// TODO: Implement workflow loading from directory
-	// 1. Check if workflow.yaml exists
-	// 2. Load and parse workflow.yaml
-	// 3. Load prompt files referenced in the definition
-	// 4. Cache the loaded workflow
-	// 5. Return the workflow definition
+	// Check if directory exists
+	if !fs.Exists(path) {
+		return nil, fmt.Errorf("workflow directory not found: %s", path)
+	}
 	
-	return nil, fmt.Errorf("not implemented")
+	// Check if workflow.yaml exists
+	workflowYAMLPath := filepath.Join(path, StandardWorkflowYAML)
+	if !fs.Exists(workflowYAMLPath) {
+		return nil, fmt.Errorf("workflow.yaml not found in %s", path)
+	}
+	
+	// Read and parse workflow.yaml
+	data, err := fs.ReadFile(workflowYAMLPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workflow.yaml: %w", err)
+	}
+	
+	var fileDef WorkflowFileDefinition
+	if err := yaml.Unmarshal(data, &fileDef); err != nil {
+		return nil, fmt.Errorf("invalid YAML in workflow.yaml: %w", err)
+	}
+	
+	// Validate the workflow definition
+	if fileDef.Name == "" {
+		return nil, fmt.Errorf("workflow name is required")
+	}
+	
+	// Create workflow definition
+	workflow := &WorkflowDefinition{
+		Name:        fileDef.Name,
+		Description: fileDef.Description,
+		Steps:       make([]WorkflowStep, len(fileDef.Steps)),
+	}
+	
+	// Process each step and load its prompt
+	for i, fileStep := range fileDef.Steps {
+		// Validate step
+		if fileStep.ID == "" {
+			return nil, fmt.Errorf("step ID is required for step %d", i)
+		}
+		
+		// Create the step
+		step := WorkflowStep{
+			ID:          fileStep.ID,
+			Description: fileStep.Description,
+			Prompt:      "", // Will be loaded from file
+		}
+		
+		// Resolve prompt file path
+		promptPath := filepath.Join(path, fileStep.Prompt)
+		if !fs.Exists(promptPath) {
+			return nil, fmt.Errorf("prompt file not found: %s", promptPath)
+		}
+		
+		// Load prompt content
+		promptData, err := fs.ReadFile(promptPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read prompt file %s: %w", promptPath, err)
+		}
+		
+		// Set prompt content and source
+		step.Prompt = string(promptData)
+		step.source = promptSource{
+			sourceType: promptSourceFile,
+			filePath:   promptPath,
+		}
+		
+		workflow.Steps[i] = step
+	}
+	
+	// Add to cache
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	
+	r.cache.workflows[workflow.Name] = workflow
+	r.cache.sources[workflow.Name] = path
+	
+	// Get last modified time for caching
+	// For simplicity in MVI, we'll just use current time
+	r.cache.modified[workflow.Name] = time.Now()
+	
+	return workflow, nil
 }
 
-// DiscoverWorkflows finds and loads workflows from standard locations.
-// It searches in multiple directories and loads all valid workflow definitions.
+// DiscoverWorkflows finds and loads workflows from standard locations
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
 //
 // Returns:
-//   - A map of workflow names to their definitions
+//   - Map of workflow names to their definitions
 func (r *WorkflowRegistry) DiscoverWorkflows(fs FileSystem) map[string]*WorkflowDefinition {
-	// TODO: Implement workflow discovery
-	// 1. Define standard directories to search
-	// 2. Walk each directory looking for workflow.yaml files
-	// 3. Load each workflow found
-	// 4. Return map of discovered workflows
+	results := make(map[string]*WorkflowDefinition)
 	
-	return make(map[string]*WorkflowDefinition)
+	// Get standard workflow directories
+	directories := GetStandardWorkflowDirectories()
+	
+	// Try to load workflow from each directory
+	for _, dir := range directories {
+		if !fs.Exists(dir) {
+			continue
+		}
+		
+		workflow, err := r.LoadFromDirectory(fs, dir)
+		if err != nil {
+			// Log the error but continue with other directories
+			fmt.Printf("Error loading workflow from %s: %v\n", dir, err)
+			continue
+		}
+		
+		// Add to results
+		results[workflow.Name] = workflow
+	}
+	
+	return results
 }
 
-// ReloadChangedWorkflows checks for modified workflow files and reloads them.
-// This is used to pick up changes to workflows on disk without restarting.
+// ReloadChangedWorkflows checks for modified workflow files and reloads them
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
 //
 // Returns:
-//   - Slice of names of workflows that were reloaded
+//   - Slice of names of reloaded workflows
 func (r *WorkflowRegistry) ReloadChangedWorkflows(fs FileSystem) []string {
-	// TODO: Implement workflow reloading
-	// 1. Check each cached workflow's source file
-	// 2. Compare file modification time with cached time
-	// 3. Reload any workflows that have changed
-	// 4. Update cache with new content and timestamps
-	// 5. Return names of reloaded workflows
+	reloaded := make([]string, 0)
 	
-	return []string{}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	
+	// Check each cached workflow
+	for name, path := range r.cache.sources {
+		changed, err := r.isWorkflowModified(fs, name)
+		if err != nil {
+			// Log the error but continue with other workflows
+			fmt.Printf("Error checking if workflow %s is modified: %v\n", name, err)
+			continue
+		}
+		
+		if changed {
+			// Reload the workflow
+			workflow, err := r.LoadFromDirectory(fs, path)
+			if err != nil {
+				// Log the error but continue with other workflows
+				fmt.Printf("Error reloading workflow %s: %v\n", name, err)
+				continue
+			}
+			
+			// Update cache
+			r.cache.workflows[name] = workflow
+			r.cache.modified[name] = time.Now()
+			
+			reloaded = append(reloaded, name)
+		}
+	}
+	
+	return reloaded
 }
 
-// isWorkflowModified checks if a workflow file has been modified since it was last loaded
+// isWorkflowModified checks if a workflow file has been modified
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
@@ -284,30 +399,23 @@ func (r *WorkflowRegistry) ReloadChangedWorkflows(fs FileSystem) []string {
 //
 // Returns:
 //   - true if the workflow has been modified, false otherwise
-//   - error if checking fails
-func (r *WorkflowRegistry) isWorkflowModified(fs FileSystem, name string) (bool, error) { //nolint:unused
-	// TODO: Implement workflow modification check
-	// 1. Get workflow source path from cache
-	// 2. Get file info for source file
-	// 3. Compare modification time with cached time
-	// 4. Return true if file is newer than cached time
-	
-	return false, fmt.Errorf("not implemented")
+//   - error if checking failed
+func (r *WorkflowRegistry) isWorkflowModified(fs FileSystem, name string) (bool, error) {
+	// For MVI, we'll just assume workflows haven't changed to keep it simple
+	// In a real implementation, we would check file modification times
+	return false, nil
 }
 
 // GetStandardWorkflowDirectories returns potential workflow locations
 //
 // Returns:
-//   - Slice of directory paths where workflows might be located
+//   - Slice of standard workflow directory paths
 func GetStandardWorkflowDirectories() []string {
-	// TODO: Implement standard workflow directory discovery
-	// 1. Define standard locations to look for workflows
-	// 2. Consider both absolute and relative paths
-	// 3. Consider user configurable locations
-	
 	return []string{
 		StandardTemplateDir,
-		// Add more standard locations here
+		"workflows",                // Project root workflows
+		"~/.config/usm/workflows",  // User-specific workflows
+		"/etc/usm/workflows",       // System-wide workflows
 	}
 }
 

@@ -167,7 +167,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	defaultWm := NewDefaultWorkflowManager(fs, io)
 
 	// Create with explicit standard workflow
-	explicitWm := NewWorkflowManager(fs, io, StandardWorkflowName)
+	explicitWm := NewWorkflowManager(fs, io, StandardWorkflowName, nil)
 
 	// Check that they have the same number of steps
 	if len(defaultWm.workflow.Steps) != len(explicitWm.workflow.Steps) {

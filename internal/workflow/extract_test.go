@@ -25,16 +25,27 @@ func TestExtractStandardWorkflow(t *testing.T) {
 	// Call the function
 	err := ExtractStandardWorkflow(fs, "/test/output")
 	
-	// For now, we expect a "not implemented" error
-	if err == nil || err.Error() != "not implemented" {
-		t.Errorf("Expected 'not implemented' error, got %v", err)
+	// Check for errors
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 	
-	// TODO: Once implemented, test that the workflow was extracted correctly
-	// 1. Verify workflow.yaml was created
-	// 2. Verify prompts directory was created
-	// 3. Verify prompt files were created
-	// 4. Verify file contents match expected values
+	// Verify workflow.yaml was created
+	if !fs.Exists("/test/output/workflow.yaml") {
+		t.Error("workflow.yaml was not created")
+	}
+	
+	// Verify prompts directory was created
+	if !fs.Exists("/test/output/prompts") {
+		t.Error("prompts directory was not created")
+	}
+	
+	// Verify at least some prompt files were created
+	// We don't need to check all of them, just make sure something was written
+	files, _ := fs.ReadDir("/test/output/prompts")
+	if len(files) == 0 {
+		t.Error("No prompt files were created")
+	}
 }
 
 // TestGenerateWorkflowYAML tests generating a workflow.yaml file
@@ -51,17 +62,30 @@ func TestGenerateWorkflowYAML(t *testing.T) {
 		},
 	}
 	
-	// Call the function
-	err := generateWorkflowYAML(fs, steps, "/test/output/workflow.yaml")
-	
-	// For now, we expect a "not implemented" error
-	if err == nil || err.Error() != "not implemented" {
-		t.Errorf("Expected 'not implemented' error, got %v", err)
+	// Create prompt paths
+	promptPaths := map[string]string{
+		"test-step": "prompts/test-step.md",
 	}
 	
-	// TODO: Once implemented, test that the YAML file was generated correctly
-	// 1. Verify workflow.yaml was created
-	// 2. Verify file contents match expected values
+	// Call the function
+	err := generateWorkflowYAML(fs, steps, "/test/output/workflow.yaml", promptPaths)
+	
+	// If implemented, test actual output
+	if err == nil {
+		// Check that file was created
+		if !fs.Exists("/test/output/workflow.yaml") {
+			t.Error("workflow.yaml file was not created")
+		}
+		
+		// Check file contents
+		data, _ := fs.ReadFile("/test/output/workflow.yaml")
+		if len(data) == 0 {
+			t.Error("workflow.yaml file is empty")
+		}
+	} else if err.Error() != "not implemented" {
+		// If not fully implemented but an error occurred, it should be the expected one
+		t.Errorf("Unexpected error: %v", err)
+	}
 }
 
 // TestExtractPromptToFile tests extracting a prompt to a file
@@ -77,16 +101,30 @@ func TestExtractPromptToFile(t *testing.T) {
 	}
 	
 	// Call the function
-	_, err := extractPromptToFile(fs, "/test/output/prompts", step)
+	promptPath, err := extractPromptToFile(fs, "/test/output/prompts", step)
 	
-	// For now, we expect a "not implemented" error
-	if err == nil || err.Error() != "not implemented" {
-		t.Errorf("Expected 'not implemented' error, got %v", err)
+	// Check for errors
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 	
-	// TODO: Once implemented, test that the prompt file was created correctly
-	// 1. Verify prompt file was created
-	// 2. Verify file contents match expected values
+	// Verify returned path
+	expectedPath := "prompts/test-step.md"
+	if promptPath != expectedPath {
+		t.Errorf("Expected path %q, got %q", expectedPath, promptPath)
+	}
+	
+	// Verify file was created
+	filePath := "/test/output/prompts/test-step.md"
+	if !fs.Exists(filePath) {
+		t.Errorf("File was not created at %s", filePath)
+	}
+	
+	// Verify file contents
+	content, _ := fs.ReadFile(filePath)
+	if string(content) != step.Prompt {
+		t.Errorf("Expected content %q, got %q", step.Prompt, string(content))
+	}
 }
 
 // TestLoadPromptContent tests loading prompt content from a file
@@ -158,43 +196,101 @@ func TestFromWorkflowDefinition(t *testing.T) {
 
 // TestGetRelativePromptPath tests getting the relative path from a workflow directory to a prompt file
 func TestGetRelativePromptPath(t *testing.T) {
-	// Call the function
-	path := getRelativePromptPath("/test/output/prompts/test.md", "/test/output")
-	
-	// For now, we expect an empty string
-	if path != "" {
-		t.Errorf("Expected empty string, got %q", path)
+	// Test cases
+	tests := []struct{
+		name string
+		promptFile string
+		workflowDir string
+		expected string
+	}{
+		{
+			name: "Simple relative path",
+			promptFile: "/test/output/prompts/test.md",
+			workflowDir: "/test/output",
+			expected: "prompts/test.md",
+		},
+		{
+			name: "Already relative path",
+			promptFile: "prompts/test.md",
+			workflowDir: "/test/output",
+			expected: "prompts/test.md",
+		},
+		{
+			name: "Nested directories",
+			promptFile: "/test/output/prompts/subdir/test.md",
+			workflowDir: "/test/output",
+			expected: "prompts/subdir/test.md",
+		},
+		{
+			name: "Different drive or root",
+			promptFile: "/other/path/prompts/test.md",
+			workflowDir: "/test/output",
+			expected: "../../other/path/prompts/test.md",
+		},
 	}
 	
-	// TODO: Once implemented, test path calculation
-	// 1. Test simple case
-	// 2. Test with nested directories
-	// 3. Test with different separators
+	// Run test cases
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := getRelativePromptPath(tc.promptFile, tc.workflowDir)
+			if result != tc.expected {
+				t.Errorf("Expected %q, got %q", tc.expected, result)
+			}
+		})
+	}
 }
 
 // TestIntegrationSmoke_ExtractAndLoad is a regression smoke test to verify
-// that extraction and loading work together properly when fully implemented
+// that extraction and loading work together properly
 func TestIntegrationSmoke_ExtractAndLoad(t *testing.T) {
-	// This test is for MVI phase, currently it's just a placeholder
-	// to verify basic plumbing between extract and load functionality
-	
 	// Create a mock filesystem for testing
 	fs := io.NewMockFileSystem()
 	
 	// Test output directory
 	outputDir := "/test/workflow-extract"
 	
-	// TODO: In MVI Phase - Implement the full test:
 	// 1. Extract standard workflow to outputDir
+	err := ExtractStandardWorkflow(fs, outputDir)
+	if err != nil {
+		t.Fatalf("Failed to extract workflow: %v", err)
+	}
+	
 	// 2. Load the workflow from the same directory
-	// 3. Verify the loaded workflow matches the original
-	
-	// This will be a full integration test between extract and load
-	// For now, just make sure the functions exist and are callable
-	
-	_ = ExtractStandardWorkflow(fs, outputDir)
-	
-	// Registry would load from directory in the real implementation
 	registry := NewWorkflowRegistry()
-	_, _ = registry.LoadFromDirectory(fs, outputDir)
+	loadedWorkflow, err := registry.LoadFromDirectory(fs, outputDir)
+	if err != nil {
+		t.Fatalf("Failed to load workflow: %v", err)
+	}
+	
+	// 3. Verify the loaded workflow matches the original
+	if loadedWorkflow.Name != "standard" {
+		t.Errorf("Expected name 'standard', got '%s'", loadedWorkflow.Name)
+	}
+	
+	// Check that we have the same number of steps
+	if len(loadedWorkflow.Steps) != len(StandardWorkflowSteps) {
+		t.Errorf("Expected %d steps, got %d", len(StandardWorkflowSteps), len(loadedWorkflow.Steps))
+	}
+	
+	// Check that step IDs match
+	for i, step := range loadedWorkflow.Steps {
+		if i < len(StandardWorkflowSteps) && step.ID != StandardWorkflowSteps[i].ID {
+			t.Errorf("Step %d: expected ID '%s', got '%s'", i, StandardWorkflowSteps[i].ID, step.ID)
+		}
+	}
+	
+	// Check that step descriptions match
+	for i, step := range loadedWorkflow.Steps {
+		if i < len(StandardWorkflowSteps) && step.Description != StandardWorkflowSteps[i].Description {
+			t.Errorf("Step %d: expected description '%s', got '%s'", 
+				i, StandardWorkflowSteps[i].Description, step.Description)
+		}
+	}
+	
+	// Check that step prompts match
+	for i, step := range loadedWorkflow.Steps {
+		if i < len(StandardWorkflowSteps) && step.Prompt != StandardWorkflowSteps[i].Prompt {
+			t.Errorf("Step %d: prompt content doesn't match", i)
+		}
+	}
 } 

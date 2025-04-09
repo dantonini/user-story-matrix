@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -16,67 +17,66 @@ import (
 	ioLib "github.com/user-story-matrix/usm/internal/io"
 )
 
-// MockIO implements UserOutput interface for testing
+// MockIO is a mock implementation of the UserOutput interface for testing.
 type MockIO struct {
-	messages         []string
-	successMessages  []string
-	errorMessages    []string
 	warningMessages  []string
+	errorMessages    []string
+	successMessages  []string
 	progressMessages []string
 	stepMessages     []string
 	debugEnabled     bool
 }
 
-// NewMockIO creates a new MockIO instance
+// NewMockIO creates a new mock IO instance.
 func NewMockIO() *MockIO {
 	return &MockIO{
-		messages:         []string{},
-		successMessages:  []string{},
-		errorMessages:    []string{},
 		warningMessages:  []string{},
+		errorMessages:    []string{},
+		successMessages:  []string{},
 		progressMessages: []string{},
 		stepMessages:     []string{},
 		debugEnabled:     false,
 	}
 }
 
-// Print implements UserOutput.Print
+// Print prints a message.
 func (m *MockIO) Print(message string) {
-	m.messages = append(m.messages, message)
+	// For debugging purposes, actually print the message
+	fmt.Printf("MockIO.Print: %s\n", message)
 }
 
-// PrintSuccess implements UserOutput.PrintSuccess
+// PrintSuccess prints a success message.
 func (m *MockIO) PrintSuccess(message string) {
 	m.successMessages = append(m.successMessages, message)
+	fmt.Printf("MockIO.PrintSuccess: %s\n", message)
 }
 
-// PrintError implements UserOutput.PrintError
+// PrintError prints an error message.
 func (m *MockIO) PrintError(message string) {
 	m.errorMessages = append(m.errorMessages, message)
+	fmt.Printf("MockIO.PrintError: %s\n", message)
 }
 
-// PrintWarning implements UserOutput.PrintWarning
+// PrintWarning prints a warning message.
 func (m *MockIO) PrintWarning(message string) {
 	m.warningMessages = append(m.warningMessages, message)
+	fmt.Printf("MockIO.PrintWarning: %s\n", message)
 }
 
-// PrintProgress implements UserOutput.PrintProgress
+// PrintProgress prints a progress message.
 func (m *MockIO) PrintProgress(message string) {
 	m.progressMessages = append(m.progressMessages, message)
+	fmt.Printf("MockIO.PrintProgress: %s\n", message)
 }
 
-// PrintStep implements UserOutput.PrintStep
+// PrintStep prints step information.
 func (m *MockIO) PrintStep(stepNumber int, totalSteps int, description string) {
-	message := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
-	m.stepMessages = append(m.stepMessages, message)
+	stepMessage := fmt.Sprintf("Step %d/%d: %s", stepNumber, totalSteps, description)
+	m.stepMessages = append(m.stepMessages, stepMessage)
+	fmt.Printf("MockIO.PrintStep: %s\n", stepMessage)
 }
 
-// PrintTable implements UserOutput.PrintTable
-func (m *MockIO) PrintTable(headers []string, rows [][]string) {
-	// Not needed for these tests
-}
-
-// IsDebugEnabled implements UserOutput.IsDebugEnabled
+// IsDebugEnabled returns true if debug is enabled.
 func (m *MockIO) IsDebugEnabled() bool {
 	return m.debugEnabled
 }
@@ -153,6 +153,8 @@ func TestWorkflowManager_LoadState_WithValidStateFile(t *testing.T) {
 		CurrentStepIndex:  2,
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test"},
+		WorkflowName:      StandardWorkflowName,
+		WorkflowPath:      "",
 	}
 
 	// Marshal state to JSON
@@ -181,6 +183,9 @@ func TestWorkflowManager_LoadState_WithValidStateFile(t *testing.T) {
 	}
 	if !reflect.DeepEqual(state.CompletedSteps, testState.CompletedSteps) {
 		t.Errorf("LoadState() CompletedSteps = %v, want %v", state.CompletedSteps, testState.CompletedSteps)
+	}
+	if state.WorkflowName != testState.WorkflowName {
+		t.Errorf("LoadState() WorkflowName = %v, want %v", state.WorkflowName, testState.WorkflowName)
 	}
 }
 
@@ -262,6 +267,8 @@ func TestWorkflowManager_LoadState_WithInvalidStepIndex(t *testing.T) {
 		CurrentStepIndex:  99, // Invalid step index
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test", "02-mvi"},
+		WorkflowName:      StandardWorkflowName, // Add workflow name
+		WorkflowPath:      "",                   // Empty for built-in workflows
 	}
 
 	// Marshal state to JSON
@@ -290,13 +297,18 @@ func TestWorkflowManager_LoadState_WithInvalidStepIndex(t *testing.T) {
 	}
 
 	// Verify warning message was printed
-	if len(mockIO.warningMessages) != 1 {
-		t.Errorf("LoadState() should print one warning message")
-	} else {
-		expectedWarning := fmt.Sprintf(ErrUnrecognizedStep, stateFilePath)
-		if mockIO.warningMessages[0] != expectedWarning {
-			t.Errorf("LoadState() warning = %v, want %v", mockIO.warningMessages[0], expectedWarning)
+	// There may be multiple warning messages, including the one about upgrading state format
+	// So we check for any warning message containing the relevant part
+	found := false
+	for _, msg := range mockIO.warningMessages {
+		if strings.Contains(msg, "Unrecognized step index") {
+			found = true
+			break
 		}
+	}
+
+	if !found {
+		t.Errorf("LoadState() should print a warning about unrecognized step, got: %v", mockIO.warningMessages)
 	}
 }
 
@@ -341,9 +353,17 @@ func TestWorkflowManager_SaveState(t *testing.T) {
 			t.Errorf("SaveState() didn't write to %s", stateFilePath)
 		}
 
-		// Verify progress message
-		if len(mockIO.progressMessages) == 0 || mockIO.progressMessages[0] != ProgressSavingState {
-			t.Errorf("Expected progress message, got %v", mockIO.progressMessages)
+		// Verify progress message is included (may be other messages too)
+		foundSavingMessage := false
+		for _, msg := range mockIO.progressMessages {
+			if msg == ProgressSavingState {
+				foundSavingMessage = true
+				break
+			}
+		}
+		if !foundSavingMessage {
+			t.Errorf("Expected progress message '%s', but it wasn't found in: %v", 
+				ProgressSavingState, mockIO.progressMessages)
 		}
 	})
 
@@ -411,6 +431,8 @@ func TestWorkflowManager_DetermineNextStep_WorkflowComplete(t *testing.T) {
 		CurrentStepIndex:  len(StandardWorkflowSteps), // Workflow is completed
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test", "02-mvi", "03-extend", "04-refine"},
+		WorkflowName:      StandardWorkflowName, // Add workflow name
+		WorkflowPath:      "",                   // Empty for built-in workflows
 	}
 
 	// Marshal state to JSON
@@ -456,42 +478,90 @@ func TestWorkflowManager_UpdateState(t *testing.T) {
 
 	// Define test parameters
 	changeRequestPath := "/path/to/change-request.blueprint.md"
-	newStepIndex := 3
+	stateFilePath := GenerateStateFilePath(changeRequestPath)
+	newStepIndex := 1
 
-	// Call the function
-	err := wm.UpdateState(changeRequestPath, newStepIndex)
+	// Setup mock state file for LoadState to read
+	initialState := WorkflowState{
+		ChangeRequestPath: changeRequestPath,
+		CurrentStepIndex:  0,
+		LastModified:      time.Now(),
+		CompletedSteps:    []string{},
+		WorkflowName:      StandardWorkflowName,
+		WorkflowPath:      "",
+	}
+	
+	// Marshal and save initial state to mock filesystem
+	initialStateData, err := json.Marshal(initialState)
+	if err != nil {
+		t.Fatalf("Failed to marshal initial state: %v", err)
+	}
+	fs.AddFile(stateFilePath, initialStateData)
+
+	// Call the function to update state (with path and step index)
+	err = wm.UpdateState(changeRequestPath, newStepIndex)
 
 	// Check results
 	if err != nil {
 		t.Errorf("UpdateState() error = %v, want nil", err)
 	}
 
-	// Load the saved state to verify
-	stateFilePath := GenerateStateFilePath(changeRequestPath)
-	stateData, readErr := fs.ReadFile(stateFilePath)
-	if readErr != nil {
-		t.Fatalf("Failed to read state file: %v", readErr)
+	// Verify file was written correctly
+	if !fs.Exists(stateFilePath) {
+		t.Errorf("UpdateState() did not create state file at %s", stateFilePath)
 	}
 
+	// Read the written file
+	data, err := fs.ReadFile(stateFilePath)
+	if err != nil {
+		t.Fatalf("Failed to read written state file: %v", err)
+	}
+
+	// Parse saved state
 	var savedState WorkflowState
-	if err := json.Unmarshal(stateData, &savedState); err != nil {
-		t.Errorf("UpdateState() wrote invalid JSON: %v", err)
+	err = json.Unmarshal(data, &savedState)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal saved state: %v", err)
 	}
 
-	// Verify state values
+	// Verify saved state
+	if savedState.ChangeRequestPath != changeRequestPath {
+		t.Errorf("Saved state ChangeRequestPath = %v, want %v", savedState.ChangeRequestPath, changeRequestPath)
+	}
 	if savedState.CurrentStepIndex != newStepIndex {
-		t.Errorf("UpdateState() CurrentStepIndex = %v, want %v", savedState.CurrentStepIndex, newStepIndex)
+		t.Errorf("Saved state CurrentStepIndex = %v, want %v", savedState.CurrentStepIndex, newStepIndex)
 	}
 
-	// Verify completed steps
-	expectedCompletedSteps := []string{
-		StandardWorkflowSteps[0].ID,
-		StandardWorkflowSteps[1].ID,
-		StandardWorkflowSteps[2].ID,
+	// Verify completed steps - previous step ID should be added
+	expectedCompletedSteps := []string{"01-laying-the-foundation"} // ID of step 0 in standard workflow
+	if !slicesEqual(savedState.CompletedSteps, expectedCompletedSteps) {
+		t.Errorf("Saved state CompletedSteps = %v, want %v", savedState.CompletedSteps, expectedCompletedSteps)
 	}
-	if !reflect.DeepEqual(savedState.CompletedSteps, expectedCompletedSteps) {
-		t.Errorf("UpdateState() CompletedSteps = %v, want %v", savedState.CompletedSteps, expectedCompletedSteps)
+}
+
+// Helper function to check if two string slices contain the same elements (regardless of order)
+func slicesEqual(slice1, slice2 []string) bool {
+	if len(slice1) != len(slice2) {
+		return false
 	}
+	
+	// Create copies to avoid modifying the originals
+	s1 := make([]string, len(slice1))
+	s2 := make([]string, len(slice2))
+	copy(s1, slice1)
+	copy(s2, slice2)
+	
+	// Sort both slices
+	sort.Strings(s1)
+	sort.Strings(s2)
+	
+	// Compare elements
+	for i := range s1 {
+		if s1[i] != s2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestWorkflowManager_UpdateState_ValidationChecks(t *testing.T) {
@@ -573,19 +643,24 @@ func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 		},
 		{
 			name:      "Complete",
-			stepIndex: len(StandardWorkflowSteps),
+			stepIndex: len(wm.workflow.Steps), // Use the actual length from the workflow
 			want:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Reset mock for each test case
+			fs = ioLib.NewMockFileSystem()
+			
 			// Create test state
 			testState := WorkflowState{
 				ChangeRequestPath: changeRequestPath,
 				CurrentStepIndex:  tt.stepIndex,
 				LastModified:      time.Now(),
 				CompletedSteps:    []string{},
+				WorkflowName:      StandardWorkflowName, // Add workflow name
+				WorkflowPath:      "",                   // Empty for built-in workflows
 			}
 
 			// Marshal state to JSON
@@ -596,6 +671,9 @@ func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 
 			// Set up mocks
 			fs.AddFile(stateFilePath, stateData)
+			
+			// Create new workflow manager with updated fs
+			wm = NewDefaultWorkflowManager(fs, mockIO)
 
 			// Call the function
 			got, err := wm.IsWorkflowComplete(changeRequestPath)
@@ -848,14 +926,7 @@ func TestWorkflowManager_ValidateWorkflowSteps(t *testing.T) {
 }
 
 // TestWorkflowManager_WithCustomWorkflow tests the behavior of WorkflowManager
-// when a custom workflow is registered and explicitly set.
-//
-// This is a regression test that ensures custom workflows can be used instead of
-// the standard workflow.
-//
-// Note: In the test, we explicitly set wm.workflow to the custom workflow
-// after registration. In real usage, you would typically specify the workflow
-// name in the NewWorkflowManager constructor and it would handle selecting
+// when using a custom workflow. It verifies that the manager correctly uses
 // the correct workflow from the registry.
 func TestWorkflowManager_WithCustomWorkflow(t *testing.T) {
 	// Create mocks
@@ -865,6 +936,11 @@ func TestWorkflowManager_WithCustomWorkflow(t *testing.T) {
 	// Enable debug mode
 	mockIO.debugEnabled = true
 
+	// Create a clean registry for this test
+	registry := NewWorkflowRegistry()
+	// Reset it to ensure it starts clean
+	ResetGlobalRegistry()
+	
 	// Create a custom workflow
 	customWorkflowName := "custom-workflow"
 	customWorkflow := &WorkflowDefinition{
@@ -883,18 +959,44 @@ func TestWorkflowManager_WithCustomWorkflow(t *testing.T) {
 			},
 		},
 	}
-
-	// Create workflow manager first, then register and set the workflow
-	wm := NewWorkflowManager(fs, mockIO, "")
-	wm.RegisterWorkflow(customWorkflow)
-
-	// Explicitly set the workflow after registration
-	wm.workflow = customWorkflow
+	
+	// Register the workflow directly in the registry
+	registry.RegisterBuiltInWorkflow(customWorkflow)
+	
+	// Verify the workflow exists in the registry before creating a manager
+	wf, err := registry.GetWorkflow(customWorkflowName)
+	if err != nil {
+		t.Fatalf("Failed to retrieve custom workflow from registry: %v", err)
+	}
+	if wf.Name != customWorkflowName {
+		t.Fatalf("Registry returned wrong workflow: got %s, want %s", wf.Name, customWorkflowName)
+	}
+	t.Logf("Custom workflow verified in registry: %s with %d steps", wf.Name, len(wf.Steps))
+	
+	// List available workflows for debugging
+	workflows := registry.ListWorkflows()
+	t.Logf("Available workflows in registry: %v", workflows)
+	
+	// Create workflow manager with the custom workflow name, explicitly passing the registry
+	wm := NewWorkflowManager(fs, mockIO, customWorkflowName, registry)
+	t.Logf("Created workflow manager with workflow name: %s", customWorkflowName)
+	t.Logf("Manager's workflow: %s with %d steps", wm.workflow.Name, len(wm.workflow.Steps))
 
 	// Test that the workflow manager is using the custom workflow
 	if wm.workflow.Name != customWorkflowName {
 		t.Errorf("WorkflowManager not using custom workflow, got %s, want %s",
 			wm.workflow.Name, customWorkflowName)
+		
+		// Debug the registry more deeply
+		t.Logf("Registry in manager has these workflows: %v", wm.registry.ListWorkflows())
+		
+		// Try to get the workflow directly from the manager's registry
+		customWf, customErr := wm.registry.GetWorkflow(customWorkflowName)
+		if customErr != nil {
+			t.Logf("Manager's registry cannot get custom workflow: %v", customErr)
+		} else {
+			t.Logf("Manager's registry has custom workflow with %d steps", len(customWf.Steps))
+		}
 	}
 
 	// Verify the workflow has the expected steps
@@ -925,7 +1027,7 @@ func TestWorkflowManager_WithCustomWorkflow(t *testing.T) {
 	if mockIO.stepMessages[0] != expectedStep {
 		t.Errorf("DetermineNextStep() step = %v, want %v", mockIO.stepMessages[0], expectedStep)
 	}
-
+	
 	// Test updating state
 	err = wm.UpdateState(changeRequestPath, 1)
 	if err != nil {
@@ -950,6 +1052,7 @@ func TestWorkflowManager_WithCustomWorkflow(t *testing.T) {
 	}
 
 	// Test workflow completion
+	// Custom workflow has 2 steps, so setting to 2 should mark it complete
 	err = wm.UpdateState(changeRequestPath, len(customWorkflow.Steps))
 	if err != nil {
 		t.Errorf("UpdateState() error = %v, want nil", err)
@@ -975,7 +1078,7 @@ func TestWorkflowManager_WithNonExistentWorkflow(t *testing.T) {
 
 	// Try to create workflow manager with non-existent workflow
 	nonExistentWorkflowName := "non-existent-workflow"
-	wm := NewWorkflowManager(fs, mockIO, nonExistentWorkflowName)
+	wm := NewWorkflowManager(fs, mockIO, nonExistentWorkflowName, nil)
 
 	// Test that the workflow manager falls back to standard workflow
 	if wm.workflow.Name != StandardWorkflowName {

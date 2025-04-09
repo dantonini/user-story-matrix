@@ -7,6 +7,10 @@ package workflow
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Standard workflow template paths
@@ -45,12 +49,38 @@ type promptSource struct { //nolint:unused
 // Returns:
 //   - error if the extraction fails
 func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
-	// TODO: Implement extraction of standard workflow
-	// 1. Create directory structure if it doesn't exist
-	// 2. Extract each prompt to a file
-	// 3. Create workflow.yaml referencing the prompt files
+	// Create output directory if it doesn't exist
+	if !fs.Exists(outputDir) {
+		if err := fs.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output directory: %w", err)
+		}
+	}
 	
-	return fmt.Errorf("not implemented")
+	// Create prompts directory if it doesn't exist
+	promptsDir := filepath.Join(outputDir, "prompts")
+	if !fs.Exists(promptsDir) {
+		if err := fs.MkdirAll(promptsDir, 0755); err != nil {
+			return fmt.Errorf("failed to create prompts directory: %w", err)
+		}
+	}
+	
+	// Extract each prompt to a file and collect paths
+	promptPaths := make(map[string]string)
+	for _, step := range StandardWorkflowSteps {
+		promptPath, err := extractPromptToFile(fs, promptsDir, step)
+		if err != nil {
+			return fmt.Errorf("failed to extract prompt for step %s: %w", step.ID, err)
+		}
+		promptPaths[step.ID] = promptPath
+	}
+	
+	// Generate workflow.yaml file
+	workflowYAMLPath := filepath.Join(outputDir, StandardWorkflowYAML)
+	if err := generateWorkflowYAML(fs, StandardWorkflowSteps, workflowYAMLPath, promptPaths); err != nil {
+		return fmt.Errorf("failed to generate workflow.yaml: %w", err)
+	}
+	
+	return nil
 }
 
 // generateWorkflowYAML creates a workflow.yaml file from StandardWorkflowSteps
@@ -59,17 +89,30 @@ func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
 //   - fs: FileSystem interface for file operations
 //   - steps: Workflow steps to generate YAML from
 //   - outputPath: Path to save the workflow.yaml file
+//   - promptPaths: Map of step ID to relative prompt file path
 //
 // Returns:
 //   - error if the YAML generation or file writing fails
-func generateWorkflowYAML(fs FileSystem, steps []WorkflowStep, outputPath string) error {
-	// TODO: Implement workflow.yaml generation
-	// 1. Create WorkflowFileDefinition from steps
-	// 2. Update prompt references to relative file paths
-	// 3. Marshal to YAML
-	// 4. Write to file
+func generateWorkflowYAML(fs FileSystem, steps []WorkflowStep, outputPath string, promptPaths map[string]string) error {
+	// Create WorkflowFileDefinition from steps
+	fileDef := FromWorkflowDefinition(&WorkflowDefinition{
+		Name:        "standard",
+		Description: "Standard development workflow",
+		Steps:       steps,
+	}, promptPaths)
 	
-	return fmt.Errorf("not implemented")
+	// Marshal to YAML
+	data, err := yaml.Marshal(fileDef)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflow to YAML: %w", err)
+	}
+	
+	// Write to file
+	if err := fs.WriteFile(outputPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write workflow YAML: %w", err)
+	}
+	
+	return nil
 }
 
 // extractPromptToFile writes a single prompt to a markdown file
@@ -80,15 +123,20 @@ func generateWorkflowYAML(fs FileSystem, steps []WorkflowStep, outputPath string
 //   - step: The workflow step containing the prompt to extract
 //
 // Returns:
-//   - error if writing the prompt file fails
 //   - string containing the relative path to the prompt file
+//   - error if writing the prompt file fails
 func extractPromptToFile(fs FileSystem, promptsDir string, step WorkflowStep) (string, error) {
-	// TODO: Implement prompt extraction
-	// 1. Generate filename from step ID
-	// 2. Write prompt content to file
-	// 3. Return relative path to the file
+	// Generate filename from step ID
+	filename := fmt.Sprintf("%s.md", step.ID)
+	filePath := filepath.Join(promptsDir, filename)
 	
-	return "", fmt.Errorf("not implemented")
+	// Write prompt content to file
+	if err := fs.WriteFile(filePath, []byte(step.Prompt), 0644); err != nil {
+		return "", fmt.Errorf("failed to write prompt file: %w", err)
+	}
+	
+	// Return relative path to the file
+	return filepath.Join("prompts", filename), nil
 }
 
 // loadPromptContent loads prompt content, with priority to file sources
@@ -103,13 +151,22 @@ func extractPromptToFile(fs FileSystem, promptsDir string, step WorkflowStep) (s
 //   - The prompt content as a string
 //   - error if loading fails
 func loadPromptContent(step *WorkflowStep, fs FileSystem) (string, error) {
-	// TODO: Implement prompt loading
-	// 1. Check if step has a file source
-	// 2. Try to read from file if available
-	// 3. Fall back to embedded prompt if file read fails
-	// 4. Return prompt content
+	// Check if step has a file source
+	if step.source.sourceType == promptSourceFile && step.source.filePath != "" {
+		// Try to read from file if available
+		if fs.Exists(step.source.filePath) {
+			data, err := fs.ReadFile(step.source.filePath)
+			if err == nil {
+				return string(data), nil
+			}
+			// Log the error but don't return it, fall back to embedded prompt
+			fmt.Printf("Failed to load prompt from file %s: %v, falling back to embedded prompt\n", 
+				step.source.filePath, err)
+		}
+	}
 	
-	return step.Prompt, nil // Default to embedded prompt for now
+	// Fall back to embedded prompt
+	return step.Prompt, nil
 }
 
 // setPromptFromFile sets the prompt source to a file path
@@ -118,9 +175,10 @@ func loadPromptContent(step *WorkflowStep, fs FileSystem) (string, error) {
 //   - step: The workflow step to update
 //   - path: File path to the prompt
 func setPromptFromFile(step *WorkflowStep, path string) { //nolint:unused
-	// TODO: Implement setting prompt source
-	// 1. Update step's internal source field
-	// 2. Keep original prompt as fallback
+	step.source = promptSource{
+		sourceType: promptSourceFile,
+		filePath:   path,
+	}
 }
 
 // getRelativePromptPath returns the relative path to a prompt file from the workflow directory
@@ -132,11 +190,24 @@ func setPromptFromFile(step *WorkflowStep, path string) { //nolint:unused
 // Returns:
 //   - Relative path from workflow directory to prompt file
 func getRelativePromptPath(promptFile, workflowDir string) string {
-	// TODO: Implement relative path calculation
-	// 1. Convert absolute paths to clean format
-	// 2. Calculate relative path from workflow dir to prompt file
+	// Clean paths to ensure consistent format
+	promptFile = filepath.Clean(promptFile)
+	workflowDir = filepath.Clean(workflowDir)
 	
-	return ""
+	// Check if prompt file is already relative
+	if !filepath.IsAbs(promptFile) {
+		return promptFile
+	}
+	
+	// Calculate relative path
+	rel, err := filepath.Rel(workflowDir, promptFile)
+	if err != nil {
+		// If we can't create a relative path, return the original path
+		return promptFile
+	}
+	
+	// Ensure forward slashes for cross-platform compatibility in YAML
+	return strings.ReplaceAll(rel, "\\", "/")
 }
 
 // WorkflowFileDefinition represents the structure of a workflow.yaml file
@@ -162,12 +233,24 @@ type WorkflowFileStep struct {
 // Returns:
 //   - WorkflowFileDefinition suitable for serialization to YAML
 func FromWorkflowDefinition(def *WorkflowDefinition, promptPaths map[string]string) WorkflowFileDefinition {
-	// TODO: Implement conversion
-	// 1. Create file definition with same name and description
-	// 2. Convert each step using prompt paths
+	fileSteps := make([]WorkflowFileStep, len(def.Steps))
+	
+	for i, step := range def.Steps {
+		promptPath := "step-prompt.md" // Default value
+		if path, exists := promptPaths[step.ID]; exists {
+			promptPath = path
+		}
+		
+		fileSteps[i] = WorkflowFileStep{
+			ID:          step.ID,
+			Description: step.Description,
+			Prompt:      promptPath,
+		}
+	}
 	
 	return WorkflowFileDefinition{
 		Name:        def.Name,
 		Description: def.Description,
+		Steps:       fileSteps,
 	}
 } 
