@@ -15,9 +15,10 @@ import (
 
 // WorkflowStep represents a single step in the implementation workflow
 type WorkflowStep struct {
-	ID          string // Unique identifier (e.g., "01-laying-the-foundation")
-	Description string // Human-readable description
-	Prompt      string // AI agent instructions with variable interpolation
+	ID          string        // Unique identifier (e.g., "01-laying-the-foundation")
+	Description string        // Human-readable description
+	Prompt      string        // AI agent instructions with variable interpolation
+	source      promptSource  //nolint:unused // Internal field for tracking prompt source (embedded or file)
 }
 
 // WorkflowState tracks the current state of a workflow for a specific change request
@@ -26,6 +27,8 @@ type WorkflowState struct {
 	CurrentStepIndex  int       // Index of the current step (0-based)
 	LastModified      time.Time // When the state was last updated
 	CompletedSteps    []string  // List of completed step IDs
+	WorkflowName      string    // Name of the workflow being used
+	WorkflowPath      string    // Optional path to the workflow definition
 }
 
 // WorkflowManager handles workflow-related operations such as loading and saving

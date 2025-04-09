@@ -50,7 +50,11 @@ type ExternalWorkflowStep struct {
 func (e *ExternalWorkflowDefinition) ToWorkflowDefinition() *WorkflowDefinition {
 	steps := make([]WorkflowStep, len(e.Steps))
 	for i, step := range e.Steps {
-		steps[i] = WorkflowStep(step)
+		steps[i] = WorkflowStep{
+			ID:          step.ID,
+			Description: step.Description,
+			Prompt:      step.Prompt,
+		}
 	}
 	
 	return &WorkflowDefinition{
@@ -73,43 +77,43 @@ func (e *ExternalWorkflowDefinition) ToWorkflowDefinition() *WorkflowDefinition 
 func LoadWorkflowsFromDirectory(fs io.FileSystem, directory string, registry *WorkflowRegistry) ([]*WorkflowDefinition, error) {
 	// Check if directory exists
 	if !fs.Exists(directory) {
-		return nil, fmt.Errorf("workflow directory not found: %s", directory)
+		return nil, fmt.Errorf("directory not found: %s", directory)
 	}
 	
-	// List files in the directory
-	entries, err := fs.ReadDir(directory)
+	// Get list of files in directory
+	files, err := fs.ReadDir(directory)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read workflow directory: %w", err)
+		return nil, fmt.Errorf("failed to read directory: %w", err)
 	}
 	
-	// Pre-allocate the workflows slice
-	workflows := make([]*WorkflowDefinition, 0, len(entries))
-	
-	// Process each file
-	for _, entry := range entries {
-		// Skip directories
-		if entry.IsDir() {
+	// Load workflows from files
+	workflows := make([]*WorkflowDefinition, 0)
+	for _, file := range files {
+		// Skip directories and non-workflow files
+		if file.IsDir() {
 			continue
 		}
 		
-		fileName := entry.Name()
-		
-		// Only process workflow definition files
-		if !isWorkflowFile(fileName) {
+		fileName := file.Name()
+		ext := strings.ToLower(filepath.Ext(fileName))
+		if ext != ".json" && ext != ".yaml" && ext != ".yml" {
 			continue
 		}
 		
-		// Load the workflow
+		// Load workflow from file
 		filePath := filepath.Join(directory, fileName)
 		workflow, err := LoadWorkflowFromFile(fs, filePath)
 		if err != nil {
-			// Log the error but continue processing other files
-			fmt.Printf("Warning: Failed to load workflow from %s: %v\n", filePath, err)
+			// Log error but continue with other files
+			fmt.Printf("Error loading workflow from %s: %v\n", filePath, err)
 			continue
 		}
 		
-		// Register the workflow
-		registry.RegisterBuiltInWorkflow(workflow)
+		// Register workflow with registry
+		if registry != nil {
+			registry.RegisterBuiltInWorkflow(workflow)
+		}
+		
 		workflows = append(workflows, workflow)
 	}
 	
@@ -117,14 +121,14 @@ func LoadWorkflowsFromDirectory(fs io.FileSystem, directory string, registry *Wo
 }
 
 // LoadWorkflowFromFile loads a workflow definition from a file.
-// It supports both YAML and JSON formats, detected based on the file extension.
+// It supports both YAML and JSON formats.
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
 //   - filePath: Path to the workflow definition file
 //
 // Returns:
-//   - A WorkflowDefinition loaded from the file, or an error if loading failed
+//   - The loaded WorkflowDefinition, or an error if loading failed
 func LoadWorkflowFromFile(fs io.FileSystem, filePath string) (*WorkflowDefinition, error) {
 	// Check if file exists
 	if !fs.Exists(filePath) {
@@ -183,7 +187,11 @@ func SaveWorkflowToFile(fs io.FileSystem, workflow *WorkflowDefinition, filePath
 	}
 	
 	for i, step := range workflow.Steps {
-		externalWorkflow.Steps[i] = ExternalWorkflowStep(step)
+		externalWorkflow.Steps[i] = ExternalWorkflowStep{
+			ID:          step.ID,
+			Description: step.Description,
+			Prompt:      step.Prompt,
+		}
 	}
 	
 	// Determine the file format based on extension

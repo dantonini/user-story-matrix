@@ -10,6 +10,7 @@ package workflow
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Standard workflow constants
@@ -43,6 +44,13 @@ type WorkflowDefinition struct {
 	Steps []WorkflowStep
 }
 
+// workflowCache stores loaded workflows for improved performance
+type workflowCache struct {
+	workflows map[string]*WorkflowDefinition // Cached workflow definitions
+	sources   map[string]string             // Maps workflow name to source path
+	modified  map[string]time.Time          // Last modified timestamps for cache invalidation
+}
+
 // WorkflowRegistry manages available workflows and provides methods for retrieving them.
 // It acts as a central repository for all workflow definitions, allowing the system
 // to support multiple workflows while maintaining a consistent interface.
@@ -52,6 +60,8 @@ type WorkflowDefinition struct {
 type WorkflowRegistry struct {
 	// builtInWorkflows maps workflow names to their definitions
 	builtInWorkflows map[string]*WorkflowDefinition
+	// cache provides performance optimization for file-based workflows
+	cache workflowCache
 	// mutex protects concurrent access to the workflows map
 	mutex sync.RWMutex
 }
@@ -112,7 +122,12 @@ func NewWorkflowRegistry() *WorkflowRegistry {
 func newWorkflowRegistry() *WorkflowRegistry {
 	registry := &WorkflowRegistry{
 		builtInWorkflows: make(map[string]*WorkflowDefinition),
-		mutex:            sync.RWMutex{},
+		cache: workflowCache{
+			workflows: make(map[string]*WorkflowDefinition),
+			sources:   make(map[string]string),
+			modified:  make(map[string]time.Time),
+		},
+		mutex: sync.RWMutex{},
 	}
 
 	// Register the standard workflow
@@ -146,11 +161,19 @@ func (r *WorkflowRegistry) GetWorkflow(name string) (*WorkflowDefinition, error)
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	
+	// First check built-in workflows
 	workflow, exists := r.builtInWorkflows[name]
-	if !exists {
-		return nil, fmt.Errorf("workflow '%s' not found", name)
+	if exists {
+		return workflow, nil
 	}
-	return workflow, nil
+	
+	// Then check cached workflows from filesystem
+	workflow, exists = r.cache.workflows[name]
+	if exists {
+		return workflow, nil
+	}
+	
+	return nil, fmt.Errorf("workflow '%s' not found", name)
 }
 
 // GetStandardWorkflow returns the standard workflow.
@@ -179,11 +202,113 @@ func (r *WorkflowRegistry) ListWorkflows() []string {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	
-	workflows := make([]string, 0, len(r.builtInWorkflows))
+	// Collect all workflow names (built-in and file-based)
+	workflows := make([]string, 0, len(r.builtInWorkflows)+len(r.cache.workflows))
+	
 	for name := range r.builtInWorkflows {
 		workflows = append(workflows, name)
 	}
+	
+	for name := range r.cache.workflows {
+		// Skip if already added from built-in workflows
+		if _, exists := r.builtInWorkflows[name]; !exists {
+			workflows = append(workflows, name)
+		}
+	}
+	
 	return workflows
+}
+
+// LoadFromDirectory loads a workflow definition from the specified directory.
+// The directory should contain a workflow.yaml file and a prompts subdirectory.
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//   - path: Path to the directory containing the workflow definition
+//
+// Returns:
+//   - The loaded WorkflowDefinition, or an error if loading fails
+func (r *WorkflowRegistry) LoadFromDirectory(fs FileSystem, path string) (*WorkflowDefinition, error) {
+	// TODO: Implement workflow loading from directory
+	// 1. Check if workflow.yaml exists
+	// 2. Load and parse workflow.yaml
+	// 3. Load prompt files referenced in the definition
+	// 4. Cache the loaded workflow
+	// 5. Return the workflow definition
+	
+	return nil, fmt.Errorf("not implemented")
+}
+
+// DiscoverWorkflows finds and loads workflows from standard locations.
+// It searches in multiple directories and loads all valid workflow definitions.
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//
+// Returns:
+//   - A map of workflow names to their definitions
+func (r *WorkflowRegistry) DiscoverWorkflows(fs FileSystem) map[string]*WorkflowDefinition {
+	// TODO: Implement workflow discovery
+	// 1. Define standard directories to search
+	// 2. Walk each directory looking for workflow.yaml files
+	// 3. Load each workflow found
+	// 4. Return map of discovered workflows
+	
+	return make(map[string]*WorkflowDefinition)
+}
+
+// ReloadChangedWorkflows checks for modified workflow files and reloads them.
+// This is used to pick up changes to workflows on disk without restarting.
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//
+// Returns:
+//   - Slice of names of workflows that were reloaded
+func (r *WorkflowRegistry) ReloadChangedWorkflows(fs FileSystem) []string {
+	// TODO: Implement workflow reloading
+	// 1. Check each cached workflow's source file
+	// 2. Compare file modification time with cached time
+	// 3. Reload any workflows that have changed
+	// 4. Update cache with new content and timestamps
+	// 5. Return names of reloaded workflows
+	
+	return []string{}
+}
+
+// isWorkflowModified checks if a workflow file has been modified since it was last loaded
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//   - name: Name of the workflow to check
+//
+// Returns:
+//   - true if the workflow has been modified, false otherwise
+//   - error if checking fails
+func (r *WorkflowRegistry) isWorkflowModified(fs FileSystem, name string) (bool, error) { //nolint:unused
+	// TODO: Implement workflow modification check
+	// 1. Get workflow source path from cache
+	// 2. Get file info for source file
+	// 3. Compare modification time with cached time
+	// 4. Return true if file is newer than cached time
+	
+	return false, fmt.Errorf("not implemented")
+}
+
+// GetStandardWorkflowDirectories returns potential workflow locations
+//
+// Returns:
+//   - Slice of directory paths where workflows might be located
+func GetStandardWorkflowDirectories() []string {
+	// TODO: Implement standard workflow directory discovery
+	// 1. Define standard locations to look for workflows
+	// 2. Consider both absolute and relative paths
+	// 3. Consider user configurable locations
+	
+	return []string{
+		StandardTemplateDir,
+		// Add more standard locations here
+	}
 }
 
 // createStandardWorkflow converts the existing StandardWorkflowSteps to a WorkflowDefinition.

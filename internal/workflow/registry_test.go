@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Setup and cleanup for all tests in this file
@@ -411,7 +413,49 @@ func TestWorkflowRegistry_GetStandardWorkflowPanic(t *testing.T) {
 	_ = corruptedRegistry.GetStandardWorkflow()
 }
 
-func init() {
-	// This is a hook for future implementation that will allow tests to properly
-	// reset the global registry state between test runs
+func TestWorkflowRegistry_LoadFromDirectory(t *testing.T) {
+	// TODO: Test loading a workflow from a directory
+	// 1. Create a mock filesystem with a workflow directory
+	// 2. Set up workflow.yaml and prompt files
+	// 3. Call LoadFromDirectory
+	// 4. Verify the loaded workflow definition
+}
+
+func TestWorkflowRegistry_DiscoverWorkflows(t *testing.T) {
+	// TODO: Test discovering workflows from standard locations
+	// 1. Create a mock filesystem with workflow directories in standard locations
+	// 2. Call DiscoverWorkflows
+	// 3. Verify all expected workflows are discovered
+}
+
+func TestWorkflowRegistry_ReloadChangedWorkflows(t *testing.T) {
+	// TODO: Test reloading workflows when they change on disk
+	// 1. Create a mock filesystem with a workflow
+	// 2. Load the workflow into the registry
+	// 3. Modify the workflow files
+	// 4. Call ReloadChangedWorkflows
+	// 5. Verify the workflow was reloaded with the new content
+}
+
+func TestWorkflowRegistry_GetWorkflow_FileSystem(t *testing.T) {
+	// TODO: Test retrieving workflows from both built-in and file-based sources
+	// 1. Create a registry with built-in workflows
+	// 2. Load a file-based workflow
+	// 3. Test retrieving both types of workflows
+	// 4. Test retrieving a non-existent workflow
+}
+
+func TestGetStandardWorkflowDirectories(t *testing.T) {
+	// Get the standard workflow directories
+	dirs := GetStandardWorkflowDirectories()
+	
+	// Verify that the result is not nil
+	assert.NotNil(t, dirs, "GetStandardWorkflowDirectories should not return nil")
+	
+	// Verify that the result is not empty
+	assert.NotEmpty(t, dirs, "GetStandardWorkflowDirectories should not return an empty slice")
+	
+	// Verify the returned directories include StandardTemplateDir
+	assert.Contains(t, dirs, StandardTemplateDir, 
+		"GetStandardWorkflowDirectories should include StandardTemplateDir")
 }
