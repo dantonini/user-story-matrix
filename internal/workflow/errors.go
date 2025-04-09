@@ -12,26 +12,26 @@ import (
 // Static error variables for the workflow package
 var (
 	// General errors
-	ErrFile                  = errors.New("file error")
-	ErrState                 = errors.New("state error")
-	ErrExecution             = errors.New("execution error")
-	ErrValidation            = errors.New("validation error")
-	
+	ErrFile       = errors.New("file error")
+	ErrState      = errors.New("state error")
+	ErrExecution  = errors.New("execution error")
+	ErrValidation = errors.New("validation error")
+
 	// Step validation specific errors
-	ErrStepMissingID         = errors.New("step missing ID")
+	ErrStepMissingID          = errors.New("step missing ID")
 	ErrStepMissingDescription = errors.New("step missing description")
-	ErrStepInvalidPrompt     = errors.New("invalid prompt in step")
+	ErrStepInvalidPrompt      = errors.New("invalid prompt in step")
 )
 
 // Message templates for user-friendly output
 // These are separate from the error variables to maintain user-friendly formatting
 const (
-	MsgFileNotFound            = "❌ Error: File %s not found."
-	MsgInvalidStateFile        = "⚠️ Warning: Invalid state file detected for %s. Starting from the beginning."
-	MsgStateUpdateFailed       = "❌ Error: Failed to update workflow state: %s"
-	MsgStepExecutionFailed     = "❌ Error: Failed to execute step: %s"
-	MsgUnrecognizedStep        = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
-	MsgStateFileCorrupted      = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
-	MsgInvalidPrompt           = "❌ Error: Invalid prompt in step %s: %s"
-	MsgStepValidationFailed    = "❌ Error: Step validation failed: %s"
-) 
+	MsgFileNotFound         = "❌ Error: File %s not found."
+	MsgInvalidStateFile     = "⚠️ Warning: Invalid state file detected for %s. Starting from the beginning."
+	MsgStateUpdateFailed    = "❌ Error: Failed to update workflow state: %s"
+	MsgStepExecutionFailed  = "❌ Error: Failed to execute step: %s"
+	MsgUnrecognizedStep     = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
+	MsgStateFileCorrupted   = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
+	MsgInvalidPrompt        = "❌ Error: Invalid prompt in step %s: %s"
+	MsgStepValidationFailed = "❌ Error: Step validation failed: %s"
+)

@@ -34,7 +34,7 @@ func TestInterpolatePrompt(t *testing.T) {
 	fullpath := filepath.Join(dir, base)
 	stepID := "01-test-step"
 	stepName := "test-step"
-	
+
 	// Create variables for testing
 	vars := PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
@@ -46,7 +46,7 @@ func TestInterpolatePrompt(t *testing.T) {
 		ChangeRequestFullpath: fullpath,
 		Basename:              base, // Deprecated
 	}
-	
+
 	tests := []struct {
 		name     string
 		prompt   string
@@ -88,7 +88,7 @@ func TestInterpolatePrompt(t *testing.T) {
 			expected: "This ${unknown_var} should remain unchanged",
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := InterpolatePrompt(tc.prompt, vars)
@@ -105,20 +105,20 @@ func TestInterpolatePromptWithMissingVars(t *testing.T) {
 	vars := PromptVariables{
 		ChangeRequestFilePath: "/path/to/file",
 	}
-	
+
 	expectedResult := "Process ${nonexistent_var} and /path/to/file and ${another_missing_var}"
 	expectedMissingVars := []string{"nonexistent_var", "another_missing_var"}
-	
+
 	result, missingVars := InterpolatePromptWithMissingVars(prompt, vars)
-	
+
 	if result != expectedResult {
 		t.Errorf("Expected result '%s', got '%s'", expectedResult, result)
 	}
-	
+
 	if len(missingVars) != len(expectedMissingVars) {
 		t.Errorf("Expected %d missing variables, got %d", len(expectedMissingVars), len(missingVars))
 	}
-	
+
 	// Check that all expected missing variables are in the result
 	for _, expected := range expectedMissingVars {
 		found := false
@@ -137,31 +137,31 @@ func TestInterpolatePromptWithMissingVars(t *testing.T) {
 func TestInterpolatePromptWithMap(t *testing.T) {
 	// Test with extended variables structure using a map
 	prompt := "Process ${change_request_file_path} with ${new_variable}"
-	
+
 	// Create variable map
 	varMap := map[string]string{
 		"change_request_file_path": "/path",
 		"new_variable":             "test",
 	}
-	
+
 	expected := "Process /path with test"
 	result := interpolatePromptWithMap(prompt, varMap)
-	
+
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
-	
+
 	// Test with nested map containing complex variables
 	complexVarMap := map[string]string{
 		"change_request_file_path": "/path",
 		"user_name":                "john",
 		"project_id":               "123",
 	}
-	
+
 	complexPrompt := "User ${user_name} is working on project ${project_id} using ${change_request_file_path}"
 	complexExpected := "User john is working on project 123 using /path"
 	complexResult := interpolatePromptWithMap(complexPrompt, complexVarMap)
-	
+
 	if complexResult != complexExpected {
 		t.Errorf("Expected '%s', got '%s'", complexExpected, complexResult)
 	}
@@ -208,7 +208,7 @@ func TestInterpolatePromptWithError(t *testing.T) {
 			shouldError: true,
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := InterpolatePromptWithError(tc.prompt, tc.vars)
@@ -257,19 +257,19 @@ func TestValidatePrompt(t *testing.T) {
 			errorContains: "",
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidatePrompt(tc.prompt)
-			
+
 			if tc.shouldBeValid && err != nil {
 				t.Errorf("Expected prompt to be valid, but got error: %v", err)
 			}
-			
+
 			if !tc.shouldBeValid && err == nil {
 				t.Errorf("Expected prompt to be invalid, but no error was returned")
 			}
-			
+
 			if !tc.shouldBeValid && err != nil && tc.errorContains != "" {
 				if !strings.Contains(err.Error(), tc.errorContains) {
 					t.Errorf("Error message '%v' does not contain expected text '%s'", err, tc.errorContains)
@@ -282,7 +282,7 @@ func TestValidatePrompt(t *testing.T) {
 func TestGenerateStepPrompt(t *testing.T) {
 	// Setup test data
 	changeRequestPath := "/path/to/my-change-request.blueprint.md"
-	
+
 	// Test cases
 	tests := []struct {
 		name     string
@@ -331,7 +331,7 @@ func TestGenerateStepPrompt(t *testing.T) {
 			wantErr:  false,
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test function
@@ -343,12 +343,12 @@ func TestGenerateStepPrompt(t *testing.T) {
 				}
 			} else {
 				result := generateStepPrompt(tc.step, changeRequestPath)
-				
+
 				// For non-error cases with explicit expected values
 				if tc.expected != "" && result != tc.expected {
 					t.Errorf("generateStepPrompt() = %v, want %v", result, tc.expected)
 				}
-				
+
 				// For empty prompt case, check default prompt is generated
 				if tc.step.Prompt == "" {
 					expectedDefault := generateDefaultPrompt(tc.step)
@@ -367,10 +367,10 @@ func TestGenerateDefaultPrompt(t *testing.T) {
 		Description: "Test step",
 		Prompt:      "",
 	}
-	
+
 	generatedPrompt := generateDefaultPrompt(step)
 	expectedContains := "Test step"
-	
+
 	if !strings.Contains(generatedPrompt, expectedContains) {
 		t.Errorf("Generated default prompt does not contain expected text '%s'", expectedContains)
 	}
@@ -378,39 +378,39 @@ func TestGenerateDefaultPrompt(t *testing.T) {
 
 func TestInterpolationErrorString(t *testing.T) {
 	tests := []struct {
-		name         string
-		message      string
+		name          string
+		message       string
 		malformedVars []string
-		missingVars  []string
-		expected     string
+		missingVars   []string
+		expected      string
 	}{
 		{
-			name:         "Only message",
-			message:      "test message",
+			name:          "Only message",
+			message:       "test message",
 			malformedVars: nil,
-			missingVars:  nil,
-			expected:     "test message",
+			missingVars:   nil,
+			expected:      "test message",
 		},
 		{
-			name:         "Message with malformed variables",
-			message:      "test message",
+			name:          "Message with malformed variables",
+			message:       "test message",
 			malformedVars: []string{"var with space", "another-bad"},
-			missingVars:  nil,
-			expected:     "test message: malformed variables [var with space, another-bad]",
+			missingVars:   nil,
+			expected:      "test message: malformed variables [var with space, another-bad]",
 		},
 		{
-			name:         "Message with missing variables",
-			message:      "test message",
+			name:          "Message with missing variables",
+			message:       "test message",
 			malformedVars: nil,
-			missingVars:  []string{"missing1", "missing2"},
-			expected:     "test message: missing variables [missing1, missing2]",
+			missingVars:   []string{"missing1", "missing2"},
+			expected:      "test message: missing variables [missing1, missing2]",
 		},
 		{
-			name:         "Message with both malformed and missing variables",
-			message:      "test message",
+			name:          "Message with both malformed and missing variables",
+			message:       "test message",
 			malformedVars: []string{"bad-var"},
-			missingVars:  []string{"missing-var"},
-			expected:     "test message: malformed variables [bad-var], missing variables [missing-var]",
+			missingVars:   []string{"missing-var"},
+			expected:      "test message: malformed variables [bad-var], missing variables [missing-var]",
 		},
 	}
 
@@ -430,35 +430,35 @@ func BenchmarkInterpolation(b *testing.B) {
 	for i := 0; i < 1000; i++ {
 		prompt.WriteString(fmt.Sprintf("This is sentence %d with ${change_request_file_path} variable reference.\n", i))
 	}
-	
+
 	largePath := "/very/long/path/to/a/file/with/a/lot/of/segments/that/might/slow/down/string/operations/in/a/large/text.md"
 	vars := PromptVariables{
 		ChangeRequestFilePath: largePath,
 	}
-	
+
 	b.ResetTimer()
-	
+
 	// Benchmark InterpolatePrompt
 	b.Run("InterpolatePrompt", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			InterpolatePrompt(prompt.String(), vars)
 		}
 	})
-	
+
 	// Benchmark InterpolatePromptWithMissingVars
 	b.Run("InterpolatePromptWithMissingVars", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			InterpolatePromptWithMissingVars(prompt.String(), vars)
 		}
 	})
-	
+
 	// Benchmark InterpolatePromptWithError
 	b.Run("InterpolatePromptWithError", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_, _ = InterpolatePromptWithError(prompt.String(), vars)
 		}
 	})
-	
+
 	// Create a large map of variables
 	varMap := map[string]string{
 		"change_request_file_path": largePath,
@@ -466,11 +466,11 @@ func BenchmarkInterpolation(b *testing.B) {
 	for i := 0; i < 50; i++ {
 		varMap[fmt.Sprintf("var_%d", i)] = fmt.Sprintf("value_%d", i)
 	}
-	
+
 	// Benchmark interpolatePromptWithMap
 	b.Run("interpolatePromptWithMap", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			interpolatePromptWithMap(prompt.String(), varMap)
 		}
 	})
-} 
+}

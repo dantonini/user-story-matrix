@@ -14,14 +14,14 @@ import (
 
 // PromptVariables contains variables that can be interpolated into a prompt
 type PromptVariables struct {
-	ChangeRequestFilePath   string
-	ChangeRequestBasename   string
-	BlueprintBasename       string
-	ChangeRequestDirname    string
-	StepID                  string
-	StepName                string
-	ChangeRequestFullpath   string
-	Basename                string // Deprecated, use ChangeRequestBasename instead
+	ChangeRequestFilePath string
+	ChangeRequestBasename string
+	BlueprintBasename     string
+	ChangeRequestDirname  string
+	StepID                string
+	StepName              string
+	ChangeRequestFullpath string
+	Basename              string // Deprecated, use ChangeRequestBasename instead
 }
 
 // InterpolationError represents an error during prompt interpolation
@@ -64,18 +64,18 @@ func InterpolatePrompt(prompt string, variables PromptVariables) string {
 	result = strings.ReplaceAll(result, "${change_request_file_path}", variables.ChangeRequestFilePath)
 	result = strings.ReplaceAll(result, "${change_request_basename}", variables.ChangeRequestBasename)
 	result = strings.ReplaceAll(result, "${blueprint_basename}", variables.BlueprintBasename)
-	
+
 	// Support both old and new variable names for dirname
 	result = strings.ReplaceAll(result, "${change_request_dirname}", variables.ChangeRequestDirname)
 	result = strings.ReplaceAll(result, "${dirname}", variables.ChangeRequestDirname) // For backward compatibility
-	
+
 	result = strings.ReplaceAll(result, "${stepid}", variables.StepID)
 	result = strings.ReplaceAll(result, "${stepname}", variables.StepName)
-	
+
 	// Support both old and new variable names for fullpath
 	result = strings.ReplaceAll(result, "${change_request_fullpath}", variables.ChangeRequestFullpath)
 	result = strings.ReplaceAll(result, "${fullpath}", variables.ChangeRequestFullpath) // For backward compatibility
-	
+
 	// Support deprecated variable
 	result = strings.ReplaceAll(result, "${basename}", variables.Basename)
 
@@ -87,7 +87,7 @@ func InterpolatePrompt(prompt string, variables PromptVariables) string {
 // malformed variables (syntax issues like spaces in variable names or unclosed braces)
 func InterpolatePromptWithError(prompt string, variables PromptVariables) (string, error) {
 	result, missingVars, malformedVars := interpolateWithDetails(prompt, variables)
-	
+
 	if len(missingVars) > 0 || len(malformedVars) > 0 {
 		return result, NewInterpolationError(
 			"prompt interpolation encountered issues",
@@ -95,7 +95,7 @@ func InterpolatePromptWithError(prompt string, variables PromptVariables) (strin
 			missingVars,
 		)
 	}
-	
+
 	return result, nil
 }
 
@@ -109,14 +109,14 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 	result := prompt
 	missingVars := []string{}
 	malformedVars := []string{}
-	
+
 	// Regular expression to find all variables in format ${variable_name}
 	// This regex matches valid variable names consisting of letters, numbers, underscores, and hyphens
 	reValid := regexp.MustCompile(`\${([a-zA-Z0-9_-]+)}`)
-	
+
 	// This regex captures malformed variables like ${var with spaces} or ${missing-closing-brace
 	reMalformed := regexp.MustCompile(`\${([^}]*[\s]+[^}]*)}|\${([^}]*)$`)
-	
+
 	// First, find malformed variables to avoid treating them as valid ones
 	malformedMatches := reMalformed.FindAllStringSubmatch(prompt, -1)
 	for _, match := range malformedMatches {
@@ -129,7 +129,7 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 			}
 		}
 	}
-	
+
 	// Create a map of variable names to values
 	varMap := map[string]string{
 		"change_request_file_path": variables.ChangeRequestFilePath,
@@ -141,9 +141,9 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 		"stepname":                 variables.StepName,
 		"change_request_fullpath":  variables.ChangeRequestFullpath,
 		"fullpath":                 variables.ChangeRequestFullpath, // For backward compatibility
-		"basename":                 variables.Basename, // Deprecated
+		"basename":                 variables.Basename,              // Deprecated
 	}
-	
+
 	// Next, find and replace valid variables
 	validMatches := reValid.FindAllStringSubmatch(prompt, -1)
 	for _, match := range validMatches {
@@ -158,7 +158,7 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 			}
 		}
 	}
-	
+
 	return result, missingVars, malformedVars
 }
 
@@ -192,7 +192,7 @@ func interpolatePromptWithMap(prompt string, variables map[string]string) string
 // ValidatePrompt checks if a prompt has valid variable syntax and returns any errors
 func ValidatePrompt(prompt string) error {
 	_, _, malformedVars := interpolateWithDetails(prompt, PromptVariables{})
-	
+
 	if len(malformedVars) > 0 {
 		return NewInterpolationError(
 			"prompt contains malformed variables",
@@ -200,7 +200,7 @@ func ValidatePrompt(prompt string) error {
 			nil,
 		)
 	}
-	
+
 	return nil
 }
 
@@ -216,13 +216,13 @@ func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 	base := filepath.Base(changeRequestPath)
 	base = strings.TrimSuffix(base, ".blueprint.md")
 	fullpath := filepath.Join(dir, base)
-	
+
 	// Extract step name from ID
 	stepName := step.ID
 	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {
 		stepName = parts[1]
 	}
-	
+
 	// Create variables for interpolation
 	vars := PromptVariables{
 		ChangeRequestFilePath: changeRequestPath,
@@ -234,11 +234,11 @@ func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 		ChangeRequestFullpath: fullpath,
 		Basename:              base, // Deprecated
 	}
-	
+
 	return InterpolatePrompt(step.Prompt, vars)
 }
 
 // generateDefaultPrompt creates a default prompt based on the step description
 func generateDefaultPrompt(step WorkflowStep) string {
 	return "Please execute the following step in the workflow: " + step.Description
-} 
+}

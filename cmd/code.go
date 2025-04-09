@@ -51,7 +51,7 @@ Use the --reset flag to start the workflow from the beginning:
 		term := io.NewTerminalIOWithDebug(debug)
 
 		// Create workflow manager
-		wm := workflow.NewWorkflowManager(fs, term)
+		wm := workflow.NewDefaultWorkflowManager(fs, term)
 
 		// Get the change request path
 		changeRequestPath := args[0]
@@ -102,13 +102,13 @@ Use the --reset flag to start the workflow from the beginning:
 			os.Exit(0)
 		}
 
-		// Get the step details
-		if nextStepIndex >= len(workflow.StandardWorkflowSteps) {
-			term.PrintError("Invalid step index. This should not happen.")
+		// We can rely on the workflow manager to determine correct step since it already validated the index
+		// Get the current workflow definition and step from the manager
+		currentStep, err := wm.GetStepByIndex(nextStepIndex)
+		if err != nil {
+			term.PrintError(fmt.Sprintf("Invalid step index: %s", err))
 			os.Exit(1)
 		}
-
-		currentStep := workflow.StandardWorkflowSteps[nextStepIndex]
 
 		// Execute the step - now just prints the prompt to stdout
 		success, err := executeStep(changeRequestPath, currentStep, fs, term)
@@ -133,11 +133,17 @@ Use the --reset flag to start the workflow from the beginning:
 			term.PrintSuccess(fmt.Sprintf("Completed step %d: %s", nextStepIndex+1, currentStep.Description))
 
 			// Check if we've completed all steps
-			if nextStepIndex+1 >= len(workflow.StandardWorkflowSteps) {
+			isComplete, err := wm.IsWorkflowComplete(changeRequestPath)
+			if err != nil {
+				term.PrintWarning(fmt.Sprintf("Failed to check workflow completion: %s", err))
+			} else if isComplete {
 				term.PrintSuccess(fmt.Sprintf("✅ All steps completed successfully for change request: %s", changeRequestPath))
 			} else {
-				nextStep := workflow.StandardWorkflowSteps[nextStepIndex+1]
-				term.Print(fmt.Sprintf("\nNext step: %s", nextStep.Description))
+				// Get the next step
+				nextStep, err := wm.GetStepByIndex(nextStepIndex + 1)
+				if err == nil {
+					term.Print(fmt.Sprintf("\nNext step: %s", nextStep.Description))
+				}
 			}
 		}
 	},

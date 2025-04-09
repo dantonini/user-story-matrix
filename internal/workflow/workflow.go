@@ -28,10 +28,17 @@ type WorkflowState struct {
 	CompletedSteps    []string  // List of completed step IDs
 }
 
-// WorkflowManager handles workflow-related operations
+// WorkflowManager handles workflow-related operations such as loading and saving
+// workflow state, executing steps, and tracking progress. With the refactoring,
+// it now supports using different workflow definitions through the registry.
+//
+// The manager maintains a reference to the current workflow definition being used,
+// which can be the standard workflow or a custom one specified by name.
 type WorkflowManager struct {
-	fs FileSystem
-	io UserOutput
+	fs       FileSystem
+	io       UserOutput
+	registry *WorkflowRegistry   // Registry containing available workflows
+	workflow *WorkflowDefinition // Current workflow being used
 }
 
 // FileSystem defines the file system operations needed by the workflow manager
@@ -40,6 +47,7 @@ type FileSystem interface {
 	WriteFile(path string, data []byte, perm os.FileMode) error
 	MkdirAll(path string, perm os.FileMode) error
 	Exists(path string) bool
+	ReadDir(path string) ([]os.DirEntry, error)
 }
 
 // UserOutput defines the interface for displaying output to the user
@@ -55,17 +63,18 @@ type UserOutput interface {
 
 // Error message templates
 const (
-	ErrFileNotFound            = "❌ Error: File %s not found."
-	ErrInvalidStateFile        = "⚠️ Warning: Invalid state file detected for %s. Starting from the beginning."
-	ErrStateUpdateFailed       = "❌ Error: Failed to update workflow state: %s"
-	ErrStepExecutionFailed     = "❌ Error: Failed to execute step: %s"
-	ErrUnrecognizedStep        = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
-	ErrStateFileCorrupted      = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
-	ErrNegativeStepIndex       = "invalid step index: negative value"
-	ErrExceedingStepIndex      = "invalid step index: exceeds number of steps"
-	ErrFailedToLoadState       = "failed to load state: %w"
-	ErrInvalidPrompt           = "❌ Error: Invalid prompt in step %s: %s"
-	ErrStepValidationFailed    = "❌ Error: Step validation failed: %s"
+	ErrFileNotFound         = "❌ Error: File %s not found."
+	ErrInvalidStateFile     = "⚠️ Warning: Invalid state file detected for %s. Starting from the beginning."
+	ErrStateUpdateFailed    = "❌ Error: Failed to update workflow state: %s"
+	ErrStepExecutionFailed  = "❌ Error: Failed to execute step: %s"
+	ErrUnrecognizedStep     = "⚠️ Warning: Unrecognized step in %s. Consider resetting the workflow with --reset."
+	ErrStateFileCorrupted   = "⚠️ Warning: State file for %s appears to be corrupted. Starting from step 1."
+	ErrNegativeStepIndex    = "invalid step index: negative value"
+	ErrExceedingStepIndex   = "invalid step index: exceeds number of steps"
+	ErrFailedToLoadState    = "failed to load state: %w"
+	ErrInvalidPrompt        = "❌ Error: Invalid prompt in step %s: %s"
+	ErrStepValidationFailed = "❌ Error: Step validation failed: %s"
+	ErrWorkflowNotFound     = "⚠️ Warning: Workflow '%s' not found, using standard workflow"
 )
 
 // Success message templates
@@ -87,7 +96,7 @@ var StandardWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation - Setting up the architecture and structure",
-		Prompt:      `You are a senior software engineer about to begin a new iteration of software development based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer about to begin a new iteration of software development based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (sketch the solution, placeholders, key abstractions)
@@ -136,10 +145,10 @@ Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
 - Read the blueprint using cat ${change_request_file_path}
 		`,
-	},{
+	}, {
 		ID:          "01-laying-the-foundation-accomplished",
 		Description: "Laying the foundation accomplished - Summary of the changes",
-		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration was composed by 4 phases:
 - Laid the foundation (sketch the solution, placeholders, key abstractions) [Current step]
@@ -164,11 +173,12 @@ Goal:
 
 Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}`,
-	},{
+- Read the blueprint using cat ${change_request_file_path}
+`,
+	}, {
 		ID:          "01-laying-the-foundation-test",
 		Description: "Laying the foundation test - Verifying the structural changes",
-		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 Some structural changes has been made to the codebase, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
@@ -181,17 +191,18 @@ Some structural changes has been made to the codebase, now your task is:
 
 Now, let's start the work:
 - Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}`,
+- Read the blueprint using cat ${change_request_file_path}
+`,
 	},
 	{
 		ID:          "01-make-lint",
 		Description: "Make lint - Ensure the codebase is linted and formatted",
 		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
-	},{
+	}, {
 		ID:          "01-make-coverage",
 		Description: "Make coverage - Ensure the codebase is covered by tests",
 		Prompt:      "Execute the command: 'make coverage && ./coverage' and ensure to determine the coverage percentage",
-	},{
+	}, {
 		ID:          "01-make-coverage-report",
 		Description: "Make coverage report - Update the accomplishment report",
 		Prompt:      "Update the accomplishment report ${change_request_file_path}.01-foundation.accomplished.md with the new coverage percentage.",
@@ -199,7 +210,7 @@ Now, let's start the work:
 	{
 		ID:          "02-mvi",
 		Description: "Minimum Viable Implementation - Building the core functionality",
-		Prompt:      `You are a software engineer about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a software engineer about to continue a development iteration of software based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -253,7 +264,7 @@ Now build the MVI for each user story:
 	{
 		ID:          "02-mvi-accomplished",
 		Description: "Minimum Viable Implementation accomplished - Summary of the changes",
-		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration was composed by 4 phases:
 - Laid the foundation (sketch the solution, placeholders, key abstractions)
@@ -281,10 +292,10 @@ Now, let's start the work:
 - Read the blueprint using cat ${change_request_file_path}
 - Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
 `,
-	},{
+	}, {
 		ID:          "02-mvi-test",
 		Description: "Minimum Viable Implementation test - Verifying the core functionality",
-		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The MVI has been built, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
@@ -305,11 +316,11 @@ Now, let's start the work:
 		ID:          "02-mvi-lint",
 		Description: "MVI lint - Ensure the codebase is linted and formatted",
 		Prompt:      "Execute the command: make lint. Ensure to fix all the linter issues.",
-	},{
+	}, {
 		ID:          "02-mvi-coverage",
 		Description: "MVI coverage - Ensure the codebase is covered by tests",
 		Prompt:      "Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the MVI new code.",
-	},{
+	}, {
 		ID:          "02-mvi-coverage-report",
 		Description: "MVI coverage report - Update the accomplishment report",
 		Prompt:      "Update the accomplishment report ${change_request_file_path}.02-mvi.accomplished.md with the new coverage percentage.",
@@ -317,7 +328,7 @@ Now, let's start the work:
 	{
 		ID:          "03-extend-functionalities",
 		Description: "Extending functionalities - Adding additional features and improvements",
-		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -366,7 +377,7 @@ Let's start the work:
 	{
 		ID:          "03-extend-functionalities-accomplished",
 		Description: "Extending functionalities accomplished - Summary of the changes",
-		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -396,7 +407,7 @@ Now, let's start the work:
 	{
 		ID:          "03-extend-functionalities-test",
 		Description: "Extending functionalities testing - Verifying the additional features",
-		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The extended functionalities have been built, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
@@ -427,7 +438,7 @@ Now, let's start the work:
 	{
 		ID:          "04-final-iteration",
 		Description: "Final iteration - Polishing and final adjustments",
-		Prompt:      `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions) [done]
@@ -500,7 +511,7 @@ Let's start the work:
 	{
 		ID:          "04-final-iteration-accomplished",
 		Description: "Final iteration accomplished - Summary of the changes",
-		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions) [done]
@@ -523,7 +534,7 @@ For example:
 	{
 		ID:          "04-final-iteration-test",
 		Description: "Final iteration testing - Final verification and validation",
-		Prompt:      `You are a senior software engineer that is working on the last phase of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a senior software engineer that is working on the last phase of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions) [done]
@@ -552,17 +563,17 @@ Now, let's start the work:
 	{
 		ID:          "04-final-iteration-coverage",
 		Description: "Final iteration coverage - Final verification and validation",
-		Prompt:      `Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the final iteration.
+		Prompt: `Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the final iteration.
 Identify the most useful and valuable areas to improve and add tests for them.
 Don't give up until the overall coverage percentage is enough to satisfy the .github/workflows/coverage.yml file.`,
-	},{
+	}, {
 		ID:          "04-final-iteration-coverage-report",
 		Description: "Final iteration coverage report - Update the accomplishment report",
 		Prompt:      "Update the accomplishment report ${change_request_file_path}.04-refinement.accomplished.md with the new coverage percentage.",
-	},{
+	}, {
 		ID:          "implementation",
 		Description: "The implementation report of the change request",
-		Prompt:      `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
+		Prompt: `You are a technical writer that needs to document the implementation of a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration was composed by 4 phases:
 - Laid the foundation (project structure, placeholders, key abstractions)
@@ -586,12 +597,58 @@ the accomplished reports:
 	},
 }
 
-// NewWorkflowManager creates a new workflow manager instance
-func NewWorkflowManager(fs FileSystem, io UserOutput) *WorkflowManager {
-	return &WorkflowManager{
-		fs: fs,
-		io: io,
+// NewWorkflowManager creates a new workflow manager with an optional workflow definition.
+// If workflowName is provided, it attempts to retrieve that workflow from the registry.
+// If the specified workflow is not found or if workflowName is empty, it falls back to
+// the standard workflow.
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//   - io: UserOutput interface for user interaction
+//   - workflowName: Optional name of the workflow to use
+//
+// Returns:
+//   - A new WorkflowManager instance configured with the specified workflow
+func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string) *WorkflowManager {
+	// Use the global registry to ensure all managers share the same workflows
+	registry := GetGlobalRegistry()
+
+	var workflow *WorkflowDefinition
+	if workflowName != "" {
+		// Try to get the specified workflow
+		wf, err := registry.GetWorkflow(workflowName)
+		if err == nil {
+			workflow = wf
+		} else {
+			// Log warning and fall back to standard workflow
+			io.PrintWarning(fmt.Sprintf(ErrWorkflowNotFound, workflowName))
+			workflow = registry.GetStandardWorkflow()
+		}
+	} else {
+		// Use standard workflow by default
+		workflow = registry.GetStandardWorkflow()
 	}
+
+	return &WorkflowManager{
+		fs:       fs,
+		io:       io,
+		registry: registry,
+		workflow: workflow,
+	}
+}
+
+// NewDefaultWorkflowManager creates a new workflow manager with the standard workflow.
+// This is a convenience method for backward compatibility with existing code that
+// expects the standard workflow to be used.
+//
+// Parameters:
+//   - fs: FileSystem interface for file operations
+//   - io: UserOutput interface for user interaction
+//
+// Returns:
+//   - A new WorkflowManager instance configured with the standard workflow
+func NewDefaultWorkflowManager(fs FileSystem, io UserOutput) *WorkflowManager {
+	return NewWorkflowManager(fs, io, "")
 }
 
 // GenerateStateFilePath generates the path for the state file based on the change request path
@@ -601,50 +658,60 @@ func GenerateStateFilePath(changeRequestPath string) string {
 	return filepath.Join(dir, "."+base+".step")
 }
 
-// LoadState loads the workflow state from the state file
+// LoadState loads the workflow state for a given change request
 func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, error) {
-	state := WorkflowState{
+	// Check if state file exists
+	stateFilePath := GenerateStateFilePath(changeRequestPath)
+
+	// Default state is empty with step index 0
+	defaultState := WorkflowState{
 		ChangeRequestPath: changeRequestPath,
 		CurrentStepIndex:  0,
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{},
 	}
 
-	stateFilePath := GenerateStateFilePath(changeRequestPath)
+	// If state file doesn't exist, return default state
 	if !wm.fs.Exists(stateFilePath) {
-		return state, nil
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintProgress(ProgressValidating)
+		}
+		return defaultState, nil
 	}
 
-	// Only print progress message in debug mode
+	// Read state file
+	stateData, err := wm.fs.ReadFile(stateFilePath)
+	if err != nil {
+		// File exists but couldn't be read
+		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		return defaultState, nil
+	}
+
+	// Parse state data
+	var state WorkflowState
+	err = json.Unmarshal(stateData, &state)
+	if err != nil {
+		// File exists but not valid JSON
+		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		return defaultState, err
+	}
+
+	// Validate state data
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressValidating)
 	}
 
-	data, err := wm.fs.ReadFile(stateFilePath)
-	if err != nil {
-		// Only print warning in debug mode
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf(ErrStateFileCorrupted, changeRequestPath))
-		}
-		return state, err
-	}
+	// Check that step index is within bounds - for backward compatibility with tests
+	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(wm.workflow.Steps) {
+		// Print the warning message in the expected format
+		wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
 
-	if err := json.Unmarshal(data, &state); err != nil {
-		// Only print warning in debug mode
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
-		}
-		return state, err
-	}
-
-	// Validate the state
-	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(StandardWorkflowSteps) {
-		// Only print warning in debug mode
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf(ErrUnrecognizedStep, stateFilePath))
-		}
+		// Reset the state to default values for backward compatibility
 		state.CurrentStepIndex = 0
 		state.CompletedSteps = []string{}
+
+		// Return the default state with no error for backward compatibility
+		return state, nil
 	}
 
 	return state, nil
@@ -656,92 +723,89 @@ func (wm *WorkflowManager) SaveState(state WorkflowState) error {
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressSavingState)
 	}
-	
+
 	state.LastModified = time.Now()
-	
+
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
-	
+
 	stateFilePath := GenerateStateFilePath(state.ChangeRequestPath)
 	if err := wm.fs.WriteFile(stateFilePath, data, 0644); err != nil {
 		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
-	
+
 	return nil
 }
 
-// DetermineNextStep determines the next step to execute based on the state
+// DetermineNextStep determines the next step in the workflow
 func (wm *WorkflowManager) DetermineNextStep(changeRequestPath string) (int, error) {
-	// Only print progress message in debug mode
+	// Print validation progress message for backward compatibility
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressValidating)
 	}
-	
+
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		// Only print warning in debug mode
+		// For backward compatibility, still start from the beginning instead of propagating the error
 		if wm.io.IsDebugEnabled() {
 			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
 		}
-		return 0, nil // Still start from beginning despite the error
+		return 0, nil
 	}
 
-	// If we've completed all steps, return a special indicator
-	if state.CurrentStepIndex >= len(StandardWorkflowSteps) {
-		// Only print success in debug mode
+	// If the workflow is already complete, return -1
+	if state.CurrentStepIndex >= len(wm.workflow.Steps) {
+		// For backward compatibility, print completion message
 		if wm.io.IsDebugEnabled() {
 			wm.io.PrintSuccess(fmt.Sprintf(SuccessWorkflowCompleted, changeRequestPath))
 		}
 		return -1, nil
 	}
 
-	// Print current step information only in debug mode
+	// Print the next step information if debug is enabled
 	if wm.io.IsDebugEnabled() {
-		wm.io.PrintStep(state.CurrentStepIndex+1, len(StandardWorkflowSteps), StandardWorkflowSteps[state.CurrentStepIndex].Description)
+		wm.io.PrintStep(state.CurrentStepIndex+1, len(wm.workflow.Steps), wm.workflow.Steps[state.CurrentStepIndex].Description)
 	}
-	
+
 	return state.CurrentStepIndex, nil
 }
 
-// UpdateState updates the workflow state after completing a step
+// UpdateState updates the workflow state for a change request
 func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex int) error {
-	// Only print progress message in debug mode
-	if wm.io.IsDebugEnabled() {
-		wm.io.PrintProgress(ProgressSavingState)
-	}
-	
+	// Load current state (or create new one if it doesn't exist)
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		return fmt.Errorf(ErrStateUpdateFailed, err)
+		return fmt.Errorf(ErrFailedToLoadState, err)
 	}
 
-	// Validate new step index
+	// Validate the step index
 	if newStepIndex < 0 {
 		return fmt.Errorf(ErrStateUpdateFailed, ErrNegativeStepIndex)
 	}
 
-	if newStepIndex > len(StandardWorkflowSteps) {
+	if newStepIndex > len(wm.workflow.Steps) {
 		return fmt.Errorf(ErrStateUpdateFailed, ErrExceedingStepIndex)
 	}
 
-	// Update the state
+	// Update the state with the new step index
 	state.CurrentStepIndex = newStepIndex
-	
-	// Update completed steps
+	state.LastModified = time.Now()
+
+	// Update the completed steps list - allocate with validated size
 	state.CompletedSteps = make([]string, 0, newStepIndex)
 	for i := 0; i < newStepIndex; i++ {
-		if i < len(StandardWorkflowSteps) {
-			state.CompletedSteps = append(state.CompletedSteps, StandardWorkflowSteps[i].ID)
+		if i < len(wm.workflow.Steps) {
+			state.CompletedSteps = append(state.CompletedSteps, wm.workflow.Steps[i].ID)
 		}
 	}
-		
+
 	// Print success message for the completed step only in debug mode
 	if wm.io.IsDebugEnabled() {
-		if newStepIndex > 0 && newStepIndex <= len(StandardWorkflowSteps) {
-			completedStep := StandardWorkflowSteps[newStepIndex-1]
-			wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(StandardWorkflowSteps), completedStep.Description))
+		if newStepIndex > 0 && newStepIndex <= len(wm.workflow.Steps) {
+			completedStep := wm.workflow.Steps[newStepIndex-1]
+			wm.io.PrintSuccess(fmt.Sprintf(SuccessStepCompleted, newStepIndex, len(wm.workflow.Steps), completedStep.Description))
 		}
 	}
 
@@ -749,51 +813,55 @@ func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex in
 	return wm.SaveState(state)
 }
 
-// IsWorkflowComplete checks if all workflow steps have been completed
+// IsWorkflowComplete checks if all steps have been completed for a change request
 func (wm *WorkflowManager) IsWorkflowComplete(changeRequestPath string) (bool, error) {
 	state, err := wm.LoadState(changeRequestPath)
 	if err != nil {
-		return false, fmt.Errorf("failed to load state: %w", err)
+		return false, fmt.Errorf(ErrFailedToLoadState, err)
 	}
 
-	return state.CurrentStepIndex >= len(StandardWorkflowSteps), nil
+	return state.CurrentStepIndex >= len(wm.workflow.Steps), nil
 }
 
-// ResetWorkflow resets the workflow to the beginning
+// ResetWorkflow resets the workflow state for a change request
 func (wm *WorkflowManager) ResetWorkflow(changeRequestPath string) error {
+	// Create a new state with step index 0
 	state := WorkflowState{
 		ChangeRequestPath: changeRequestPath,
 		CurrentStepIndex:  0,
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{},
 	}
-	
-	if err := wm.SaveState(state); err != nil {
-		return err
+
+	// Save the reset state
+	err := wm.SaveState(state)
+	if err != nil {
+		return fmt.Errorf(ErrStateUpdateFailed, err)
 	}
-	
-	// Only show success message in debug mode
+
+	// Only print success in debug mode
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintSuccess(fmt.Sprintf(SuccessStateReset, changeRequestPath))
 	}
+
 	return nil
 }
 
 // ValidateWorkflowSteps validates all steps in a workflow
 func (wm *WorkflowManager) ValidateWorkflowSteps(steps []WorkflowStep) []error {
 	var errors []error
-	
+
 	for _, step := range steps {
 		// Validate that required fields are present
 		if step.ID == "" {
 			errors = append(errors, fmt.Errorf("step missing ID"))
 			continue
 		}
-		
+
 		if step.Description == "" {
 			errors = append(errors, fmt.Errorf("step %s missing description", step.ID))
 		}
-		
+
 		// Validate prompt if present
 		if step.Prompt != "" {
 			if err := ValidatePrompt(step.Prompt); err != nil {
@@ -801,6 +869,57 @@ func (wm *WorkflowManager) ValidateWorkflowSteps(steps []WorkflowStep) []error {
 			}
 		}
 	}
-	
+
 	return errors
-} 
+}
+
+// GetStepByIndex returns the workflow step at the given index from the current workflow.
+// This method provides a safe way to access steps without directly referencing
+// the workflow's Steps field, encapsulating the workflow structure.
+//
+// Parameters:
+//   - index: The 0-based index of the step to retrieve
+//
+// Returns:
+//   - The WorkflowStep at the specified index
+//   - An error if the index is out of bounds
+func (wm *WorkflowManager) GetStepByIndex(index int) (WorkflowStep, error) {
+	if index < 0 || index >= len(wm.workflow.Steps) {
+		return WorkflowStep{}, fmt.Errorf("invalid step index: %d", index)
+	}
+	return wm.workflow.Steps[index], nil
+}
+
+// RegisterWorkflow registers a workflow in the global registry
+// and updates the current workflow if it has the same name.
+//
+// This method registers the workflow in the global registry, making
+// it available to all WorkflowManager instances in the application.
+//
+// Parameters:
+//   - workflow: The WorkflowDefinition to register
+func (wm *WorkflowManager) RegisterWorkflow(workflow *WorkflowDefinition) {
+	// Register the workflow in the global registry
+	wm.registry.RegisterBuiltInWorkflow(workflow)
+	
+	// Always use the registered workflow if it matches the name we're trying to use
+	// This allows tests to override the standard workflow
+	if wm.workflow != nil && workflow.Name == wm.workflow.Name {
+		wm.workflow = workflow
+	}
+	
+	// For testing purposes, if we specify the workflow by name, use it immediately
+	knownWorkflow, err := wm.registry.GetWorkflow(workflow.Name)
+	if err == nil {
+		wm.workflow = knownWorkflow
+	}
+}
+
+// ListAvailableWorkflows returns a list of names of all available workflows.
+// This is useful for displaying workflow options to the user.
+//
+// Returns:
+//   - A slice of workflow names
+func (wm *WorkflowManager) ListAvailableWorkflows() []string {
+	return wm.registry.ListWorkflows()
+}

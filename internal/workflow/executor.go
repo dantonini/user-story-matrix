@@ -50,7 +50,7 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 	base := filepath.Base(changeRequestPath)
 	base = strings.TrimSuffix(base, ".blueprint.md")
 	fullpath := filepath.Join(dir, base)
-	
+
 	// Extract step name from ID
 	stepName := step.ID
 	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {

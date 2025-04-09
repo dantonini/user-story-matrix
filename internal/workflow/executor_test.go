@@ -7,9 +7,27 @@ package workflow
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"testing"
+	"time"
 )
+
+// mockFileInfo implements os.FileInfo for testing
+type mockFileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+	isDir   bool
+}
+
+func (m mockFileInfo) Name() string       { return m.name }
+func (m mockFileInfo) Size() int64        { return m.size }
+func (m mockFileInfo) Mode() os.FileMode  { return m.mode }
+func (m mockFileInfo) ModTime() time.Time { return m.modTime }
+func (m mockFileInfo) IsDir() bool        { return m.isDir }
+func (m mockFileInfo) Sys() interface{}   { return nil }
 
 // testFileSystem is a mock implementation of FileSystem for testing
 type testFileSystem struct {
@@ -17,12 +35,14 @@ type testFileSystem struct {
 	exists       map[string]bool
 	mkdirErr     error
 	writeFileErr error
+	dirEntries   map[string][]os.DirEntry
 }
 
 func newTestFileSystem() *testFileSystem {
 	return &testFileSystem{
-		files:  make(map[string][]byte),
-		exists: make(map[string]bool),
+		files:      make(map[string][]byte),
+		exists:     make(map[string]bool),
+		dirEntries: make(map[string][]os.DirEntry),
 	}
 }
 
@@ -51,6 +71,45 @@ func (m *testFileSystem) MkdirAll(path string, perm os.FileMode) error {
 		return m.mkdirErr
 	}
 	m.exists[path] = true
+	return nil
+}
+
+// ReadDir reads the directory and returns its entries
+func (m *testFileSystem) ReadDir(path string) ([]os.DirEntry, error) {
+	if entries, ok := m.dirEntries[path]; ok {
+		return entries, nil
+	}
+	return nil, fmt.Errorf("directory not found: %s", path)
+}
+
+// Stat returns file info for the named file
+func (m *testFileSystem) Stat(path string) (os.FileInfo, error) {
+	if _, ok := m.files[path]; ok {
+		// Mock file info for a regular file
+		return mockFileInfo{
+			name:    path,
+			size:    int64(len(m.files[path])),
+			mode:    0644,
+			modTime: time.Now(),
+			isDir:   false,
+		}, nil
+	}
+	if m.exists[path] {
+		// Mock file info for a directory
+		return mockFileInfo{
+			name:    path,
+			size:    0,
+			mode:    os.ModeDir | 0755,
+			modTime: time.Now(),
+			isDir:   true,
+		}, nil
+	}
+	return nil, fmt.Errorf("file not found: %s", path)
+}
+
+// WalkDir walks the file tree rooted at root, calling fn for each file or directory
+func (m *testFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
+	// Simple implementation for test purposes
 	return nil
 }
 
