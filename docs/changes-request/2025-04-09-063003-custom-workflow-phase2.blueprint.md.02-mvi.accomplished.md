@@ -60,14 +60,35 @@ Thorough testing ensures reliability:
 - `TestLoadWorkflowFromFile` in `loader_test.go` tests file-based workflow loading
 - `TestWorkflowState` in `state_test.go` ensures backward compatibility works correctly
 - `TestWorkflowRegistry_LoadFromDirectory` verifies workflow loading from filesystem
+- Comprehensive test coverage for `GetStepAtIndex` (100%), `MapProgressBetweenWorkflows` (97.6%), and `ValidateWorkflowSwitch` functions
+
+Test coverage has been significantly improved during the MVI phase:
+- Overall coverage increased from 67.6% to 68.5%
+- `internal/workflow` package coverage improved from 75.3% to 80.4%
+- Key functions such as `MapProgressBetweenWorkflows` increased from 54.8% to 97.6%
+- Type issues in new function `GetStepAtIndex` have been fixed and fully tested
 
 ## Blind Spots
 
-While test coverage is generally good, some areas deserve attention in the next phase:
+While test coverage is generally good, several areas deserve attention in the next phase:
 
-- Edge case handling for partial workflow loads when some prompt files are missing
-- Handling of relative paths in `workflow.yaml` when the workflow directory is moved
-- Workflow switching with significant structural differences between workflows
+- **Command Implementation Coverage**: Several command implementations have zero test coverage, including `executeStep` in `cmd/code.go`, `Run` in `cmd/create.go`, and various functions in the `deadcode` package.
+
+- **Workflow Registry Features**: The auto-reload functionality (`isWorkflowModified` and `ReloadChangedWorkflows`) and workflow discovery mechanism (`DiscoverWorkflows`) are implemented but untested.
+
+- **TUI Component Interactions**: Several UI components and event handlers have low or no coverage, particularly clipboard handling in user story forms, window resize events, and keyboard event handling (escape and enter keys).
+
+- **File System Error Handling**: Error conditions for file operations aren't fully tested, with multiple tests currently skipped with comments indicating difficulty simulating file system errors.
+
+- **Workflow Switching Edge Cases**: While `MapProgressBetweenWorkflows` has good coverage (97.6%), edge cases involving complex workflow structures with non-linear paths or significant structural differences remain untested.
+
+- **Edge case handling for partial workflow loads**: The system should gracefully handle cases where some prompt files are missing.
+
+- **Handling of relative paths in workflow files**: The implementation should properly resolve references when the workflow directory is moved.
+
+- **Prompt Loading Resilience**: The `loadPromptContent` function has only 28.6% test coverage, which is concerning as it's a critical part of workflow execution.
+
+- **Validation for External Custom Workflows**: The validation of external workflow files could be more thorough, particularly around prompt references.
 
 ## Remaining Work for the Extend Phase
 
