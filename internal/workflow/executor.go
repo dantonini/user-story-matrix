@@ -9,16 +9,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/user-story-matrix/usm/internal/io"
 )
 
 // StepExecutor handles the execution of workflow steps
 type StepExecutor struct {
-	fs FileSystem
+	fs io.FileSystem
 	io UserOutput
 }
 
 // NewStepExecutor creates a new step executor instance
-func NewStepExecutor(fs FileSystem, io UserOutput) *StepExecutor {
+func NewStepExecutor(fs io.FileSystem, io UserOutput) *StepExecutor {
 	return &StepExecutor{
 		fs: fs,
 		io: io,

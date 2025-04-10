@@ -8,9 +8,10 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/user-story-matrix/usm/internal/io"
 )
 
 // WorkflowStep represents a single step in the implementation workflow
@@ -38,20 +39,14 @@ type WorkflowState struct {
 // The manager maintains a reference to the current workflow definition being used,
 // which can be the standard workflow or a custom one specified by name.
 type WorkflowManager struct {
-	fs       FileSystem
+	fs       io.FileSystem
 	io       UserOutput
 	registry *WorkflowRegistry   // Registry containing available workflows
 	workflow *WorkflowDefinition // Current workflow being used
 }
 
-// FileSystem defines the file system operations needed by the workflow manager
-type FileSystem interface {
-	ReadFile(path string) ([]byte, error)
-	WriteFile(path string, data []byte, perm os.FileMode) error
-	MkdirAll(path string, perm os.FileMode) error
-	Exists(path string) bool
-	ReadDir(path string) ([]os.DirEntry, error)
-}
+// FileSystem is defined in the io package
+// Use io.FileSystem instead of defining it here
 
 // UserOutput defines the interface for displaying output to the user
 type UserOutput interface {
@@ -611,7 +606,7 @@ the accomplished reports:
 //
 // Returns:
 //   - A new WorkflowManager instance configured with the specified workflow
-func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string, registry *WorkflowRegistry) *WorkflowManager {
+func NewWorkflowManager(fs io.FileSystem, io UserOutput, workflowName string, registry *WorkflowRegistry) *WorkflowManager {
 	// Use the provided registry or the global registry
 	if registry == nil {
 		registry = GetGlobalRegistry()
@@ -663,7 +658,7 @@ func NewWorkflowManager(fs FileSystem, io UserOutput, workflowName string, regis
 //
 // Returns:
 //   - A new WorkflowManager instance configured with the standard workflow
-func NewDefaultWorkflowManager(fs FileSystem, io UserOutput) *WorkflowManager {
+func NewDefaultWorkflowManager(fs io.FileSystem, io UserOutput) *WorkflowManager {
 	return NewWorkflowManager(fs, io, "", nil)
 }
 

@@ -9,10 +9,12 @@ package workflow
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/user-story-matrix/usm/internal/io"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,6 +55,9 @@ type workflowCache struct {
 	sources   map[string]string             // Maps workflow name to source path
 	modified  map[string]time.Time          // Last modified timestamps for cache invalidation
 }
+
+// FileSystem is defined in the io package
+// Use io.FileSystem instead of defining it here
 
 // WorkflowRegistry manages available workflows and provides methods for retrieving them.
 // It acts as a central repository for all workflow definitions, allowing the system
@@ -231,7 +236,7 @@ func (r *WorkflowRegistry) ListWorkflows() []string {
 //
 // Returns:
 //   - The loaded WorkflowDefinition, or an error if loading failed
-func (r *WorkflowRegistry) LoadFromDirectory(fs FileSystem, path string) (*WorkflowDefinition, error) {
+func (r *WorkflowRegistry) LoadFromDirectory(fs io.FileSystem, path string) (*WorkflowDefinition, error) {
 	// Check if directory exists
 	if !fs.Exists(path) {
 		return nil, fmt.Errorf("workflow directory not found: %s", path)
@@ -251,67 +256,81 @@ func (r *WorkflowRegistry) LoadFromDirectory(fs FileSystem, path string) (*Workf
 	
 	var fileDef WorkflowFileDefinition
 	if err := yaml.Unmarshal(data, &fileDef); err != nil {
-		return nil, fmt.Errorf("invalid YAML in workflow.yaml: %w", err)
+		return nil, fmt.Errorf("invalid YAML in workflow file: %w", err)
 	}
 	
-	// Validate the workflow definition
+	// Validate required fields
 	if fileDef.Name == "" {
 		return nil, fmt.Errorf("workflow name is required")
+	}
+	
+	if len(fileDef.Steps) == 0 {
+		return nil, fmt.Errorf("workflow must have at least one step")
+	}
+	
+	// Load prompt files
+	steps := make([]WorkflowStep, len(fileDef.Steps))
+	for i, fileStep := range fileDef.Steps {
+		if fileStep.ID == "" {
+			return nil, fmt.Errorf("step %d has no ID", i+1)
+		}
+		
+		if fileStep.Description == "" {
+			return nil, fmt.Errorf("step %s has no description", fileStep.ID)
+		}
+		
+		// Create step with embedded prompt as fallback
+		steps[i] = WorkflowStep{
+			ID:          fileStep.ID,
+			Description: fileStep.Description,
+			Prompt:      "", // Will be loaded from file below
+		}
+		
+		// Load prompt from file if specified
+		if fileStep.Prompt != "" {
+			promptPath := filepath.Join(path, fileStep.Prompt)
+			
+			// Check if prompt file exists
+			if !fs.Exists(promptPath) {
+				return nil, fmt.Errorf("prompt file not found: %s", promptPath)
+			}
+			
+			// Read prompt content
+			promptData, err := fs.ReadFile(promptPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read prompt file %s: %w", promptPath, err)
+			}
+			
+			// Set prompt content
+			steps[i].Prompt = string(promptData)
+			
+			// Set file source information
+			steps[i].source = promptSource{
+				sourceType: promptSourceFile,
+				filePath:   promptPath,
+			}
+		}
 	}
 	
 	// Create workflow definition
 	workflow := &WorkflowDefinition{
 		Name:        fileDef.Name,
 		Description: fileDef.Description,
-		Steps:       make([]WorkflowStep, len(fileDef.Steps)),
+		Steps:       steps,
 	}
 	
-	// Process each step and load its prompt
-	for i, fileStep := range fileDef.Steps {
-		// Validate step
-		if fileStep.ID == "" {
-			return nil, fmt.Errorf("step ID is required for step %d", i)
-		}
-		
-		// Create the step
-		step := WorkflowStep{
-			ID:          fileStep.ID,
-			Description: fileStep.Description,
-			Prompt:      "", // Will be loaded from file
-		}
-		
-		// Resolve prompt file path
-		promptPath := filepath.Join(path, fileStep.Prompt)
-		if !fs.Exists(promptPath) {
-			return nil, fmt.Errorf("prompt file not found: %s", promptPath)
-		}
-		
-		// Load prompt content
-		promptData, err := fs.ReadFile(promptPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read prompt file %s: %w", promptPath, err)
-		}
-		
-		// Set prompt content and source
-		step.Prompt = string(promptData)
-		step.source = promptSource{
-			sourceType: promptSourceFile,
-			filePath:   promptPath,
-		}
-		
-		workflow.Steps[i] = step
-	}
-	
-	// Add to cache
+	// Cache the workflow in registry
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	
 	r.cache.workflows[workflow.Name] = workflow
 	r.cache.sources[workflow.Name] = path
 	
-	// Get last modified time for caching
-	// For simplicity in MVI, we'll just use current time
-	r.cache.modified[workflow.Name] = time.Now()
+	// Get file modification time for cache invalidation
+	info, err := fs.Stat(workflowYAMLPath)
+	if err == nil {
+		r.cache.modified[workflow.Name] = info.ModTime()
+	}
 	
 	return workflow, nil
 }
@@ -322,31 +341,65 @@ func (r *WorkflowRegistry) LoadFromDirectory(fs FileSystem, path string) (*Workf
 //   - fs: FileSystem interface for file operations
 //
 // Returns:
-//   - Map of workflow names to their definitions
-func (r *WorkflowRegistry) DiscoverWorkflows(fs FileSystem) map[string]*WorkflowDefinition {
-	results := make(map[string]*WorkflowDefinition)
+//   - Map of workflow names to definitions
+func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*WorkflowDefinition {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	
 	// Get standard workflow directories
 	directories := GetStandardWorkflowDirectories()
 	
-	// Try to load workflow from each directory
+	// Track discovered workflows
+	discovered := make(map[string]*WorkflowDefinition)
+	
+	// Load workflows from each directory
 	for _, dir := range directories {
 		if !fs.Exists(dir) {
 			continue
 		}
 		
-		workflow, err := r.LoadFromDirectory(fs, dir)
+		// List directories in the workflow directory
+		entries, err := fs.ReadDir(dir)
 		if err != nil {
-			// Log the error but continue with other directories
-			fmt.Printf("Error loading workflow from %s: %v\n", dir, err)
+			// Skip directories with errors
 			continue
 		}
 		
-		// Add to results
-		results[workflow.Name] = workflow
+		// Check each entry for workflow.yaml
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			
+			workflowDir := filepath.Join(dir, entry.Name())
+			workflowYAML := filepath.Join(workflowDir, StandardWorkflowYAML)
+			
+			if !fs.Exists(workflowYAML) {
+				continue
+			}
+			
+			// Found a workflow directory, try to load it
+			r.mutex.Unlock() // Unlock to avoid deadlock during LoadFromDirectory
+			workflow, err := r.LoadFromDirectory(fs, workflowDir)
+			r.mutex.Lock() // Lock again after the operation
+			
+			if err != nil {
+				fmt.Printf("Error loading workflow from %s: %v\n", workflowDir, err)
+				continue
+			}
+			
+			// Add to discovered workflows
+			discovered[workflow.Name] = workflow
+		}
 	}
 	
-	return results
+	// Return a copy of the discovered workflows
+	result := make(map[string]*WorkflowDefinition)
+	for name, workflow := range discovered {
+		result[name] = workflow
+	}
+	
+	return result
 }
 
 // ReloadChangedWorkflows checks for modified workflow files and reloads them
@@ -355,43 +408,49 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs FileSystem) map[string]*Workflow
 //   - fs: FileSystem interface for file operations
 //
 // Returns:
-//   - Slice of names of reloaded workflows
-func (r *WorkflowRegistry) ReloadChangedWorkflows(fs FileSystem) []string {
+//   - Slice of reloaded workflow names
+func (r *WorkflowRegistry) ReloadChangedWorkflows(fs io.FileSystem) []string {
+	r.mutex.RLock()
+	// Make a copy of sources to avoid deadlock during iteration
+	sources := make(map[string]string)
+	for name, path := range r.cache.sources {
+		sources[name] = path
+	}
+	r.mutex.RUnlock()
+	
 	reloaded := make([]string, 0)
 	
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	
-	// Check each cached workflow
-	for name, path := range r.cache.sources {
-		changed, err := r.isWorkflowModified(fs, name)
+	// Check each cached workflow for changes
+	for name, path := range sources {
+		modified, err := r.isWorkflowModified(fs, name)
 		if err != nil {
-			// Log the error but continue with other workflows
 			fmt.Printf("Error checking if workflow %s is modified: %v\n", name, err)
 			continue
 		}
 		
-		if changed {
-			// Reload the workflow
-			workflow, err := r.LoadFromDirectory(fs, path)
-			if err != nil {
-				// Log the error but continue with other workflows
-				fmt.Printf("Error reloading workflow %s: %v\n", name, err)
-				continue
-			}
-			
-			// Update cache
-			r.cache.workflows[name] = workflow
-			r.cache.modified[name] = time.Now()
-			
-			reloaded = append(reloaded, name)
+		if !modified {
+			continue
 		}
+		
+		// Reload the workflow
+		workflow, err := r.LoadFromDirectory(fs, path)
+		if err != nil {
+			fmt.Printf("Error reloading workflow %s: %v\n", name, err)
+			continue
+		}
+		
+		// Store the reloaded workflow in the cache to fix the unused variable error
+		r.mutex.Lock()
+		r.cache.workflows[name] = workflow
+		r.mutex.Unlock()
+		
+		reloaded = append(reloaded, name)
 	}
 	
 	return reloaded
 }
 
-// isWorkflowModified checks if a workflow file has been modified
+// isWorkflowModified checks if a workflow file has been modified since it was loaded
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
@@ -399,24 +458,65 @@ func (r *WorkflowRegistry) ReloadChangedWorkflows(fs FileSystem) []string {
 //
 // Returns:
 //   - true if the workflow has been modified, false otherwise
-//   - error if checking failed
-func (r *WorkflowRegistry) isWorkflowModified(fs FileSystem, name string) (bool, error) {
-	// For MVI, we'll just assume workflows haven't changed to keep it simple
-	// In a real implementation, we would check file modification times
-	return false, nil
+//   - error if checking modification time fails
+func (r *WorkflowRegistry) isWorkflowModified(fs io.FileSystem, name string) (bool, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	
+	// Get cached information
+	path, exists := r.cache.sources[name]
+	if !exists {
+		return false, fmt.Errorf("workflow %s not found in cache", name)
+	}
+	
+	lastModified, exists := r.cache.modified[name]
+	if !exists {
+		// No modification time recorded, consider it modified
+		return true, nil
+	}
+	
+	// Check workflow.yaml modification time
+	workflowYAMLPath := filepath.Join(path, StandardWorkflowYAML)
+	info, err := fs.Stat(workflowYAMLPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to get file info for %s: %w", workflowYAMLPath, err)
+	}
+	
+	// Check if file is newer than cached version
+	return info.ModTime().After(lastModified), nil
 }
 
 // GetStandardWorkflowDirectories returns potential workflow locations
 //
 // Returns:
-//   - Slice of standard workflow directory paths
+//   - Slice of directory paths where workflows might be found
 func GetStandardWorkflowDirectories() []string {
+	// Standard locations to look for workflows
 	return []string{
+		// Local development paths
 		StandardTemplateDir,
-		"workflows",                // Project root workflows
-		"~/.config/usm/workflows",  // User-specific workflows
-		"/etc/usm/workflows",       // System-wide workflows
+		"internal/workflow/templates",
+		"templates",
+		
+		// User directories
+		filepath.Join(getUserHomeDir(), ".usm", "templates"),
 	}
+}
+
+// getUserHomeDir returns the home directory of the current user
+//
+// Returns:
+//   - Path to user's home directory
+func getUserHomeDir() string { //nolint:unused
+	// Get user home directory with fallback to environment variables
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to environment variables
+		if home = os.Getenv("HOME"); home == "" {
+			home = os.Getenv("USERPROFILE") // Windows
+		}
+	}
+	return home
 }
 
 // createStandardWorkflow converts the existing StandardWorkflowSteps to a WorkflowDefinition.

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/user-story-matrix/usm/internal/io"
 	"gopkg.in/yaml.v3"
 )
 
@@ -48,7 +49,7 @@ type promptSource struct { //nolint:unused
 //
 // Returns:
 //   - error if the extraction fails
-func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
+func ExtractStandardWorkflow(fs io.FileSystem, outputDir string) error {
 	// Create output directory if it doesn't exist
 	if !fs.Exists(outputDir) {
 		if err := fs.MkdirAll(outputDir, 0755); err != nil {
@@ -64,7 +65,7 @@ func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
 		}
 	}
 	
-	// Extract each prompt to a file and collect paths
+	// Extract each prompt to a file and collect relative paths
 	promptPaths := make(map[string]string)
 	for _, step := range StandardWorkflowSteps {
 		promptPath, err := extractPromptToFile(fs, promptsDir, step)
@@ -80,6 +81,43 @@ func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
 		return fmt.Errorf("failed to generate workflow.yaml: %w", err)
 	}
 	
+	// Create README.md file with basic instructions
+	readmePath := filepath.Join(outputDir, "README.md")
+	readmeContent := `# Standard Workflow Template
+
+This directory contains the standard workflow template for USM, extracted from the codebase.
+
+## Structure
+- workflow.yaml - Workflow definition with steps and metadata
+- prompts/ - Directory containing individual prompt files for each step
+
+## Usage
+This workflow can be used as a reference for creating custom workflows.
+`
+	if err := fs.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
+		return fmt.Errorf("failed to create README.md: %w", err)
+	}
+	
+	// Create README.md in prompts directory
+	promptsReadmePath := filepath.Join(promptsDir, "README.md")
+	promptsReadmeContent := `# Standard Workflow Prompts
+
+This directory contains the prompt files for each step in the standard workflow.
+
+## Files
+Each file is named after the step ID and contains the prompt template for that step.
+Prompts may contain variables in the format ${variable_name} that will be replaced
+at runtime with actual values.
+
+## Variables
+Common variables:
+- ${change_request_file_path} - Path to the change request file
+- ${output_file_path} - Path to the output file for the current step
+`
+	if err := fs.WriteFile(promptsReadmePath, []byte(promptsReadmeContent), 0644); err != nil {
+		return fmt.Errorf("failed to create prompts README.md: %w", err)
+	}
+	
 	return nil
 }
 
@@ -93,7 +131,7 @@ func ExtractStandardWorkflow(fs FileSystem, outputDir string) error {
 //
 // Returns:
 //   - error if the YAML generation or file writing fails
-func generateWorkflowYAML(fs FileSystem, steps []WorkflowStep, outputPath string, promptPaths map[string]string) error {
+func generateWorkflowYAML(fs io.FileSystem, steps []WorkflowStep, outputPath string, promptPaths map[string]string) error {
 	// Create WorkflowFileDefinition from steps
 	fileDef := FromWorkflowDefinition(&WorkflowDefinition{
 		Name:        "standard",
@@ -125,7 +163,7 @@ func generateWorkflowYAML(fs FileSystem, steps []WorkflowStep, outputPath string
 // Returns:
 //   - string containing the relative path to the prompt file
 //   - error if writing the prompt file fails
-func extractPromptToFile(fs FileSystem, promptsDir string, step WorkflowStep) (string, error) {
+func extractPromptToFile(fs io.FileSystem, promptsDir string, step WorkflowStep) (string, error) {
 	// Generate filename from step ID
 	filename := fmt.Sprintf("%s.md", step.ID)
 	filePath := filepath.Join(promptsDir, filename)
@@ -150,7 +188,7 @@ func extractPromptToFile(fs FileSystem, promptsDir string, step WorkflowStep) (s
 // Returns:
 //   - The prompt content as a string
 //   - error if loading fails
-func loadPromptContent(step *WorkflowStep, fs FileSystem) (string, error) {
+func loadPromptContent(step *WorkflowStep, fs io.FileSystem) (string, error) {
 	// Check if step has a file source
 	if step.source.sourceType == promptSourceFile && step.source.filePath != "" {
 		// Try to read from file if available
