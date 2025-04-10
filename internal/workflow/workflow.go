@@ -7,6 +7,7 @@ package workflow
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -746,8 +747,8 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 	}
 	
 	// Validate step index is valid for the current workflow
-	workflow, _ := wm.registry.GetWorkflow(state.WorkflowName)
-	if workflow != nil && state.CurrentStepIndex > len(workflow.Steps) {
+	workflow, err := wm.registry.GetWorkflow(state.WorkflowName)
+	if err == nil && workflow != nil && state.CurrentStepIndex > len(workflow.Steps) {
 		// Print warning about unrecognized step
 		if wm.io.IsDebugEnabled() {
 			wm.io.PrintWarning(fmt.Sprintf("Unrecognized step index %d in %s. Resetting to step 1.", 
@@ -890,11 +891,11 @@ func (wm *WorkflowManager) UpdateState(changeRequestPath string, newStepIndex in
 
 	// Validate step index
 	if newStepIndex < 0 {
-		return fmt.Errorf(ErrNegativeStepIndex)
+		return errors.New(ErrNegativeStepIndex)
 	}
 
 	if newStepIndex > len(workflow.Steps) {
-		return fmt.Errorf(ErrExceedingStepIndex)
+		return errors.New(ErrExceedingStepIndex)
 	}
 
 	// Update step index
@@ -1228,4 +1229,17 @@ func (wm *WorkflowManager) MapProgressBetweenWorkflows(oldState WorkflowState, n
 	}
 	
 	return newState, warnings
+}
+
+// Get the step at a specific index
+func (wm *WorkflowManager) GetStepAtIndex(workflow *WorkflowDefinition, index int) (*WorkflowStep, error) {
+	// Check if the index is valid
+	if index < 0 {
+		return nil, errors.New(ErrNegativeStepIndex)
+	}
+	if index >= len(workflow.Steps) {
+		return nil, errors.New(ErrExceedingStepIndex)
+	}
+
+	return &workflow.Steps[index], nil
 }

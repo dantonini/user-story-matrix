@@ -7,8 +7,6 @@ package workflow
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -265,39 +263,6 @@ func TestMapProgressBetweenWorkflows(t *testing.T) {
 	// are missing in the new workflow. Since all steps from the source workflow exist in the target,
 	// no warnings are generated.
 	assert.Empty(t, warnings, "No warnings expected for this specific mapping scenario")
-}
-
-// Helper function to create a test state file
-func createTestStateFile(t *testing.T, path string, state WorkflowState) {
-	// Serialize the state to JSON
-	data, err := json.Marshal(state)
-	if err != nil {
-		t.Fatalf("Failed to marshal state: %v", err)
-	}
-	
-	// Create directory if needed
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("Failed to create directory: %v", err)
-	}
-	
-	// Write to a temporary file
-	err = os.WriteFile(path, data, 0600)
-	if err != nil {
-		t.Fatalf("Failed to write state file: %v", err)
-	}
-}
-
-// Helper function to create a test state
-func createTestState(changeRequestPath string, currentStep int, workflowName string, workflowPath string) WorkflowState {
-	return WorkflowState{
-		ChangeRequestPath: changeRequestPath,
-		CurrentStepIndex:  currentStep,
-		LastModified:      time.Now(),
-		CompletedSteps:    []string{},
-		WorkflowName:      workflowName,
-		WorkflowPath:      workflowPath,
-	}
 }
 
 // Helper function to create an old format state (without workflow identification)
