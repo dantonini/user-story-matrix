@@ -474,6 +474,41 @@ func (fs *MockFileSystem) SetRemoveFileError(path string, err error) {
 	fs.removeFileErrors[filepath.Clean(path)] = err
 }
 
+// SetModTime sets the modification time for a file
+// This allows tests to control file modification timestamps for testing cache invalidation
+func (fs *MockFileSystem) SetModTime(path string, modTime time.Time) error {
+	// Normalize path to avoid inconsistencies
+	path = filepath.Clean(path)
+	
+	// Check if it's a file
+	if info, exists := fs.FileInfo[path]; exists {
+		// Create new info with updated modification time
+		mockInfo, ok := info.(MockFileInfo)
+		if !ok {
+			return fmt.Errorf("internal error: file info is not MockFileInfo")
+		}
+		
+		mockInfo.modTime = modTime
+		fs.FileInfo[path] = mockInfo
+		return nil
+	}
+	
+	// Check if it's a directory
+	if info, exists := fs.DirInfo[path]; exists {
+		// Create new info with updated modification time
+		mockInfo, ok := info.(MockFileInfo)
+		if !ok {
+			return fmt.Errorf("internal error: dir info is not MockFileInfo")
+		}
+		
+		mockInfo.modTime = modTime
+		fs.DirInfo[path] = mockInfo
+		return nil
+	}
+	
+	return fmt.Errorf("file or directory not found: %s", path)
+}
+
 // ClearErrors clears all simulated errors
 // This is useful for resetting the mock file system between tests
 func (fs *MockFileSystem) ClearErrors() {

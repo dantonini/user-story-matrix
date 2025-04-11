@@ -252,35 +252,66 @@ func validateExternalWorkflow(workflow *ExternalWorkflowDefinition) error {
 		return fmt.Errorf("workflow must have at least one step")
 	}
 	
-	// Validate each step
+	// Validate steps
+	stepIDs := make(map[string]bool)
 	for i, step := range workflow.Steps {
+		// Check required step fields
 		if step.ID == "" {
-			return fmt.Errorf("step %d is missing an ID", i+1)
+			return fmt.Errorf("step %d has no ID", i+1)
 		}
 		
+		// Check for duplicate step IDs
+		if stepIDs[step.ID] {
+			return fmt.Errorf("duplicate step ID: %s", step.ID)
+		}
+		stepIDs[step.ID] = true
+		
+		// Make sure step has a description
 		if step.Description == "" {
-			return fmt.Errorf("step %d (%s) is missing a description", i+1, step.ID)
+			return fmt.Errorf("step %s has no description", step.ID)
 		}
 		
-		// Validate the prompt for each step
-		// Only validate the prompt if it's not empty
-		if step.Prompt != "" {
-			if err := ValidatePrompt(step.Prompt); err != nil {
-				return fmt.Errorf("step %d (%s) has an invalid prompt: %v", i+1, step.ID, err)
-			}
-		}
+		// No longer requiring prompt to be non-empty, as it can be loaded from a file later
+		// or set programmatically
 	}
 	
 	return nil
 }
 
-// isWorkflowFile checks if a file is a workflow definition file based on its extension.
+// ValidateWorkflowPromptReferences checks that all prompt files referenced in a workflow exist
 //
 // Parameters:
-//   - fileName: Name of the file to check
+//   - fs: FileSystem interface for file operations
+//   - baseDir: Base directory for resolving relative path references
+//   - workflow: ExternalWorkflowDefinition to validate
 //
 // Returns:
-//   - true if the file is a workflow definition file, false otherwise
+//   - A slice of errors found during validation, empty if all valid
+func ValidateWorkflowPromptReferences(fs io.FileSystem, baseDir string, workflow *ExternalWorkflowDefinition) []error {
+	var errors []error
+	
+	for _, step := range workflow.Steps {
+		// Skip steps with embedded prompts (no file extension or path separator)
+		if !strings.Contains(step.Prompt, "/") && filepath.Ext(step.Prompt) == "" {
+			continue
+		}
+		
+		// Resolve prompt path
+		promptPath := step.Prompt
+		if !filepath.IsAbs(promptPath) {
+			promptPath = filepath.Join(baseDir, promptPath)
+		}
+		
+		// Check if prompt file exists
+		if !fs.Exists(promptPath) {
+			errors = append(errors, fmt.Errorf("prompt file for step %s not found: %s", step.ID, promptPath))
+		}
+	}
+	
+	return errors
+}
+
+// isWorkflowFile checks if a filename has a workflow file extension
 func isWorkflowFile(fileName string) bool {
 	ext := strings.ToLower(filepath.Ext(fileName))
 	return ext == ".yaml" || ext == ".yml" || ext == ".json"

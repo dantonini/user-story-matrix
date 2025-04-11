@@ -187,24 +187,65 @@ func extractPromptToFile(fs io.FileSystem, promptsDir string, step WorkflowStep)
 //
 // Returns:
 //   - The prompt content as a string
-//   - error if loading fails
+//   - error if loading fails and no fallback is available
 func loadPromptContent(step *WorkflowStep, fs io.FileSystem) (string, error) {
-	// Check if step has a file source
-	if step.source.sourceType == promptSourceFile && step.source.filePath != "" {
-		// Try to read from file if available
-		if fs.Exists(step.source.filePath) {
-			data, err := fs.ReadFile(step.source.filePath)
-			if err == nil {
-				return string(data), nil
+	// If step has no file source or filePath is empty, just return the embedded prompt
+	if step.source.sourceType != promptSourceFile || step.source.filePath == "" {
+		return step.Prompt, nil
+	}
+	
+	// Try to read from file if available
+	if !fs.Exists(step.source.filePath) {
+		// Try to find file in standard locations
+		baseName := filepath.Base(step.source.filePath)
+		possiblePaths := []string{
+			filepath.Join(StandardPromptsDir, baseName),
+			filepath.Join("prompts", baseName),
+		}
+		
+		// Add custom workflow directories if they're directly referenced
+		if strings.Contains(step.source.filePath, "workflows") {
+			segments := strings.Split(step.source.filePath, string(filepath.Separator))
+			for i, segment := range segments {
+				if segment == "workflows" && i+2 < len(segments) {
+					// Try to reconstruct the prompt path from standard locations
+					workflowName := segments[i+1]
+					promptPath := segments[i+2:]
+					possiblePaths = append(possiblePaths, 
+						filepath.Join("workflows", workflowName, "prompts", filepath.Join(promptPath...)))
+				}
 			}
-			// Log the error but don't return it, fall back to embedded prompt
-			fmt.Printf("Failed to load prompt from file %s: %v, falling back to embedded prompt\n", 
-				step.source.filePath, err)
+		}
+		
+		// Try each path
+		for _, path := range possiblePaths {
+			if fs.Exists(path) {
+				// Found the file, update source path
+				step.source.filePath = path
+				break
+			}
+		}
+		
+		// If still not found, log and fall back to embedded
+		if !fs.Exists(step.source.filePath) {
+			// Log detailed warning for troubleshooting
+			fmt.Printf("Warning: Prompt file not found: %s\nSearched paths: %v\nFalling back to embedded prompt\n", 
+				step.source.filePath, possiblePaths)
+			
+			// Return embedded prompt as fallback
+			return step.Prompt, nil
 		}
 	}
 	
-	// Fall back to embedded prompt
-	return step.Prompt, nil
+	// Read from file
+	data, err := fs.ReadFile(step.source.filePath)
+	if err != nil {
+		// Detailed error includes the file path for troubleshooting
+		return step.Prompt, fmt.Errorf("failed to read prompt file %s: %w (using embedded fallback)", 
+			step.source.filePath, err)
+	}
+	
+	return string(data), nil
 }
 
 // setPromptFromFile sets the prompt source to a file path
@@ -212,7 +253,7 @@ func loadPromptContent(step *WorkflowStep, fs io.FileSystem) (string, error) {
 // Parameters:
 //   - step: The workflow step to update
 //   - path: File path to the prompt
-func setPromptFromFile(step *WorkflowStep, path string) { //nolint:unused
+func setPromptFromFile(step *WorkflowStep, path string) {
 	step.source = promptSource{
 		sourceType: promptSourceFile,
 		filePath:   path,
@@ -220,10 +261,11 @@ func setPromptFromFile(step *WorkflowStep, path string) { //nolint:unused
 }
 
 // getRelativePromptPath returns the relative path to a prompt file from the workflow directory
+// This ensures cross-platform compatibility and proper path resolution for workflow files.
 //
 // Parameters:
-//   - promptFile: Absolute path to prompt file
-//   - workflowDir: Absolute path to workflow directory
+//   - promptFile: Path to prompt file
+//   - workflowDir: Path to workflow directory
 //
 // Returns:
 //   - Relative path from workflow directory to prompt file
@@ -234,18 +276,50 @@ func getRelativePromptPath(promptFile, workflowDir string) string {
 	
 	// Check if prompt file is already relative
 	if !filepath.IsAbs(promptFile) {
-		return promptFile
+		// Ensure forward slashes for cross-platform compatibility in YAML/JSON
+		return strings.ReplaceAll(promptFile, "\\", "/")
 	}
 	
 	// Calculate relative path
 	rel, err := filepath.Rel(workflowDir, promptFile)
 	if err != nil {
-		// If we can't create a relative path, return the original path
-		return promptFile
+		// If we can't create a relative path, return a cleaned version of the original path
+		// Use forward slashes for cross-platform compatibility
+		return strings.ReplaceAll(promptFile, "\\", "/")
 	}
 	
-	// Ensure forward slashes for cross-platform compatibility in YAML
+	// Ensure forward slashes for cross-platform compatibility in YAML/JSON
 	return strings.ReplaceAll(rel, "\\", "/")
+}
+
+// ResolvePromptPath resolves a possibly relative prompt path to an absolute path
+// This is used when loading workflow files to ensure prompt references are correctly resolved.
+//
+// Parameters:
+//   - promptPath: Relative or absolute path to the prompt file
+//   - workflowDir: Base directory for resolving relative paths
+//
+// Returns:
+//   - Absolute path to the prompt file
+func ResolvePromptPath(promptPath, workflowDir string) string {
+	// If path is already absolute, return it
+	if filepath.IsAbs(promptPath) {
+		return promptPath
+	}
+	
+	// Clean both paths for consistency
+	promptPath = filepath.Clean(promptPath)
+	workflowDir = filepath.Clean(workflowDir)
+	
+	// Handle special cases for standard prompt locations
+	if strings.HasPrefix(promptPath, "prompts/") {
+		// First check if it exists directly under workflowDir
+		absPath := filepath.Join(workflowDir, promptPath)
+		return absPath
+	}
+	
+	// Standard path resolution for relative paths
+	return filepath.Join(workflowDir, promptPath)
 }
 
 // WorkflowFileDefinition represents the structure of a workflow.yaml file

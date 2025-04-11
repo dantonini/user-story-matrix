@@ -330,14 +330,10 @@ Now, let's start the work:
 		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
 The whole iteration is divided into 4 phases:
-- Laid the foundation (project structure, placeholders, key abstractions)
-- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria
+- Laid the foundation (project structure, placeholders, key abstractions) [done]
+- Complete the Minimum Viable Implementation (MVI) to satisfy core acceptance criteria [done]
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
-
-You have already:
-- Laid the groundwork by scaffolding the solution and defining high-level architecture: read it using: cat 2025-03-31-081819-introduce-step-prompt.blueprint.md.01-foundation.accomplished.md
-- Implemented a Minimal Viable Implementation (MVI) that satisfies the basic functionality required to pass the initial test suite: read it using: cat docs/changes-request/2025-03-31-081819-introduce-step-prompt.blueprint.md.02-mvi.accomplished.md
 
 Your task now is to proceed to **expand the implementation** to cover additional use cases, edge cases, and deferred features, as described in the blueprint.
 
@@ -670,97 +666,155 @@ func GenerateStateFilePath(changeRequestPath string) string {
 	return filepath.Join(dir, "."+base+".step")
 }
 
-// LoadState loads the workflow state for a change request from disk.
-// If the state file doesn't exist, it creates a new state at step 0.
-// This method now handles backward compatibility for older state files.
+// LoadState loads the workflow state from a file.
+// The state file is located in the .usm directory relative to the change request file.
+// This method includes comprehensive backward compatibility handling for older state formats.
 //
 // Parameters:
 //   - changeRequestPath: Path to the change request file
 //
 // Returns:
-//   - WorkflowState containing the current state, or error
+//   - The loaded WorkflowState, or a new state if loading fails
+//   - An error if the state file is invalid
 func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, error) {
+	// Get state file path
 	stateFilePath := GenerateStateFilePath(changeRequestPath)
 
-	// If file doesn't exist, return initial state
+	// Check if state file exists
 	if !wm.fs.Exists(stateFilePath) {
-		return WorkflowState{
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("State file not found at %s, creating new state", stateFilePath))
+		}
+		
+		// Create new state with current workflow
+		state := WorkflowState{
 			ChangeRequestPath: changeRequestPath,
 			CurrentStepIndex:  0,
 			LastModified:      time.Now(),
 			CompletedSteps:    []string{},
-			WorkflowName:      wm.workflow.Name, // Use the workflow name from the manager
-			WorkflowPath:      "",               // Empty for built-in workflows
-		}, nil
+			WorkflowName:      wm.workflow.Name,
+			WorkflowPath:      "", // Empty for built-in workflows
+		}
+		
+		return state, nil
 	}
 
 	// Read state file
 	data, err := wm.fs.ReadFile(stateFilePath)
 	if err != nil {
-		return WorkflowState{}, fmt.Errorf(ErrFailedToLoadState, err)
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("Failed to read state file: %v", err))
+		}
+		
+		// Create new state as fallback
+		state := WorkflowState{
+			ChangeRequestPath: changeRequestPath,
+			CurrentStepIndex:  0,
+			LastModified:      time.Now(),
+			CompletedSteps:    []string{},
+			WorkflowName:      wm.workflow.Name,
+			WorkflowPath:      "", // Empty for built-in workflows
+		}
+		
+		return state, nil
 	}
 
-	// First try to parse as new format
+	// Parse state file with backward compatibility
 	var state WorkflowState
-	err = json.Unmarshal(data, &state)
-	
-	// Check for backward compatibility with old format
-	if err != nil || (state.WorkflowName == "" && state.WorkflowPath == "") {
-		// Try to parse as old format
-		var oldState struct {
+	if err := wm.parseStateFile(data, &state); err != nil {
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("Failed to parse state file: %v", err))
+		}
+		
+		// Try to parse legacy format (different field names or structure)
+		var legacyState struct {
 			ChangeRequestPath string    `json:"change_request_path"`
-			CurrentStepIndex  int       `json:"current_step_index"`
+			CurrentStep       int       `json:"current_step"` // Old field name
 			LastModified      time.Time `json:"last_modified"`
 			CompletedSteps    []string  `json:"completed_steps"`
 		}
 		
-		err = json.Unmarshal(data, &oldState)
-		if err != nil {
-			return WorkflowState{}, fmt.Errorf("failed to parse state file: %w", err)
+		if err := json.Unmarshal(data, &legacyState); err != nil {
+			if wm.io.IsDebugEnabled() {
+				wm.io.PrintWarning(fmt.Sprintf("Failed to parse legacy state format: %v", err))
+			}
+			
+			// Create new state as fallback
+			state = WorkflowState{
+				ChangeRequestPath: changeRequestPath,
+				CurrentStepIndex:  0,
+				LastModified:      time.Now(),
+				CompletedSteps:    []string{},
+				WorkflowName:      wm.workflow.Name,
+				WorkflowPath:      "", // Empty for built-in workflows
+			}
+			
+			return state, nil
 		}
 		
-		// Convert to new format with default values for new fields
+		// Convert legacy format to current format
 		state = WorkflowState{
-			ChangeRequestPath: oldState.ChangeRequestPath,
-			CurrentStepIndex:  oldState.CurrentStepIndex,
-			LastModified:      oldState.LastModified,
-			CompletedSteps:    oldState.CompletedSteps,
-			WorkflowName:      wm.workflow.Name,  // Use the workflow name from the manager
-			WorkflowPath:      "",                // Empty for built-in workflows
+			ChangeRequestPath: legacyState.ChangeRequestPath,
+			CurrentStepIndex:  legacyState.CurrentStep,
+			LastModified:      legacyState.LastModified,
+			CompletedSteps:    legacyState.CompletedSteps,
+			WorkflowName:      StandardWorkflowName, // Assume standard workflow for old format
+			WorkflowPath:      "", // Empty for built-in workflows
 		}
 		
-		// Log upgrade of state file format
-		wm.io.PrintWarning(fmt.Sprintf("Upgraded state file format for %s", changeRequestPath))
-		
-		// Save in new format immediately
-		err = wm.SaveState(state)
-		if err != nil {
-			wm.io.PrintWarning(fmt.Sprintf("Failed to save upgraded state: %v", err))
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning("Successfully converted legacy state format to current format")
 		}
+		
+		return state, nil
 	}
 
-	// If loading a state that uses a workflow we don't have, fall back to standard
-	if _, err := wm.registry.GetWorkflow(state.WorkflowName); err != nil {
-		wm.io.PrintWarning(fmt.Sprintf(ErrWorkflowNotFound, state.WorkflowName))
-		state.WorkflowName = wm.workflow.Name  // Use the workflow name from the manager
-		state.WorkflowPath = ""
+	// Ensure change request path is set
+	if state.ChangeRequestPath == "" {
+		state.ChangeRequestPath = changeRequestPath
 	}
 	
-	// Validate step index is valid for the current workflow
-	workflow, err := wm.registry.GetWorkflow(state.WorkflowName)
-	if err == nil && workflow != nil && state.CurrentStepIndex > len(workflow.Steps) {
-		// Print warning about unrecognized step
+	// Apply backward compatibility fixes for workflow name
+	if state.WorkflowName == "" {
+		// Older state format without workflow name - assume standard workflow
+		state.WorkflowName = StandardWorkflowName
 		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf("Unrecognized step index %d in %s. Resetting to step 1.", 
-				state.CurrentStepIndex, changeRequestPath))
+			wm.io.PrintWarning("State file has no workflow name, assuming standard workflow")
 		}
-		
-		// Reset state
+	}
+	
+	// Validate state data
+	if state.CurrentStepIndex < 0 {
+		if wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("Invalid current step index %d, resetting to 0", state.CurrentStepIndex))
+		}
 		state.CurrentStepIndex = 0
+	}
+	
+	// Ensure LastModified is set
+	if state.LastModified.IsZero() {
+		state.LastModified = time.Now()
+	}
+	
+	// Ensure CompletedSteps is initialized
+	if state.CompletedSteps == nil {
 		state.CompletedSteps = []string{}
 	}
-	
+
 	return state, nil
+}
+
+// parseStateFile parses a state file's raw data into a WorkflowState struct
+// This helper function centralizes the parsing logic for better error handling.
+//
+// Parameters:
+//   - data: Raw state file data
+//   - state: Pointer to WorkflowState to populate
+//
+// Returns:
+//   - An error if parsing fails
+func (wm *WorkflowManager) parseStateFile(data []byte, state *WorkflowState) error {
+	return json.Unmarshal(data, state)
 }
 
 // SaveState saves the workflow state to disk
@@ -1125,8 +1179,37 @@ func (wm *WorkflowManager) ValidateWorkflowSwitch(oldWorkflowName, newWorkflowNa
 	return warnings
 }
 
+// GetStepAtIndex returns the workflow step at the specified index
+// This method serves as a safe accessor for workflow steps with proper error handling.
+//
+// Parameters:
+//   - workflow: The workflow definition to get the step from
+//   - index: The 0-based index of the step to retrieve
+//
+// Returns:
+//   - Pointer to the requested WorkflowStep, or nil with error if index is invalid
+func (wm *WorkflowManager) GetStepAtIndex(workflow *WorkflowDefinition, index int) (*WorkflowStep, error) {
+	// Check for nil workflow
+	if workflow == nil {
+		return nil, fmt.Errorf("cannot get step: workflow is nil")
+	}
+	
+	// Check if the index is valid
+	if index < 0 {
+		return nil, errors.New(ErrNegativeStepIndex)
+	}
+	if index >= len(workflow.Steps) {
+		return nil, fmt.Errorf("%s: requested index %d, but workflow has only %d steps", 
+			ErrExceedingStepIndex, index, len(workflow.Steps))
+	}
+
+	// Return pointer to step at the requested index
+	return &workflow.Steps[index], nil
+}
+
 // MapProgressBetweenWorkflows attempts to map progress from one workflow to another
 // It creates a new WorkflowState with progress transferred between workflows.
+// This version includes enhanced handling for complex workflow structures and edge cases.
 //
 // Parameters:
 //   - oldState: Current WorkflowState
@@ -1181,65 +1264,70 @@ func (wm *WorkflowManager) MapProgressBetweenWorkflows(oldState WorkflowState, n
 		}
 	}
 	
-	// Map current step index
+	// Map current step index with enhanced logic for complex workflows
+	currentStepIdx := oldState.CurrentStepIndex
+	
+	// Validate the current step index in the old workflow
+	if currentStepIdx < 0 {
+		// Handle negative index
+		newState.CurrentStepIndex = 0
+		warnings = append(warnings, "Invalid negative step index in source workflow, reset to first step")
+		return newState, warnings
+	}
+	
+	if currentStepIdx >= len(oldWorkflow.Steps) {
+		// If we're past the end, check if the workflow is actually completed
+		if len(oldState.CompletedSteps) == len(oldWorkflow.Steps) {
+			// The workflow is complete - set to the last step of the new workflow
+			newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
+			warnings = append(warnings, "Source workflow is complete, set to last step in target workflow")
+		} else {
+			// The index is invalid - reset to first step
+			newState.CurrentStepIndex = 0
+			warnings = append(warnings, "Invalid step index in source workflow, reset to first step")
+		}
+		return newState, warnings
+	}
+	
 	// Try to find the same step ID in the new workflow
-	if oldState.CurrentStepIndex < len(oldWorkflow.Steps) {
-		currentStepID := oldWorkflow.Steps[oldState.CurrentStepIndex].ID
-		found := false
+	currentStepID := oldWorkflow.Steps[currentStepIdx].ID
+	found := false
+	
+	for i, step := range newWorkflow.Steps {
+		if step.ID == currentStepID {
+			newState.CurrentStepIndex = i
+			found = true
+			break
+		}
+	}
+	
+	if !found {
+		// If step not found, try to find the nearest completed step
+		maxCompletedIndex := -1
 		
 		for i, step := range newWorkflow.Steps {
-			if step.ID == currentStepID {
-				newState.CurrentStepIndex = i
-				found = true
-				break
+			for _, completedID := range newState.CompletedSteps {
+				if step.ID == completedID {
+					maxCompletedIndex = i
+					break
+				}
 			}
 		}
 		
-		if !found {
-			// If step not found, try to find the nearest completed step
-			maxCompletedIndex := -1
-			
-			for i, step := range newWorkflow.Steps {
-				for _, completedID := range newState.CompletedSteps {
-					if step.ID == completedID {
-						maxCompletedIndex = i
-						break
-					}
-				}
+		if maxCompletedIndex >= 0 {
+			// Set to the step after the last completed step
+			newState.CurrentStepIndex = maxCompletedIndex + 1
+			if newState.CurrentStepIndex >= len(newWorkflow.Steps) {
+				newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
 			}
-			
-			if maxCompletedIndex >= 0 {
-				// Set to the step after the last completed step
-				newState.CurrentStepIndex = maxCompletedIndex + 1
-				if newState.CurrentStepIndex >= len(newWorkflow.Steps) {
-					newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
-				}
-			} else {
-				// Default to first step if no mapping is possible
-				newState.CurrentStepIndex = 0
-			}
-			
-			warnings = append(warnings, fmt.Sprintf("Current step '%s' not found in target workflow, mapped to step %d", 
-				currentStepID, newState.CurrentStepIndex + 1))
+		} else {
+			// Default to first step if no mapping is possible
+			newState.CurrentStepIndex = 0
 		}
-	} else {
-		// If current step index is out of bounds, default to first step
-		newState.CurrentStepIndex = 0
-		warnings = append(warnings, "Invalid current step index, reset to first step")
+		
+		warnings = append(warnings, fmt.Sprintf("Current step '%s' not found in target workflow, mapped to step %d", 
+			currentStepID, newState.CurrentStepIndex + 1))
 	}
 	
 	return newState, warnings
-}
-
-// Get the step at a specific index
-func (wm *WorkflowManager) GetStepAtIndex(workflow *WorkflowDefinition, index int) (*WorkflowStep, error) {
-	// Check if the index is valid
-	if index < 0 {
-		return nil, errors.New(ErrNegativeStepIndex)
-	}
-	if index >= len(workflow.Steps) {
-		return nil, errors.New(ErrExceedingStepIndex)
-	}
-
-	return &workflow.Steps[index], nil
 }
