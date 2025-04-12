@@ -279,44 +279,21 @@ USM handles linter compatibility automatically:
 ## Testing
 
 ```bash
-# Run tests
+# Run tests with coverage enabled by default
 make test
-
-# Run tests with coverage
-make test-coverage
-
-# Generate HTML coverage report
-make coverage-html
-
-# Show functions with less than 100% coverage
-make coverage-report
 ```
 
 ## Code Coverage
 
 ```bash
 # Basic coverage report showing function coverage percentage
-make test-coverage
+make coverage
 
-# Detailed report focusing on uncovered code
-make coverage-report
-
-# Generate an HTML report to visualize coverage
-make coverage-html
-
-# For a comprehensive analysis with code context
-./coverage.sh
+# Show coverage for a specific file
+./coverage -file <path-to-file> 
 ```
 
-The `coverage.sh` script will:
-1. Run all tests with coverage tracking
-2. Show overall coverage percentage
-3. List functions with less than 100% coverage
-4. Display actual uncovered code blocks with context
-5. Generate an HTML report you can open in your browser
-6. Suggest areas to focus your testing efforts on
-
-The HTML report provides a visual way to see which lines of code are covered (green), not covered (red), or not executable (gray).
+The `coverage` command will show detailed coverage per file.
 
 ## Releasing
 

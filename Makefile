@@ -3,6 +3,7 @@
 # Binary name
 BINARY_NAME=usm
 VERSION=0.1.4
+COVERAGE_TOOL=coverage
 
 # Detect golangci-lint version for compatibility
 GOLANGCI_VERSION := $(shell golangci-lint --version 2>/dev/null | grep -o 'version [0-9.]*' | sed 's/version //' || echo "0.0.0")
@@ -81,12 +82,10 @@ build-full:
 	@echo "Running full build with linting..."
 	go build -o $(BINARY_NAME) -v
 
-# Run tests
-test:
-	go test -v $(shell go list ./... | grep -v /output/)
-
+build-coverage:
+	go build -o $(COVERAGE_TOOL) tools/coverage/main.go
 # Run tests with coverage
-test-coverage:
+test: build-coverage
 	go test -v -coverprofile=coverage.out -covermode=atomic $(shell go list ./... | grep -v /output/)
 	go tool cover -func=coverage.out
 
@@ -94,12 +93,8 @@ test-coverage:
 coverage-html: test-coverage
 	go tool cover -html=coverage.out -o coverage.html
 
-# Create a coverage report showing uncovered lines
-coverage-report:
-	@echo "Generating coverage report..."
-	@go test -v -coverprofile=coverage.out -covermode=atomic ./...
-	@go tool cover -func=coverage.out | grep -v "100.0%" | sort -k 3 -r
-	@echo "HTML report available with: make coverage-html"
+coverage: build-coverage
+	./$(COVERAGE_TOOL) --cov coverage.out
 
 # Clean build artifacts
 clean:
@@ -109,6 +104,7 @@ clean:
 	rm -f $(BINARY_NAME)-darwin-amd64-$(VERSION)
 	rm -f $(BINARY_NAME)-darwin-arm64-$(VERSION)
 	rm -f $(BINARY_NAME)-windows-amd64-$(VERSION).exe
+	rm -f $(COVERAGE_TOOL)
 	rm -f coverage.out coverage.html
 
 # Run the application
