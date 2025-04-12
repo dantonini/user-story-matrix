@@ -112,10 +112,15 @@ This report documents the "Extend the implementation" phase of Custom Workflow P
 ## Test Coverage Summary
 
 Current test coverage for key components:
+- Total Coverage: 67.4% of statements
 - `WorkflowRegistry`: 92.3% coverage
 - `MapProgressBetweenWorkflows`: 97.6% coverage
 - `ValidateWorkflowSwitch`: 100% coverage
 - `GetStepAtIndex`: 100% coverage
+- `internal/workflow`: 77.0% of statements
+- `internal/utils`: 98.7% of statements
+- `internal/ui/models`: 98.3% of statements
+- `internal/ui/pages`: 82.2% of statements
 
 ## Notable Changes from MVI
 
