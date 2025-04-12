@@ -248,18 +248,6 @@ func loadPromptContent(step *WorkflowStep, fs io.FileSystem) (string, error) {
 	return string(data), nil
 }
 
-// setPromptFromFile sets the prompt source to a file path
-//
-// Parameters:
-//   - step: The workflow step to update
-//   - path: File path to the prompt
-func setPromptFromFile(step *WorkflowStep, path string) {
-	step.source = promptSource{
-		sourceType: promptSourceFile,
-		filePath:   path,
-	}
-}
-
 // getRelativePromptPath returns the relative path to a prompt file from the workflow directory
 // This ensures cross-platform compatibility and proper path resolution for workflow files.
 //
