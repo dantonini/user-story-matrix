@@ -7,7 +7,6 @@
 usm
 usm-cli
 usm-deadcode
-coverage
 
 # Test binary, built with `go test -c`
 *.test
