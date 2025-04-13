@@ -579,24 +579,26 @@ func createStandardWorkflow() *WorkflowDefinition {
 // ✓ Created global registry instance for cross-component access
 // ✓ Maintained backward compatibility with legacy code
 //
-// Phase 2: Extract prompt files from standard workflow (dev-02)
-// - Extract long prompts from StandardWorkflowSteps into separate Markdown files
-// - Organize files in standard directory structure for workflow templates
-// - Generate workflow.yaml from the current StandardWorkflowSteps metadata
-// - Implement mechanism to load prompts from files with fallback to embedded prompts
+// Phase 2: COMPLETED - Extract prompt files from standard workflow (dev-02)
+// ✓ Extracted long prompts from StandardWorkflowSteps into separate Markdown files
+// ✓ Organized files in standard directory structure for workflow templates
+// ✓ Generated workflow.yaml from the current StandardWorkflowSteps metadata
+// ✓ Implemented mechanism to load prompts from files with fallback to embedded prompts
+// ✓ Added ExtractStandardWorkflow function with proper cross-platform path handling
 //
-// Phase 3: Add workflow loading from filesystem (dev-03)
-// - Extend WorkflowRegistry to load workflow definitions from disk
-// - Implement discovery of workflows in standard locations
-// - Add validation of workflow.yaml format and prompt references
-// - Create caching mechanism for loaded workflows
-// - Add logging for workflow loading operations
+// Phase 3: COMPLETED - Add workflow loading from filesystem (dev-03)
+// ✓ Extended WorkflowRegistry to load workflow definitions from disk
+// ✓ Implemented discovery of workflows in standard locations
+// ✓ Added validation of workflow.yaml format and prompt references
+// ✓ Created caching mechanism with source tracking and modification timestamps
+// ✓ Implemented format detection for both YAML and JSON workflow files
 //
-// Phase 4: Update workflow state format (dev-04)
-// - Update WorkflowState to include workflow identification
-// - Maintain backward compatibility with existing state files
-// - Update WorkflowManager methods to handle the new state format
-// - Implement validation for workflow switching
+// Phase 4: COMPLETED - Update workflow state format (dev-04)
+// ✓ Updated WorkflowState to include workflow identification (WorkflowName and WorkflowPath)
+// ✓ Maintained backward compatibility with existing state files
+// ✓ Updated WorkflowManager methods to handle the new state format
+// ✓ Implemented validation for workflow switching with ValidateWorkflowSwitch
+// ✓ Added MapProgressBetweenWorkflows for preserving progress when switching workflows
 //
 // Phase 5: Implement template variables support (dev-05)
 // - Add Variables field to WorkflowStep struct
