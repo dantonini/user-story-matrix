@@ -16,20 +16,17 @@ import (
 	"go.uber.org/zap"
 )
 
-// Regular expression to match user story references in change request files
-var userStoryReferenceRegex = regexp.MustCompile(`(?m)^(\s*-\s*title:\s*.+\n\s*file:\s*)([^\n]+)(\n\s*content-hash:\s*)([^\n]+)(\n)`)
-
 // Reference represents a user story reference in a change request
 type Reference struct {
-	Title       string
-	FilePath    string
-	ContentHash string
-	Line        int // Line number in the change request file
+	Title       string // Title of the user story
+	FilePath    string // Path to the file
+	ContentHash string // Content hash of the user story
 }
 
 // MismatchedReference represents a reference with a hash mismatch
 type MismatchedReference struct {
 	FilePath      string
+	Title         string
 	ReferenceHash string
 	OldHash       string
 }
@@ -38,6 +35,12 @@ type MismatchedReference struct {
 type ChangeRequestInfo struct {
 	FilePath   string
 	References []Reference
+}
+
+// ContentHashPair represents a pair of old and new content hashes
+type ContentHashPair struct {
+	OldHash string
+	NewHash string
 }
 
 // FindChangeRequestFiles finds all change request files in a directory
@@ -84,43 +87,63 @@ func FindChangeRequestFiles(root string, fs io.FileSystem) ([]string, error) {
 	return files, nil
 }
 
-// ExtractReferences extracts all user story references from a change request file
+// ExtractReferences extracts references to user stories from content
 func ExtractReferences(content string) []Reference {
-	references := []Reference{}
-	matches := userStoryReferenceRegex.FindAllStringSubmatch(content, -1)
+	// Find all user stories references in the content
+	// Pre-allocate the slice with a small initial capacity to avoid reallocation
+	references := make([]Reference, 0, 10)
 	
-	for _, match := range matches {
-		// The match array should contain:
-		// [0]: full match
-		// [1]: prefix (spaces + "- title:" + content + newline + spaces + "file:")
-		// [2]: file path
-		// [3]: newline + spaces + "content-hash:"
-		// [4]: content hash
-		// [5]: newline
-		if len(match) < 6 {
+	// First find all title entries to establish the stories
+	titleMatches := regexp.MustCompile(`(?m)^\s*-\s*title:\s*(.*?)(\s*\n)`).FindAllStringSubmatch(content, -1)
+	
+	for _, titleMatch := range titleMatches {
+		if len(titleMatch) < 2 {
 			continue
 		}
 		
-		filePath := match[2]
-		contentHash := match[4]
+		title := strings.TrimSpace(titleMatch[1])
 		
-		// Extract title from the previous line
-		titleStart := strings.LastIndex(match[1], "title:")
-		if titleStart == -1 {
+		// Find the corresponding file and content-hash entries
+		// This approach is more robust as it finds the actual file reference
+		// Use the start of the title match to limit the search range
+		titleIdx := strings.Index(content, titleMatch[0])
+		if titleIdx == -1 {
 			continue
 		}
-		titleLine := match[1][titleStart:]
-		titleEnd := strings.Index(titleLine, "\n")
-		if titleEnd == -1 {
+		
+		// Find the next item or the end of the YAML section
+		endIdx := strings.Index(content[titleIdx+len(titleMatch[0]):], "- title:")
+		if endIdx == -1 {
+			endIdx = strings.Index(content[titleIdx+len(titleMatch[0]):], "---")
+		}
+		
+		var itemText string
+		if endIdx == -1 {
+			itemText = content[titleIdx:]
+		} else {
+			itemText = content[titleIdx : titleIdx+len(titleMatch[0])+endIdx]
+		}
+		
+		// Extract file path and content hash from the item text
+		fileMatch := regexp.MustCompile(`file:\s*(.*?)(\s*\n)`).FindStringSubmatch(itemText)
+		if len(fileMatch) < 2 {
 			continue
 		}
-		title := strings.TrimSpace(strings.TrimPrefix(titleLine[:titleEnd], "title:"))
 		
+		filePath := strings.TrimSpace(fileMatch[1])
+		
+		// Extract content hash
+		hashMatch := regexp.MustCompile(`content-hash:\s*(.*?)(\s*\n)`).FindStringSubmatch(itemText)
+		var contentHash string
+		if len(hashMatch) >= 2 {
+			contentHash = strings.TrimSpace(hashMatch[1])
+		}
+		
+		// Add to references
 		references = append(references, Reference{
 			Title:       title,
 			FilePath:    filePath,
 			ContentHash: contentHash,
-			Line:        0, // TODO: Calculate actual line number
 		})
 	}
 	
@@ -143,6 +166,7 @@ func ValidateChangedReferences(references []Reference, hashMap ContentChangeMap)
 				// Add to mismatched references collection
 				mismatchedReferences = append(mismatchedReferences, MismatchedReference{
 					FilePath:      ref.FilePath,
+					Title:         ref.Title,
 					ReferenceHash: ref.ContentHash,
 					OldHash:       hashInfo.OldHash,
 				})
@@ -155,90 +179,60 @@ func ValidateChangedReferences(references []Reference, hashMap ContentChangeMap)
 	return changedReferences, mismatchedReferences
 }
 
-// UpdateChangeRequestReferences updates references in change request files
-// Returns:
-// - bool: whether the file was updated
-// - int: number of references updated
-// - []MismatchedReference: list of references with mismatched hashes
-// - error: any error that occurred
-func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs io.FileSystem) (bool, int, []MismatchedReference, error) {
-	// Read file content
-	content, err := fs.ReadFile(filePath)
-	if err != nil {
-		return false, 0, nil, fmt.Errorf("failed to read change request file: %w", err)
-	}
+// UpdateChangeRequestReferencesInContent updates references to change requests in the given content.
+// It takes a map of file paths to content hashes, and replaces occurrences of the old
+// hashes in the content with the new hashes. It returns the updated content and a slice
+// of mismatched references.
+func UpdateChangeRequestReferencesInContent(content string, changedFiles map[string]ContentHashPair) (string, []MismatchedReference) {
+	var mismatchedReferences []MismatchedReference
+
+	// Extract the existing references from the content
+	existingRefs := ExtractReferences(content)
+
+	// Split the content into lines for easier manipulation
+	contentLines := strings.Split(content, "\n")
 	
-	originalContent := string(content)
-	
-	changesMade := false
-	updatedReferences := 0
-	
-	// Extract all references
-	references := ExtractReferences(originalContent)
-	
-	// Validate which references need updating
-	changedReferences, mismatchedReferences := ValidateChangedReferences(references, hashMap)
-	
-	if len(changedReferences) == 0 {
-		return false, 0, nil, nil
-	}
-	
-	// Clone the original content for updating
-	updatedContent := originalContent
-	
-	// Find all user story references
-	matches := userStoryReferenceRegex.FindAllStringSubmatch(originalContent, -1)
-	matchIndices := userStoryReferenceRegex.FindAllStringSubmatchIndex(originalContent, -1)
-	
-	// Track the offset caused by changes in string length
-	offset := 0
-	
-	// Process matches one by one
-	for i, match := range matches {
-		matchIndex := matchIndices[i]
-		
-		// Extract the file path and current hash
-		filePath := match[2]
-		currentHash := match[4]
-		
-		// Check if this file is in our hash map
-		if hashInfo, ok := hashMap[filePath]; ok && hashInfo.Changed {
-			// We need to find where in the string the content hash starts and ends,
-			// adjusted by the current offset
-			hashStartPos := matchIndex[8] + offset
-			hashEndPos := matchIndex[9] + offset
+	// Process each existing reference
+	for _, ref := range existingRefs {
+		if pair, ok := changedFiles[ref.FilePath]; ok {
+			// The file has changed, check if the content hash matches
+			if ref.ContentHash != pair.OldHash {
+				// Mismatch detected
+				mismatchedReferences = append(mismatchedReferences, MismatchedReference{
+					FilePath:      ref.FilePath,
+					Title:         ref.Title,
+					ReferenceHash: ref.ContentHash,
+					OldHash:       pair.OldHash,
+				})
+			}
 			
-			// Calculate the new offset after replacement
-			newOffset := len(hashInfo.NewHash) - len(currentHash)
-			offset += newOffset
-			
-			// Update only the content hash, not touching the file path
-			updatedContent = updatedContent[:hashStartPos] + hashInfo.NewHash + updatedContent[hashEndPos:]
-			
-			changesMade = true
-			updatedReferences++
-			
-			logger.Debug("Updated reference hash", 
-				zap.String("file", filePath),
-				zap.String("old_hash", currentHash),
-				zap.String("new_hash", hashInfo.NewHash))
+			// Update the hash in the content regardless of whether there was a mismatch
+			// Need to find where this particular file reference is in the content
+			for i, line := range contentLines {
+				trimmedLine := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmedLine, "file:") && strings.Contains(line, ref.FilePath) {
+					// Found the file reference, now find the content hash line that follows
+					for j := i + 1; j < len(contentLines) && j < i + 5; j++ {
+						// Look in the next few lines (max 5) for the content-hash line
+						hashLine := strings.TrimSpace(contentLines[j])
+						if strings.HasPrefix(hashLine, "content-hash:") {
+							// Found the hash line, update it
+							// Maintain the same indentation
+							indentation := strings.Repeat(" ", len(contentLines[j]) - len(strings.TrimLeft(contentLines[j], " ")))
+							contentLines[j] = indentation + "content-hash: " + pair.NewHash
+							break
+						}
+					}
+					break
+				}
+			}
 		}
 	}
 	
-	// Write the updated content back to the file if changes were made
-	if changesMade {
-		fileInfo, err := fs.Stat(filePath)
-		if err != nil {
-			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to get file info: %w", err)
-		}
-		
-		err = fs.WriteFile(filePath, []byte(updatedContent), fileInfo.Mode())
-		if err != nil {
-			return false, updatedReferences, mismatchedReferences, fmt.Errorf("failed to write updated content: %w", err)
-		}
-	}
+	// Reconstruct the content with the updated lines
+	updatedContent := strings.Join(contentLines, "\n")
 	
-	return changesMade, updatedReferences, mismatchedReferences, nil
+	return updatedContent, mismatchedReferences
 }
 
 // FilterChangedContent filters the hash map to include only files with changed content
@@ -252,6 +246,20 @@ func FilterChangedContent(hashMap ContentChangeMap) ContentChangeMap {
 	}
 	
 	return filteredMap
+}
+
+// ConvertToContentHashPairMap converts a ContentChangeMap to map[string]ContentHashPair
+func ConvertToContentHashPairMap(changeMap ContentChangeMap) map[string]ContentHashPair {
+	pairMap := make(map[string]ContentHashPair)
+	
+	for path, info := range changeMap {
+		pairMap[path] = ContentHashPair{
+			OldHash: info.OldHash,
+			NewHash: info.NewHash,
+		}
+	}
+	
+	return pairMap
 }
 
 // UpdateAllChangeRequestReferences updates references in all change request files
@@ -287,7 +295,7 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 	for _, file := range files {
 		logger.Debug("Processing change request", zap.String("file", file))
 		
-		updated, referencesUpdated, mismatchedReferences, err := UpdateChangeRequestReferences(file, changedMap, fs)
+		updated, refsUpdated, mismatchedReferences, err := UpdateChangeRequestReferences(file, changedMap, fs)
 		if err != nil {
 			logger.Error("Failed to update references", 
 				zap.String("file", file), 
@@ -306,7 +314,7 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 		
 		if updated {
 			updatedFiles = append(updatedFiles, relPath)
-			totalReferencesUpdated += referencesUpdated
+			totalReferencesUpdated += refsUpdated
 		} else {
 			unchangedFiles = append(unchangedFiles, relPath)
 		}
@@ -336,4 +344,47 @@ func UpdateAllChangeRequestReferences(root string, hashMap ContentChangeMap, fs 
 		zap.Int("references_updated", stats["references_updated"]))
 	
 	return updatedFiles, unchangedFiles, totalReferencesUpdated, allMismatchedRefs, nil
+}
+
+// UpdateChangeRequestReferences updates references in a single change request file
+// Returns:
+// - bool: whether the file was updated
+// - int: number of references updated
+// - []MismatchedReference: list of references with mismatched hashes
+// - error: any error that occurred
+func UpdateChangeRequestReferences(filePath string, hashMap ContentChangeMap, fs io.FileSystem) (bool, int, []MismatchedReference, error) {
+	// Read the file content
+	content, err := fs.ReadFile(filePath)
+	if err != nil {
+		return false, 0, nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+	
+	// Convert ContentChangeMap to map[string]ContentHashPair
+	pairMap := ConvertToContentHashPairMap(hashMap)
+	
+	// Update references in the content
+	updatedContent, mismatchedReferences := UpdateChangeRequestReferencesInContent(string(content), pairMap)
+	
+	// Count the number of references that were updated
+	referencesUpdated := 0
+	
+	// Extract the existing references from the content to determine how many were updated
+	existingRefs := ExtractReferences(string(content))
+	for _, ref := range existingRefs {
+		if _, ok := pairMap[ref.FilePath]; ok {
+			// The file is in the change map - we'll update it regardless of hash match
+			referencesUpdated++
+		}
+	}
+	
+	// If content was updated, write it back to the file
+	if updatedContent != string(content) {
+		err = fs.WriteFile(filePath, []byte(updatedContent), 0644)
+		if err != nil {
+			return false, referencesUpdated, mismatchedReferences, fmt.Errorf("failed to write updated file %s: %w", filePath, err)
+		}
+		return true, referencesUpdated, mismatchedReferences, nil
+	}
+	
+	return false, 0, mismatchedReferences, nil
 } 
