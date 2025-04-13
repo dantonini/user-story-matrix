@@ -319,9 +319,10 @@ type WorkflowFileDefinition struct {
 
 // WorkflowFileStep represents a step in a workflow.yaml file
 type WorkflowFileStep struct {
-	ID          string `yaml:"id"`
-	Description string `yaml:"description"`
-	Prompt      string `yaml:"prompt"` // Path to prompt file, relative to workflow dir
+	ID          string              `yaml:"id"`
+	Description string              `yaml:"description"`
+	Prompt      string              `yaml:"prompt"` // Path to prompt file, relative to workflow dir
+	Variables   map[string]string   `yaml:"variables,omitempty"` // Variables for template substitution
 }
 
 // FromWorkflowDefinition creates a WorkflowFileDefinition from a WorkflowDefinition
@@ -345,6 +346,7 @@ func FromWorkflowDefinition(def *WorkflowDefinition, promptPaths map[string]stri
 			ID:          step.ID,
 			Description: step.Description,
 			Prompt:      promptPath,
+			Variables:   step.Variables,
 		}
 	}
 	

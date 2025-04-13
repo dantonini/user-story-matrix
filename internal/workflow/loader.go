@@ -39,6 +39,9 @@ type ExternalWorkflowStep struct {
 
 	// Prompt contains the instructions for the AI agent
 	Prompt string `json:"prompt" yaml:"prompt"`
+	
+	// Variables for template substitution in the prompt
+	Variables map[string]string `json:"variables" yaml:"variables"`
 }
 
 // ToWorkflowDefinition converts an ExternalWorkflowDefinition to a WorkflowDefinition.
@@ -54,6 +57,7 @@ func (e *ExternalWorkflowDefinition) ToWorkflowDefinition() *WorkflowDefinition 
 			ID:          step.ID,
 			Description: step.Description,
 			Prompt:      step.Prompt,
+			Variables:   step.Variables,
 		}
 	}
 	
@@ -191,6 +195,7 @@ func SaveWorkflowToFile(fs io.FileSystem, workflow *WorkflowDefinition, filePath
 			ID:          step.ID,
 			Description: step.Description,
 			Prompt:      step.Prompt,
+			Variables:   step.Variables,
 		}
 	}
 	

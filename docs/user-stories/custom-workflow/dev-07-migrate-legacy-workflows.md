@@ -1,8 +1,8 @@
 ---
 file_path: docs/user-stories/custom-workflow/dev-07-migrate-legacy-workflows.md
 created_at: 2025-04-13T09:15:31+02:00
-last_updated: 2025-04-13T09:53:56+02:00
-_content_hash: d81329cb7346731a47953760696e80817f6be08a52e58da23823ca713ce1e29a
+last_updated: 2025-04-13T15:56:43+02:00
+_content_hash: 6736a44a6aedbd78c8e3057913f4b09918c554c53ed412187cb5bfe9bc8660e7
 ---
 
 # Migrate legacy workflows
@@ -25,10 +25,6 @@ existing projects continue to work without disruption while gaining the benefits
 - The system provides backward compatibility for direct code references to `StandardWorkflowSteps`:
   - A deprecation warning is logged
   - The code continues to function by referencing the "standard" workflow
-- A migration command is available for advanced users:
-  ```
-  usm workflow migrate [path-to-state-file] --to=[workflow-name]
-  ```
 - The migration process is well-documented
 
 ## Priority: MUST HAVE

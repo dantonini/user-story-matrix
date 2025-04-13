@@ -17,10 +17,11 @@ import (
 
 // WorkflowStep represents a single step in the implementation workflow
 type WorkflowStep struct {
-	ID          string        // Unique identifier (e.g., "01-laying-the-foundation")
-	Description string        // Human-readable description
-	Prompt      string        // AI agent instructions with variable interpolation
-	source      promptSource  // Internal field for tracking prompt source (embedded or file)
+	ID          string            // Unique identifier (e.g., "01-laying-the-foundation")
+	Description string            // Human-readable description
+	Prompt      string            // AI agent instructions with variable interpolation
+	Variables   map[string]string // Variables for template substitution
+	source      promptSource      // Internal field for tracking prompt source (embedded or file)
 }
 
 // WorkflowState tracks the current state of a workflow for a specific change request
@@ -165,93 +166,65 @@ func GenerateStateFilePath(changeRequestPath string) string {
 	return filepath.Join(dir, "."+base+".step")
 }
 
-// LoadState loads the workflow state from a file.
-// The state file is located in the .usm directory relative to the change request file.
-// This method includes comprehensive backward compatibility handling for older state formats.
-//
-// Parameters:
-//   - changeRequestPath: Path to the change request file
-//
-// Returns:
-//   - The loaded WorkflowState, or a new state if loading fails
-//   - An error if the state file is invalid
+// LoadState loads the workflow state for a change request
 func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, error) {
 	stateFilePath := GenerateStateFilePath(changeRequestPath)
-
-	// Check if state file exists
+	
+	// Check if file exists
 	if !wm.fs.Exists(stateFilePath) {
 		// Create new state
-		return WorkflowState{
+		state := WorkflowState{
 			ChangeRequestPath: changeRequestPath,
 			CurrentStepIndex:  0,
-			LastModified:     time.Now(),
-			WorkflowName:     wm.workflow.Name,
-			CompletedSteps:   []string{},
-		}, nil
+			LastModified:      time.Now(),
+			CompletedSteps:    []string{},
+			WorkflowName:      wm.workflow.Name, // Use current workflow name
+		}
+		return state, nil
 	}
-
-	// Read state file
-	data, err := wm.fs.ReadFile(stateFilePath)
+	
+	// Read file
+	content, err := wm.fs.ReadFile(stateFilePath)
 	if err != nil {
+		return WorkflowState{}, fmt.Errorf(ErrFailedToLoadState, err)
+	}
+	
+	// Unmarshal
+	var state WorkflowState
+	err = json.Unmarshal(content, &state)
+	if err != nil {
+		// Invalid state file
 		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf("Failed to read state file: %v", err))
+			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
 		}
+		// Return new state
 		return WorkflowState{
 			ChangeRequestPath: changeRequestPath,
 			CurrentStepIndex:  0,
-			LastModified:     time.Now(),
-			WorkflowName:     wm.workflow.Name,
-			CompletedSteps:   []string{},
+			LastModified:      time.Now(),
+			CompletedSteps:    []string{},
+			WorkflowName:      wm.workflow.Name, // Use current workflow name
 		}, nil
 	}
-
-	// Try to parse current state format
-	var state WorkflowState
-	if err := json.Unmarshal(data, &state); err != nil {
+	
+	// Check if this is a legacy state file (without workflow name)
+	if state.WorkflowName == "" {
+		// Need to migrate the state file to include workflow name
+		// This is needed for backward compatibility with existing state files
 		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf("Failed to parse state file: %v", err))
+			wm.io.PrintProgress(fmt.Sprintf("Migrating legacy state file to workflow: %s", wm.workflow.Name))
 		}
-
-		// Try to parse legacy format (different field names or structure)
-		var legacyState struct {
-			ChangeRequestPath string    `json:"change_request_path"`
-			CurrentStep       int       `json:"current_step"` // Old field name
-			LastModified     time.Time `json:"last_modified"`
-			CompletedSteps   []string  `json:"completed_steps"`
-		}
-
-		if err := json.Unmarshal(data, &legacyState); err != nil {
-			if wm.io.IsDebugEnabled() {
-				wm.io.PrintWarning(fmt.Sprintf("Failed to parse legacy state format: %v", err))
-			}
-			// Create new state as fallback
-			return WorkflowState{
-				ChangeRequestPath: changeRequestPath,
-				CurrentStepIndex:  0,
-				LastModified:     time.Now(),
-				WorkflowName:     wm.workflow.Name,
-				CompletedSteps:   []string{},
-			}, nil
-		}
-
-		// Convert legacy state to current format
-		state = WorkflowState{
-			ChangeRequestPath: legacyState.ChangeRequestPath,
-			CurrentStepIndex:  legacyState.CurrentStep,
-			LastModified:     legacyState.LastModified,
-			WorkflowName:     wm.workflow.Name,
-			CompletedSteps:   legacyState.CompletedSteps,
+		
+		// Add standard workflow information
+		state.WorkflowName = wm.workflow.Name
+		
+		// Save the updated state
+		err = wm.SaveState(state)
+		if err != nil && wm.io.IsDebugEnabled() {
+			wm.io.PrintWarning(fmt.Sprintf("Failed to update legacy state file: %s", err))
 		}
 	}
-
-	// Validate step index
-	if state.CurrentStepIndex < 0 || state.CurrentStepIndex > len(wm.workflow.Steps) {
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf("Invalid step index %d, resetting to 0", state.CurrentStepIndex))
-		}
-		state.CurrentStepIndex = 0
-	}
-
+	
 	return state, nil
 }
 

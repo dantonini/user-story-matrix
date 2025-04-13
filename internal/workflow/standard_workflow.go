@@ -6,6 +6,10 @@
 package workflow
 
 // StandardWorkflowSteps defines the predefined sequence of steps in the implementation workflow
+// Deprecated: Use WorkflowRegistry.GetWorkflow("standard") instead.
+// This global variable is maintained for backward compatibility with existing code.
+// It will be synchronized with the registry's standard workflow to ensure consistency.
+// Direct usage will be removed in a future version.
 var StandardWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-laying-the-foundation",
