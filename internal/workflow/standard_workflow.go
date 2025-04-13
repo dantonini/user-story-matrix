@@ -368,26 +368,23 @@ Now, it's time to execute the last phase of the iteration: **Refinement & Stabil
 
 ### 🧩 Tasks to Perform:
 
-1. **Refactor for Maintainability:**
-   - Improve naming, structure, and modularity
-   - Remove duplication, unused code, and reduce complexity
-   - Ensure clear separation of concerns and adherence to clean code principles
-
-2. **Optimize for Performance (if applicable):**
+1. **Optimize for Performance (if applicable):**
    - Profile critical paths
    - Optimize data structures and algorithms for efficiency
    - Avoid premature optimization — focus on known bottlenecks or risky parts
 
-3. **Enhance Test Coverage:**
+2. **Enhance Test Coverage:**
+   - Use make test to run the test suite with coverage
+   - then use ./coverage -file <path-to-file> to identify the most uncovered parts
    - Add tests that simulate real-world edge cases and usage patterns
    - Ensure each user story and its acceptance criteria are covered
    - Include tests for:
      - Error handling and invalid inputs
      - Performance-sensitive areas
      - Integration between components
-   - Use integration tests to execute at least one smoke test
+   - Use integration tests to implement at least one smoke test
 
-4. **Stabilize the Codebase:**
+3. **Stabilize the Codebase:**
    - Resolve any known issues or inconsistencies
    - Finalize API boundaries and expected behaviors
    - Ensure the implementation is resilient and ready for review or release

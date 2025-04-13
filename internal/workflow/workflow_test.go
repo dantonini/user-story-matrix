@@ -940,3 +940,130 @@ func TestWorkflowManager_WithNonExistentWorkflow(t *testing.T) {
 		t.Errorf("Expected warning for non-existent workflow not printed: %s", expectedWarning)
 	}
 }
+
+func TestWorkflowManager_GetStepByIndex(t *testing.T) {
+	// Create mocks
+	fs := io.NewMockFileSystem()
+	mockIO := NewMockIO()
+
+	// Create a custom workflow with known steps
+	workflow := &WorkflowDefinition{
+		Name: "test-workflow",
+		Steps: []WorkflowStep{
+			{ID: "step-1", Description: "First step", Prompt: "Do the first thing"},
+			{ID: "step-2", Description: "Second step", Prompt: "Do the second thing"},
+			{ID: "step-3", Description: "Third step", Prompt: "Do the third thing"},
+		},
+	}
+
+	// Create registry and register our workflow
+	registry := GetGlobalRegistry()
+	registry.RegisterBuiltInWorkflow(workflow)
+
+	// Create workflow manager with our custom workflow
+	wm := NewWorkflowManager(fs, mockIO, "test-workflow", registry)
+
+	tests := []struct {
+		name        string
+		index       int
+		wantID      string
+		expectError bool
+	}{
+		{
+			name:        "Valid index 0",
+			index:       0,
+			wantID:      "step-1",
+			expectError: false,
+		},
+		{
+			name:        "Valid index 1",
+			index:       1,
+			wantID:      "step-2",
+			expectError: false,
+		},
+		{
+			name:        "Valid index 2",
+			index:       2,
+			wantID:      "step-3",
+			expectError: false,
+		},
+		{
+			name:        "Invalid negative index",
+			index:       -1,
+			wantID:      "",
+			expectError: true,
+		},
+		{
+			name:        "Invalid exceeding index",
+			index:       3,
+			wantID:      "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step, err := wm.GetStepByIndex(tt.index)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if step.ID != tt.wantID {
+					t.Errorf("Expected step ID %s but got %s", tt.wantID, step.ID)
+				}
+			}
+		})
+	}
+}
+
+func TestWorkflowManager_ListAvailableWorkflows(t *testing.T) {
+	// Create mocks
+	fs := io.NewMockFileSystem()
+	mockIO := NewMockIO()
+
+	// Create several test workflows
+	workflows := []*WorkflowDefinition{
+		{Name: "workflow-1", Steps: []WorkflowStep{{ID: "step1", Description: "Step 1"}}},
+		{Name: "workflow-2", Steps: []WorkflowStep{{ID: "step1", Description: "Step 1"}}},
+		{Name: "workflow-3", Steps: []WorkflowStep{{ID: "step1", Description: "Step 1"}}},
+	}
+
+	// Create registry and register our workflows
+	// Use the global registry for this test
+	registry := GetGlobalRegistry()
+	ResetGlobalRegistry() // Reset to ensure clean state
+	
+	for _, wf := range workflows {
+		registry.RegisterBuiltInWorkflow(wf)
+	}
+
+	// Create workflow manager with the registry
+	wm := NewWorkflowManager(fs, mockIO, StandardWorkflowName, registry)
+
+	// Get the list of workflows
+	availableWorkflows := wm.ListAvailableWorkflows()
+
+	// Verify that all registered workflows are in the list
+	if len(availableWorkflows) < len(workflows) {
+		t.Errorf("Expected at least %d workflows, got %d", len(workflows), len(availableWorkflows))
+	}
+
+	// Verify each workflow name is in the list
+	for _, wf := range workflows {
+		found := false
+		for _, name := range availableWorkflows {
+			if name == wf.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Workflow %s not found in the list of available workflows", wf.Name)
+		}
+	}
+}

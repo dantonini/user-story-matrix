@@ -6,9 +6,12 @@
 package workflow
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
@@ -129,32 +132,111 @@ func TestExtractPromptToFile(t *testing.T) {
 
 // TestLoadPromptContent tests loading prompt content from a file
 func TestLoadPromptContent(t *testing.T) {
-	// Create a mock filesystem
-	fs := io.NewMockFileSystem()
-	
-	// Create test step
-	step := &WorkflowStep{
-		ID:          "test-step",
-		Description: "Test Step",
-		Prompt:      "Test prompt",
+	tests := []struct {
+		name          string
+		step          *WorkflowStep
+		setupFs       func(fs *io.MockFileSystem)
+		expected      string
+		expectedError bool
+	}{
+		{
+			name: "embedded prompt",
+			step: &WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				Prompt:      "This is an embedded prompt",
+				source: promptSource{
+					sourceType: promptSourceEmbedded,
+				},
+			},
+			setupFs: func(fs *io.MockFileSystem) {},
+			expected: "This is an embedded prompt",
+		},
+		{
+			name: "file prompt exists",
+			step: &WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				Prompt:      "Original embedded content",
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   "test-prompt.md",
+				},
+			},
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("test-prompt.md", []byte("File-based prompt content"))
+			},
+			expected: "File-based prompt content",
+		},
+		{
+			name: "file prompt doesn't exist - fallback to embedded",
+			step: &WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				Prompt:      "Original embedded content",
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   "non-existent-prompt.md",
+				},
+			},
+			setupFs: func(fs *io.MockFileSystem) {
+				// Try standard locations for fallback
+				fs.AddFile("prompts/non-existent-prompt.md", []byte("Fallback prompt from standard location"))
+			},
+			expected: "Fallback prompt from standard location",
+		},
+		{
+			name: "path with workflows directory",
+			step: &WorkflowStep{
+				ID:          "test-step", 
+				Description: "Test Step",
+				Prompt:      "Original embedded content",
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   "workflows/custom/prompts/test-prompt.md",
+				},
+			},
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("workflows/custom/prompts/test-prompt.md", []byte("Custom workflow prompt"))
+			},
+			expected: "Custom workflow prompt",
+		},
+		{
+			name: "file read error",
+			step: &WorkflowStep{
+				ID:          "test-step",
+				Description: "Test Step",
+				Prompt:      "Original embedded content",
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   "error-prompt.md",
+				},
+			},
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("error-prompt.md", []byte("Should not read this"))
+				fs.SetReadFileError("error-prompt.md", fmt.Errorf("simulated read error"))
+			},
+			expected:      "Original embedded content",
+			expectedError: true,
+		},
 	}
-	
-	// Call the function
-	content, err := loadPromptContent(step, fs)
-	
-	// For now, we expect the embedded prompt to be returned
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := io.NewMockFileSystem()
+			tc.setupFs(fs)
+
+			content, err := loadPromptContent(tc.step, fs)
+			
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			
+			assert.Equal(t, tc.expected, content)
+		})
 	}
-	
-	if content != step.Prompt {
-		t.Errorf("Expected %q, got %q", step.Prompt, content)
-	}
-	
-	// TODO: Once fully implemented, test file-based prompt loading with fallback
-	// 1. Test when file exists
-	// 2. Test when file doesn't exist (fallback to embedded)
-	// 3. Test when file exists but has errors
 }
 
 // TestFromWorkflowDefinition tests converting a WorkflowDefinition to a WorkflowFileDefinition
@@ -236,6 +318,49 @@ func TestGetRelativePromptPath(t *testing.T) {
 			if result != tc.expected {
 				t.Errorf("Expected %q, got %q", tc.expected, result)
 			}
+		})
+	}
+}
+
+// TestResolvePromptPath tests resolving a prompt path
+func TestResolvePromptPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		promptPath  string
+		workflowDir string
+		expected    string
+	}{
+		{
+			name:        "absolute path",
+			promptPath:  "/absolute/path/to/prompt.md",
+			workflowDir: "/workflow/dir",
+			expected:    "/absolute/path/to/prompt.md",
+		},
+		{
+			name:        "relative path",
+			promptPath:  "prompts/step1.md",
+			workflowDir: "/workflow/dir",
+			expected:    "/workflow/dir/prompts/step1.md",
+		},
+		{
+			name:        "special prompts prefix",
+			promptPath:  "prompts/special.md",
+			workflowDir: "/custom/workflows",
+			expected:    "/custom/workflows/prompts/special.md",
+		},
+		{
+			name:        "normalize path separators",
+			promptPath:  filepath.FromSlash("path/with/backslashes.md"),
+			workflowDir: "/workflow/dir",
+			expected:    filepath.FromSlash("/workflow/dir/path/with/backslashes.md"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ResolvePromptPath(tc.promptPath, tc.workflowDir)
+			// Convert both expected and result to platform-specific format before comparison
+			assert.Equal(t, filepath.Clean(tc.expected), filepath.Clean(result))
 		})
 	}
 }

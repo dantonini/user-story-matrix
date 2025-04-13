@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
@@ -494,6 +495,156 @@ func TestIsWorkflowFile(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("isWorkflowFile(%q) = %v, want %v", tt.fileName, got, tt.want)
 			}
+		})
+	}
+}
+
+func TestValidateWorkflowPromptReferences(t *testing.T) {
+	tests := []struct {
+		name              string
+		setupFs           func(fs *io.MockFileSystem)
+		workflow          *ExternalWorkflowDefinition
+		baseDir           string
+		expectedErrorsLen int
+	}{
+		{
+			name: "all prompt files exist",
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("/workflow/dir/prompts/step1.md", []byte("Step 1 prompt"))
+				fs.AddFile("/workflow/dir/prompts/step2.md", []byte("Step 2 prompt"))
+			},
+			workflow: &ExternalWorkflowDefinition{
+				Name:        "test-workflow",
+				Description: "Test Workflow",
+				Steps: []ExternalWorkflowStep{
+					{
+						ID:          "step1",
+						Description: "Step 1",
+						Prompt:      "prompts/step1.md",
+					},
+					{
+						ID:          "step2",
+						Description: "Step 2",
+						Prompt:      "prompts/step2.md",
+					},
+				},
+			},
+			baseDir:           "/workflow/dir",
+			expectedErrorsLen: 0,
+		},
+		{
+			name: "embedded prompts are not validated",
+			setupFs: func(fs *io.MockFileSystem) {
+				// No files needed as embedded prompts are not checked
+			},
+			workflow: &ExternalWorkflowDefinition{
+				Name:        "test-workflow",
+				Description: "Test Workflow",
+				Steps: []ExternalWorkflowStep{
+					{
+						ID:          "step1",
+						Description: "Step 1",
+						Prompt:      "This is an embedded prompt",
+					},
+					{
+						ID:          "step2",
+						Description: "Step 2",
+						Prompt:      "Another embedded prompt",
+					},
+				},
+			},
+			baseDir:           "/workflow/dir",
+			expectedErrorsLen: 0,
+		},
+		{
+			name: "some prompt files missing",
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("/workflow/dir/prompts/step1.md", []byte("Step 1 prompt"))
+				// step2.md is intentionally missing
+			},
+			workflow: &ExternalWorkflowDefinition{
+				Name:        "test-workflow",
+				Description: "Test Workflow",
+				Steps: []ExternalWorkflowStep{
+					{
+						ID:          "step1",
+						Description: "Step 1",
+						Prompt:      "prompts/step1.md",
+					},
+					{
+						ID:          "step2",
+						Description: "Step 2",
+						Prompt:      "prompts/step2.md",
+					},
+				},
+			},
+			baseDir:           "/workflow/dir",
+			expectedErrorsLen: 1,
+		},
+		{
+			name: "absolute path prompts",
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("/absolute/path/prompt.md", []byte("Absolute path prompt"))
+				// second file is intentionally missing
+			},
+			workflow: &ExternalWorkflowDefinition{
+				Name:        "test-workflow",
+				Description: "Test Workflow",
+				Steps: []ExternalWorkflowStep{
+					{
+						ID:          "step1",
+						Description: "Step 1",
+						Prompt:      "/absolute/path/prompt.md",
+					},
+					{
+						ID:          "step2",
+						Description: "Step 2",
+						Prompt:      "/absolute/path/missing.md",
+					},
+				},
+			},
+			baseDir:           "/workflow/dir",
+			expectedErrorsLen: 1,
+		},
+		{
+			name: "mix of embedded and file prompts",
+			setupFs: func(fs *io.MockFileSystem) {
+				fs.AddFile("/workflow/dir/prompts/step2.md", []byte("Step 2 prompt"))
+			},
+			workflow: &ExternalWorkflowDefinition{
+				Name:        "test-workflow",
+				Description: "Test Workflow",
+				Steps: []ExternalWorkflowStep{
+					{
+						ID:          "step1",
+						Description: "Step 1",
+						Prompt:      "This is an embedded prompt",
+					},
+					{
+						ID:          "step2",
+						Description: "Step 2",
+						Prompt:      "prompts/step2.md",
+					},
+					{
+						ID:          "step3",
+						Description: "Step 3",
+						Prompt:      "prompts/step3.md", // Missing file
+					},
+				},
+			},
+			baseDir:           "/workflow/dir",
+			expectedErrorsLen: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := io.NewMockFileSystem()
+			tc.setupFs(fs)
+
+			errors := ValidateWorkflowPromptReferences(fs, tc.baseDir, tc.workflow)
+			
+			assert.Len(t, errors, tc.expectedErrorsLen)
 		})
 	}
 } 

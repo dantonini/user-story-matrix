@@ -496,195 +496,172 @@ steps:
 }
 
 func TestWorkflowRegistry_ReloadChangedWorkflows(t *testing.T) {
-	// Skip this test as it's unreliable due to timestamp-based modification detection
-	// The implementation of isWorkflowModified adds a 1-second buffer to avoid false positives
-	// due to filesystem timestamp precision, which makes it difficult to create a deterministic test.
-	// A more robust approach would be to refactor the implementation to support 
-	// explicit timestamp comparison for testing purposes.
-	t.Skip("Skipping test due to timestamp-based comparisons making it unreliable")
-
-	// Get a clean registry for test isolation
-	resetRegistryForTest()
-	
-	// Setup mock filesystem
+	// Set up filesystem with test workflows
 	fs := io.NewMockFileSystem()
 	
-	// Create workflow YAML content
-	workflowYAML := `
-name: reload-test-workflow
-description: Test workflow for reloading
+	testDir := "test-workflows-reload"
+	fs.MkdirAll(testDir, 0755)
+	
+	// Create an initial workflow
+	workflowPath := filepath.Join(testDir, "test.yaml")
+	initialContent := `
+name: test-wf
+description: Initial Description
 steps:
-  - id: step1
-    description: Step 1
-    prompt: This is step 1
-  - id: step2
-    description: Step 2
-    prompt: This is step 2
+- id: step1
+  description: Initial Step
+  prompt: test prompt
 `
+	fs.WriteFile(workflowPath, []byte(initialContent), 0644)
 	
-	// Add file to mock filesystem
-	workflowPath := "workflows/reload-test/workflow.yaml"
-	fs.AddDirectory("workflows/reload-test")
-	fs.AddFile(workflowPath, []byte(workflowYAML))
+	// Create a base time for testing
+	baseTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	
-	// Set modification time to the past
-	pastTime := time.Now().Add(-3 * time.Hour)
-	err := fs.SetModTime(workflowPath, pastTime)
-	assert.NoError(t, err)
+	// Create registry for testing
+	registry := &WorkflowRegistry{
+		builtInWorkflows: make(map[string]*WorkflowDefinition),
+		cache: workflowCache{
+			workflows: make(map[string]*WorkflowDefinition),
+			sources:   make(map[string]string),
+			modified:  make(map[string]time.Time),
+		},
+	}
 	
-	t.Run("No changes, nothing reloaded", func(t *testing.T) {
-		// Create a new registry for this test case
-		registry := &WorkflowRegistry{
-			builtInWorkflows: make(map[string]*WorkflowDefinition),
-			cache: workflowCache{
-				workflows: make(map[string]*WorkflowDefinition),
-				sources:   make(map[string]string),
-				modified:  make(map[string]time.Time),
+	// Load the workflow and add to cache
+	workflow, _ := LoadWorkflowFromFile(fs, workflowPath)
+	registry.cache.workflows["test-wf"] = workflow
+	registry.cache.sources["test-wf"] = workflowPath
+	registry.cache.modified["test-wf"] = baseTime.Add(1 * time.Hour) // Cache shows 1 hour after base
+	
+	// Set file mod time to be older than cache (no reload)
+	fs.SetModTime(workflowPath, baseTime) // File is at base time (older than cache)
+	
+	// Test: No workflows should be reloaded when file is older
+	reloaded := registry.ReloadChangedWorkflows(fs)
+	assert.Empty(t, reloaded, "No workflows should be reloaded when file is older than cache")
+	
+	// Update the file with new content and newer timestamp
+	updatedContent := `
+name: test-wf
+description: Updated Description
+steps:
+- id: step1
+  description: Updated Step
+  prompt: test prompt
+`
+	fs.WriteFile(workflowPath, []byte(updatedContent), 0644)
+	fs.SetModTime(workflowPath, baseTime.Add(2 * time.Hour)) // File is 2 hours after base (newer than cache)
+	
+	// Test: Workflow should be reloaded
+	reloaded = registry.ReloadChangedWorkflows(fs)
+	assert.Contains(t, reloaded, "test-wf", "test-wf should be reloaded when file is newer")
+	assert.Equal(t, "Updated Description", registry.cache.workflows["test-wf"].Description,
+		"Description should be updated after reload")
+}
+
+func TestWorkflowRegistry_IsWorkflowModified(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupCache   func(registry *WorkflowRegistry)
+		setupFS      func(fs *io.MockFileSystem)
+		workflowName string
+		expected     bool
+		expectError  bool
+	}{
+		{
+			name: "workflow file is newer than cache",
+			setupCache: func(registry *WorkflowRegistry) {
+				registry.cache.sources["test"] = "test.yaml"
+				registry.cache.modified["test"] = time.Now().Add(-1 * time.Hour) // 1 hour ago
 			},
-			mutex: sync.RWMutex{},
-		}
-		
-		// Load the workflow initially
-		workflow, err := LoadWorkflowFromFile(fs, workflowPath)
-		assert.NoError(t, err)
-		
-		// Add to registry cache with the past modification time
-		registry.cache.workflows["reload-test-workflow"] = workflow
-		registry.cache.sources["reload-test-workflow"] = workflowPath
-		registry.cache.modified["reload-test-workflow"] = pastTime
-		
-		// Verify file mod time matches cache exactly
-		fileInfo, err := fs.Stat(workflowPath)
-		assert.NoError(t, err)
-		modTime := fileInfo.ModTime()
-		assert.Equal(t, pastTime, modTime, "File modification time should match the time set in the cache")
-		
-		// Create a custom implementation of checking for changes to ensure stability of the test
-		checkForChanges := func() []string {
-			var reloaded []string
-			
-			for name, source := range registry.cache.sources {
-				cachedTime, exists := registry.cache.modified[name]
-				if !exists {
-					continue
-				}
-				
-				// Check if file exists
-				fileInfo, err := fs.Stat(source)
-				if err != nil {
-					continue
-				}
-				
-				// Explicitly checking that times are exactly equal, not just after
-				if !fileInfo.ModTime().Equal(cachedTime) {
-					reloaded = append(reloaded, name)
-				}
+			setupFS: func(fs *io.MockFileSystem) {
+				fs.AddFile("test.yaml", []byte("test content"))
+				fs.SetModTime("test.yaml", time.Now()) // Current time
+			},
+			workflowName: "test",
+			expected:     true,
+			expectError:  false,
+		},
+		{
+			name: "workflow file is older than cache",
+			setupCache: func(registry *WorkflowRegistry) {
+				registry.cache.sources["test"] = "test.yaml"
+				registry.cache.modified["test"] = time.Now() // Current time
+			},
+			setupFS: func(fs *io.MockFileSystem) {
+				fs.AddFile("test.yaml", []byte("test content"))
+				fs.SetModTime("test.yaml", time.Now().Add(-1 * time.Hour)) // 1 hour ago
+			},
+			workflowName: "test",
+			expected:     false,
+			expectError:  false,
+		},
+		{
+			name: "workflow not in cache",
+			setupCache: func(registry *WorkflowRegistry) {
+				// Don't add to cache
+			},
+			setupFS: func(fs *io.MockFileSystem) {
+				fs.AddFile("test.yaml", []byte("test content"))
+			},
+			workflowName: "test",
+			expected:     false,
+			expectError:  true,
+		},
+		{
+			name: "workflow file doesn't exist",
+			setupCache: func(registry *WorkflowRegistry) {
+				registry.cache.sources["test"] = "nonexistent.yaml"
+				registry.cache.modified["test"] = time.Now().Add(-1 * time.Hour)
+			},
+			setupFS: func(fs *io.MockFileSystem) {
+				// Don't add file
+			},
+			workflowName: "test",
+			expected:     false,
+			expectError:  true,
+		},
+		{
+			name: "missing modification time",
+			setupCache: func(registry *WorkflowRegistry) {
+				registry.cache.sources["test"] = "test.yaml"
+				// Don't add modified time
+			},
+			setupFS: func(fs *io.MockFileSystem) {
+				fs.AddFile("test.yaml", []byte("test content"))
+			},
+			workflowName: "test",
+			expected:     true, // Should consider modified when no cached time
+			expectError:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			registry := &WorkflowRegistry{
+				builtInWorkflows: make(map[string]*WorkflowDefinition),
+				cache: workflowCache{
+					workflows: make(map[string]*WorkflowDefinition),
+					sources:   make(map[string]string),
+					modified:  make(map[string]time.Time),
+				},
 			}
 			
-			return reloaded
-		}
-		
-		// Use our custom change checker
-		changedWorkflows := checkForChanges()
-		assert.Empty(t, changedWorkflows, "Should not detect any changes in workflows with identical modification times")
-		
-		// Now run the actual registry method - should also find no changes
-		reloaded := registry.ReloadChangedWorkflows(fs)
-		assert.Empty(t, reloaded, "Should not reload unchanged workflows")
-	})
-	
-	t.Run("Workflow file modified", func(t *testing.T) {
-		// Create a new registry for this test case
-		registry := &WorkflowRegistry{
-			builtInWorkflows: make(map[string]*WorkflowDefinition),
-			cache: workflowCache{
-				workflows: make(map[string]*WorkflowDefinition),
-				sources:   make(map[string]string),
-				modified:  make(map[string]time.Time),
-			},
-			mutex: sync.RWMutex{},
-		}
-		
-		// Load the workflow initially
-		workflow, err := LoadWorkflowFromFile(fs, workflowPath)
-		assert.NoError(t, err)
-		
-		// Add to registry cache with the past modification time
-		registry.cache.workflows["reload-test-workflow"] = workflow
-		registry.cache.sources["reload-test-workflow"] = workflowPath
-		registry.cache.modified["reload-test-workflow"] = pastTime
-		
-		// Now modify the workflow file with new content
-		updatedYAML := `
-name: reload-test-workflow
-description: Test workflow for reloading (updated)
-steps:
-  - id: step1
-    description: Step 1 (updated)
-    prompt: This is step 1 updated
-  - id: step2
-    description: Step 2
-    prompt: This is step 2
-  - id: step3
-    description: Step 3
-    prompt: This is step 3
-`
-		fs.AddFile(workflowPath, []byte(updatedYAML))
-		
-		// Set a newer modification time
-		newerTime := time.Now().Add(-1 * time.Hour)
-		err = fs.SetModTime(workflowPath, newerTime)
-		assert.NoError(t, err)
-		
-		// Verify file mod time is newer than cache
-		fileInfo, err := fs.Stat(workflowPath)
-		assert.NoError(t, err)
-		modTime := fileInfo.ModTime()
-		assert.True(t, modTime.After(pastTime), "File modification time should be newer than the cached time")
-		
-		// Call ReloadChangedWorkflows - should detect the change
-		reloaded := registry.ReloadChangedWorkflows(fs)
-		assert.NotEmpty(t, reloaded, "Should reload modified workflows")
-		assert.Contains(t, reloaded, "reload-test-workflow", "Should reload the modified workflow")
-		
-		// Verify the workflow was updated
-		updatedWorkflow, err := registry.GetWorkflow("reload-test-workflow")
-		assert.NoError(t, err)
-		assert.Equal(t, "Test workflow for reloading (updated)", updatedWorkflow.Description, "Description should be updated")
-		assert.Equal(t, 3, len(updatedWorkflow.Steps), "Should now have 3 steps")
-		assert.Equal(t, "step3", updatedWorkflow.Steps[2].ID, "Should have new step3")
-	})
-	
-	t.Run("Error handling for missing file", func(t *testing.T) {
-		// Create a new registry for this test case
-		registry := &WorkflowRegistry{
-			builtInWorkflows: make(map[string]*WorkflowDefinition),
-			cache: workflowCache{
-				workflows: make(map[string]*WorkflowDefinition),
-				sources:   make(map[string]string),
-				modified:  make(map[string]time.Time),
-			},
-			mutex: sync.RWMutex{},
-		}
-		
-		// Create a workflow entry with a non-existent file
-		missingWorkflow := &WorkflowDefinition{
-			Name:        "missing-workflow",
-			Description: "Missing workflow",
-			Steps:       []WorkflowStep{},
-		}
-		registry.cache.workflows["missing-workflow"] = missingWorkflow
-		registry.cache.sources["missing-workflow"] = "non-existent.yaml"
-		registry.cache.modified["missing-workflow"] = time.Now().Add(-1 * time.Hour)
-		
-		// Call ReloadChangedWorkflows - should handle the error gracefully
-		reloaded := registry.ReloadChangedWorkflows(fs)
-		assert.Empty(t, reloaded, "Should not reload any workflows when file is missing")
-		
-		// The missing workflow should still be in the cache
-		_, err := registry.GetWorkflow("missing-workflow")
-		assert.NoError(t, err, "Missing workflow should still be available in cache")
-	})
+			fs := io.NewMockFileSystem()
+			
+			tc.setupCache(registry)
+			tc.setupFS(fs)
+			
+			modified, err := registry.isWorkflowModified(fs, tc.workflowName)
+			
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, modified)
+			}
+		})
+	}
 }
 
 func TestWorkflowRegistry_GetWorkflow_FileSystem(t *testing.T) {
