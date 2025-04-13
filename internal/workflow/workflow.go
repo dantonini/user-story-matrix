@@ -20,7 +20,7 @@ type WorkflowStep struct {
 	ID          string        // Unique identifier (e.g., "01-laying-the-foundation")
 	Description string        // Human-readable description
 	Prompt      string        // AI agent instructions with variable interpolation
-	source      promptSource  //nolint:unused // Internal field for tracking prompt source (embedded or file)
+	source      promptSource  // Internal field for tracking prompt source (embedded or file)
 }
 
 // WorkflowState tracks the current state of a workflow for a specific change request
