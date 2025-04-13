@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-03-list-available-workflows.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 58c632c637aa8a2718a1325afdcf9ed3d83e02ad5441192c8ecac08239331b2f
+---
+
 # List available workflows
 As a  
 CLI user,  

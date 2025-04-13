@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-07-create-workflow-subcommand.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 8c3d36fdb18e259c88e9e46547000ad591dca8aa45e180e907d3712accc380dc
+---
+
 # Create workflow subcommand
 As a  
 CLI user,  

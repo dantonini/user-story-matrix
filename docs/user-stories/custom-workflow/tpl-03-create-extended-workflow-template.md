@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/tpl-03-create-extended-workflow-template.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 210d04cafcc856184941d50496162517d9727fa6918e83616695dc47b0bcc755
+---
+
 # Create extended workflow template
 As a  
 USM developer (internal),  

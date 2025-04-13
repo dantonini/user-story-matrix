@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-05-implement-template-variables-support.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 6611f6d754505eae72e149a3592de0cd9946e7f5d1dfce4004b9cfb53404d622
+---
+
 # Implement template variables support
 As a  
 USM developer (internal),  

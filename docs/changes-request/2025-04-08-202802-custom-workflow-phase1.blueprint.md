@@ -4,7 +4,7 @@ created-at: 2025-04-08T20:28:02+02:00
 user-stories:
   - title: Refactor StandardWorkflowSteps structure
     file: docs/user-stories/custom-workflow/dev-01-refactor-standardworkflowsteps-structure.md
-    content-hash: 
+    content-hash: c54bbb7f827e3f39c814af5e1659337251af6a7a37b8baee6df968ff1fd01c35
 
 ---
 

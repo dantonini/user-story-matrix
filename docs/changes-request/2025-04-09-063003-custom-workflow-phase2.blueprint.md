@@ -4,13 +4,13 @@ created-at: 2025-04-09T06:30:03+02:00
 user-stories:
   - title: Extract prompt files from standard workflow
     file: docs/user-stories/custom-workflow/dev-02-extract-prompt-files-from-standard-workflow.md
-    content-hash: 
+    content-hash: 8b7e57f181e7ccc95988df82a6fa37bbebd4ed05dfdcefa3f46c4c9a558521fe
   - title: Add workflow loading from filesystem
     file: docs/user-stories/custom-workflow/dev-03-add-workflow-loading-from-filesystem.md
-    content-hash: 
+    content-hash: d7e9dbeb981e92faa5201bee836e4e18e98f832dc22950fb802e01555ce28d39
   - title: Update workflow state format
     file: docs/user-stories/custom-workflow/dev-04-update-workflow-state-format.md
-    content-hash: 
+    content-hash: 720fca05da86821139e0e123c5624b4a5ab74f2e7a95f10e247f8a457b57d3ac
 
 ---
 # Blueprint

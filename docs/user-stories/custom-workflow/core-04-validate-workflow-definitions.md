@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/core-04-validate-workflow-definitions.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 65f8d70ec33a7f9616a53eb5dd393b8423cc1f348094b9daea8892ac8d57bc5d
+---
+
 # Validate workflow definitions
 As a  
 CLI user,  

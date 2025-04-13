@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/core-01-define-custom-workflow-structure.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: c1b0a50f0b6966decd8a8368c15199d4fe14af628363d5775846d3b9a29fcf38
+---
+
 # Define custom workflow with directory structure
 As a  
 CLI user,  

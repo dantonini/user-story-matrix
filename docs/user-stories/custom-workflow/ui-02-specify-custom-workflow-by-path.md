@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-02-specify-custom-workflow-by-path.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: f1ae01f2a8341a4dcb836ccbe2e5778a510ef37230ccd10db783ccfa3414d58e
+---
+
 # Specify custom workflow by path
 As a  
 CLI user,  

@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-01-select-workflow-for-code-command.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 5fd7e3bd6ed6dffd63ec796fcb0905cf9fca1e7ebb0aaeaeb142103ba8d782b5
+---
+
 # Select workflow for code command
 As a  
 CLI user,  

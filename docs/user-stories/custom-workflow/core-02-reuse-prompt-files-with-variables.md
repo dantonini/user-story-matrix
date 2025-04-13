@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/core-02-reuse-prompt-files-with-variables.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 9fc75b8dc5135b2b0c9cec2ca1c14723d5a5a68a229cbb1f7b3532ff7d98a404
+---
+
 # Reuse prompt files with variable substitution
 As a  
 CLI user,  

@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-01-refactor-standardworkflowsteps-structure.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: c54bbb7f827e3f39c814af5e1659337251af6a7a37b8baee6df968ff1fd01c35
+---
+
 # Refactor StandardWorkflowSteps structure
 As a  
 USM developer (internal),  

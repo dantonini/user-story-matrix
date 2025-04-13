@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-04-update-workflow-state-format.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 720fca05da86821139e0e123c5624b4a5ab74f2e7a95f10e247f8a457b57d3ac
+---
+
 # Update workflow state format
 As a  
 USM developer (internal),  

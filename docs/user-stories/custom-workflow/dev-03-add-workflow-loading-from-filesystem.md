@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-03-add-workflow-loading-from-filesystem.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: d7e9dbeb981e92faa5201bee836e4e18e98f832dc22950fb802e01555ce28d39
+---
+
 # Add workflow loading from filesystem
 As a  
 USM developer (internal),  

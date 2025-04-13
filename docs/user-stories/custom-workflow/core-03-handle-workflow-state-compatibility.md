@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/core-03-handle-workflow-state-compatibility.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 9b38024286df6f93d8191d699dfd242abed2d1ba085fb18a3f969bce5c08ce86
+---
+
 # Handle workflow state compatibility
 As a  
 CLI user,  

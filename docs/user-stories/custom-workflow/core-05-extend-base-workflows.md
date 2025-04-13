@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/core-05-extend-base-workflows.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 8002364b90b88831c5638fb2ba0acd5941d4d82c292e56a3ef618724bf1b6692
+---
+
 # Extend base workflows
 As a  
 CLI user,  

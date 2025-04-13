@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-06-update-code-command-for-workflow-selection.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 5249e0ecae0ca87a89459fc36acfbc7cfb943b96fffcb3471199d48216dd2657
+---
+
 # Update code command for workflow selection
 As a  
 CLI user,  

@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-02-extract-prompt-files-from-standard-workflow.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 8b7e57f181e7ccc95988df82a6fa37bbebd4ed05dfdcefa3f46c4c9a558521fe
+---
+
 # Extract prompt files from standard workflow
 As a  
 USM developer (internal),  

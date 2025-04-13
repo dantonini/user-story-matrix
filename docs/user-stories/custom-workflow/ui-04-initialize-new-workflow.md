@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-04-initialize-new-workflow.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 2f5cd322093a9ea6b351504df172963f87ba0ee808b2a1b6bed02f6d75d8bf3e
+---
+
 # Initialize new workflow
 As a  
 CLI user,  

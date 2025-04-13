@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/ui-05-workflow-documentation-command.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: c33a188e106e98c1b81c768278eb8edd66eff03cd8a14d9462485d557df60a29
+---
+
 # Workflow documentation command
 As a  
 CLI user,  

@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/dev-06-deprecate-standardworkflowsteps.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: 2de9142b0af5ea751897be5aabc480f7e55f13109e811eb69a810a63a727135d
+---
+
 # Deprecate StandardWorkflowSteps
 As a  
 USM developer (internal),  

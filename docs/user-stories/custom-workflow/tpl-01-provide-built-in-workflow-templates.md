@@ -1,3 +1,10 @@
+---
+file_path: docs/user-stories/custom-workflow/tpl-01-provide-built-in-workflow-templates.md
+created_at: 2025-04-13T09:15:31+02:00
+last_updated: 2025-04-13T09:53:56+02:00
+_content_hash: d7aa532800dddc816ea9791bd4fc7a8b19448cdacb700ab0bacd3c4b5eb49c5a
+---
+
 # Provide built-in workflow templates
 As a  
 USM developer (internal),  
