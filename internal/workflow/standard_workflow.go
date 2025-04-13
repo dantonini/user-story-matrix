@@ -470,8 +470,9 @@ Now, let's start the work:
 	{
 		ID:          "04-final-iteration-coverage",
 		Description: "Final iteration coverage - Final verification and validation",
-		Prompt: `Execute the command: 'make coverage && ./coverage' and ensure to increse the coverage percentage for the final iteration.
-Identify the most useful and valuable areas to improve and add tests for them.
+		Prompt: `Read the final iteration accomplished summary using the command: cat ${change_request_file_path}.04-refinement.accomplished.md
+Execute the command 'make test' to run the test suite with coverage
+then use ./coverage -file <path-to-file> to identify the most uncovered parts.
 Don't give up until the overall coverage percentage is enough to satisfy the .github/workflows/coverage.yml file.`,
 	}, {
 		ID:          "04-final-iteration-coverage-report",
