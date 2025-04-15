@@ -6,9 +6,11 @@
 package workflow
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetWorkflowStepFromLegacy(t *testing.T) {
@@ -143,4 +145,122 @@ func TestLogLegacyAccessWarning(t *testing.T) {
 	
 	// Reset for other tests
 	EnableLegacyWarnings()
+}
+
+func TestLegacyWarning(t *testing.T) {
+	// Reset warning state
+	EnableLegacyWarnings()
+	
+	// Create a buffer to capture warning output
+	var buf bytes.Buffer
+	SetLegacyWarningWriter(&buf)
+	
+	// Access via legacy function
+	_, err := GetWorkflowStepFromLegacy(0)
+	require.NoError(t, err)
+	
+	// Verify warning was logged
+	output := buf.String()
+	assert.Contains(t, output, "WARNING: Direct access to StandardWorkflowSteps is deprecated")
+	assert.Contains(t, output, "Use WorkflowRegistry.GetWorkflow(\"standard\") instead")
+	assert.Contains(t, output, "TestLegacyWarning") // Function name in warning
+	
+	// Reset buffer
+	buf.Reset()
+	
+	// Access again should not log another warning
+	_, err = GetWorkflowStepFromLegacy(0)
+	require.NoError(t, err)
+	
+	// Verify no additional warning
+	assert.Empty(t, buf.String())
+	
+	// Reset warnings and check that warning appears again
+	EnableLegacyWarnings()
+	
+	_, err = GetWorkflowStepFromLegacy(0)
+	require.NoError(t, err)
+	
+	// Verify warning was logged again
+	output = buf.String()
+	assert.Contains(t, output, "WARNING: Direct access to StandardWorkflowSteps is deprecated")
+}
+
+func TestWorkflowCallback(t *testing.T) {
+	// Create a clean registry for testing
+	oldRegistry := GetGlobalRegistry()
+	defer func() {
+		// Restore the global registry after test
+		globalRegistry = oldRegistry
+	}()
+	
+	registry := ResetGlobalRegistry()
+	
+	// Prepare test workflow
+	testWorkflow := &WorkflowDefinition{
+		Name:        "test-workflow",
+		Description: "Test workflow",
+		Steps: []WorkflowStep{
+			{
+				ID:          "test-step",
+				Description: "Test step",
+				Prompt:      "Test prompt",
+			},
+		},
+	}
+	
+	// Track callback execution
+	callbackExecuted := false
+	callbackWorkflow := (*WorkflowDefinition)(nil)
+	
+	// Register callback
+	registry.AddWorkflowChangeCallback("test-workflow", func(wf *WorkflowDefinition) {
+		callbackExecuted = true
+		callbackWorkflow = wf
+	})
+	
+	// Register workflow
+	registry.RegisterBuiltInWorkflow(testWorkflow)
+	
+	// Verify callback was executed
+	assert.True(t, callbackExecuted)
+	assert.Equal(t, testWorkflow, callbackWorkflow)
+}
+
+func TestStandardWorkflowSynchronization(t *testing.T) {
+	// Create a clean registry for testing
+	oldRegistry := GetGlobalRegistry()
+	defer func() {
+		// Restore the global registry after test
+		globalRegistry = oldRegistry
+	}()
+	
+	registry := ResetGlobalRegistry()
+	
+	// Store original workflow steps
+	originalSteps := make([]WorkflowStep, len(StandardWorkflowSteps))
+	copy(originalSteps, StandardWorkflowSteps)
+	
+	// Modify registry's standard workflow
+	modifiedWorkflow := &WorkflowDefinition{
+		Name:        StandardWorkflowName,
+		Description: "Modified standard workflow",
+		Steps: []WorkflowStep{
+			{
+				ID:          "modified-step",
+				Description: "Modified step",
+				Prompt:      "Modified prompt",
+			},
+		},
+	}
+	
+	// Register modified workflow
+	registry.RegisterBuiltInWorkflow(modifiedWorkflow)
+	
+	// Verify StandardWorkflowSteps was updated
+	assert.Equal(t, 1, len(StandardWorkflowSteps))
+	assert.Equal(t, "modified-step", StandardWorkflowSteps[0].ID)
+	
+	// Restore original steps
+	StandardWorkflowSteps = originalSteps
 } 

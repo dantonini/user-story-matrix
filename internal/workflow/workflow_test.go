@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -375,8 +374,21 @@ func TestWorkflowManager_UpdateState(t *testing.T) {
 	fs := ioLib.NewMockFileSystem()
 	mockIO := NewMockIO()
 
-	// Create workflow manager with default workflow
-	wm := NewDefaultWorkflowManager(fs, mockIO)
+	// Create a custom workflow for this test with matching step IDs
+	customWorkflow := &WorkflowDefinition{
+		Name: "test-workflow",
+		Steps: []WorkflowStep{
+			{ID: "step1", Description: "Step 1"},
+			{ID: "step2", Description: "Step 2"},
+		},
+	}
+	
+	// Create registry and register the custom workflow
+	registry := NewWorkflowRegistry()
+	registry.RegisterBuiltInWorkflow(customWorkflow)
+
+	// Create workflow manager with the custom workflow
+	wm := NewWorkflowManager(fs, mockIO, "test-workflow", registry)
 
 	// Define test parameters
 	changeRequestPath := "/path/to/change-request.blueprint.md"
@@ -389,7 +401,7 @@ func TestWorkflowManager_UpdateState(t *testing.T) {
 		CurrentStepIndex:  0,
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{},
-		WorkflowName:      StandardWorkflowName,
+		WorkflowName:      "test-workflow",
 		WorkflowPath:      "",
 	}
 	
@@ -433,37 +445,11 @@ func TestWorkflowManager_UpdateState(t *testing.T) {
 	if savedState.CurrentStepIndex != newStepIndex {
 		t.Errorf("Saved state CurrentStepIndex = %v, want %v", savedState.CurrentStepIndex, newStepIndex)
 	}
-
-	// Verify completed steps - previous step ID should be added
-	expectedCompletedSteps := []string{"01-laying-the-foundation"} // ID of step 0 in standard workflow
-	if !slicesEqual(savedState.CompletedSteps, expectedCompletedSteps) {
-		t.Errorf("Saved state CompletedSteps = %v, want %v", savedState.CompletedSteps, expectedCompletedSteps)
+	if len(savedState.CompletedSteps) != 1 {
+		t.Errorf("Saved state CompletedSteps length = %v, want 1", len(savedState.CompletedSteps))
+	} else if savedState.CompletedSteps[0] != "step1" {
+		t.Errorf("Saved state CompletedSteps = %v, want [step1]", savedState.CompletedSteps)
 	}
-}
-
-// Helper function to check if two string slices contain the same elements (regardless of order)
-func slicesEqual(slice1, slice2 []string) bool {
-	if len(slice1) != len(slice2) {
-		return false
-	}
-	
-	// Create copies to avoid modifying the originals
-	s1 := make([]string, len(slice1))
-	s2 := make([]string, len(slice2))
-	copy(s1, slice1)
-	copy(s2, slice2)
-	
-	// Sort both slices
-	sort.Strings(s1)
-	sort.Strings(s2)
-	
-	// Compare elements
-	for i := range s1 {
-		if s1[i] != s2[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func TestWorkflowManager_UpdateState_ValidationChecks(t *testing.T) {
@@ -556,12 +542,12 @@ func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 	}{
 		{
 			name:      "Not complete",
-			stepIndex: 4,
+			stepIndex: 1, // Use a step index that is definitely not at the end (index 1 is the second step)
 			want:      false,
 		},
 		{
 			name:      "Complete",
-			stepIndex: len(wm.workflow.Steps), // Use the actual length from the workflow
+			stepIndex: len(wm.workflow.Steps), // Use the actual length from the workflow (just at the end)
 			want:      true,
 		},
 	}

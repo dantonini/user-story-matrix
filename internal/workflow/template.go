@@ -32,135 +32,214 @@ func NewTemplateProcessor() *TemplateProcessor {
 	}
 }
 
-// Regular expression for finding default function patterns like {{.varname | default "value"}}
-var defaultFuncRegex = regexp.MustCompile(`{{\.([a-zA-Z0-9_]+) \| default "([^"]*)"}}`)
-
 // ApplyTemplateVariables processes a template string with the provided variables
 // It replaces variables according to Go's text/template syntax
 //
 // Parameters:
-//   - promptContent: The template content with variable placeholders
+//   - templateContent: The template content with variable placeholders
 //   - variables: Map of variable names to values
 //
 // Returns:
 //   - The processed template with variables replaced
 //   - Error if template processing fails
-func ApplyTemplateVariables(promptContent string, variables map[string]string) (string, error) {
-	// First pre-process the template to handle default values
-	processedTemplate := promptContent
+//   - Slice of warnings for undefined variables (returned as part of the error if any)
+func ApplyTemplateVariables(templateContent string, variables map[string]string) (string, error) {
+	// Validate the template before processing
+	if err := ValidateTemplate(templateContent); err != nil {
+		return "", err
+	}
+
+	// Process variables to handle nested structures and arrays
+	processedVars := make(map[string]interface{})
 	
-	// Find all default function patterns
-	matches := defaultFuncRegex.FindAllStringSubmatch(promptContent, -1)
-	for _, match := range matches {
-		if len(match) == 3 {
-			fullMatch := match[0]         // {{.varname | default "value"}}
-			varName := match[1]           // varname
-			defaultValue := match[2]      // value
-			
-			// Check if variable exists and has a non-empty value
-			if value, exists := variables[varName]; exists && value != "" {
-				// Replace with just the variable reference
-				replacement := fmt.Sprintf("{{.%s}}", varName)
-				processedTemplate = strings.Replace(processedTemplate, fullMatch, replacement, -1)
+	// Organize variables by their path prefix
+	variablesByPrefix := make(map[string]map[string]string)
+	for key, value := range variables {
+		if strings.Contains(key, ".") {
+			prefix := strings.Split(key, ".")[0]
+			if _, exists := variablesByPrefix[prefix]; !exists {
+				variablesByPrefix[prefix] = make(map[string]string)
+			}
+			variablesByPrefix[prefix][key] = value
+		} else {
+			// Top-level variables go in their own map
+			if _, exists := variablesByPrefix[""]; !exists {
+				variablesByPrefix[""] = make(map[string]string)
+			}
+			variablesByPrefix[""][key] = value
+		}
+	}
+	
+	// Process top-level variables first
+	if topLevelVars, exists := variablesByPrefix[""]; exists {
+		for key, value := range topLevelVars {
+			if IsArrayContext(key) {
+				// Handle top-level arrays
+				baseKey := strings.TrimSuffix(key, "[]")
+				if value != "" {
+					items := strings.Split(value, ",")
+					for i := range items {
+						items[i] = strings.TrimSpace(items[i])
+					}
+					processedVars[baseKey] = items
+				} else {
+					processedVars[baseKey] = []string{}
+				}
 			} else {
-				// Replace with the default value directly
-				processedTemplate = strings.Replace(processedTemplate, fullMatch, defaultValue, -1)
+				// Regular variable
+				processedVars[key] = value
 			}
 		}
 	}
 	
-	// Now process the template with the standard template engine
-	// Convert string map to interface map
-	varMap := make(map[string]interface{})
-	for k, v := range variables {
-		varMap[k] = v
+	// Then process nested variables, grouped by their top-level prefix
+	for prefix, prefixVars := range variablesByPrefix {
+		if prefix == "" {
+			continue // Already processed
+		}
+		
+		// Create the top-level object if it doesn't exist
+		if _, exists := processedVars[prefix]; !exists {
+			processedVars[prefix] = make(map[string]interface{})
+		} else if _, isMap := processedVars[prefix].(map[string]interface{}); !isMap {
+			// Convert non-map value to map while preserving original value
+			originalValue := processedVars[prefix]
+			newMap := make(map[string]interface{})
+			if originalValue != nil {
+				newMap[""] = originalValue
+			}
+			processedVars[prefix] = newMap
+		}
+		
+		// Process each nested variable in this prefix group
+		for key, value := range prefixVars {
+			if strings.HasPrefix(key, prefix+".") {
+				// Remove the prefix from the key to get the path within the object
+				relativePath := key[len(prefix)+1:]
+				parts := strings.Split(relativePath, ".")
+				
+				// Start at the top level object for this prefix
+				currentValue := processedVars[prefix].(map[string]interface{})
+				
+				// Build the nested structure for all parts except the last one
+				for i := 0; i < len(parts)-1; i++ {
+					part := parts[i]
+					
+					// If this level doesn't exist yet, create it
+					if _, exists := currentValue[part]; !exists {
+						currentValue[part] = make(map[string]interface{})
+					} else if _, isMap := currentValue[part].(map[string]interface{}); !isMap {
+						// Convert non-map value to map while preserving original value
+						originalValue := currentValue[part]
+						newMap := make(map[string]interface{})
+						if originalValue != nil {
+							newMap[""] = originalValue
+						}
+						currentValue[part] = newMap
+					}
+					
+					// Move to the next level
+					currentValue = currentValue[part].(map[string]interface{})
+				}
+				
+				// Set the final value at the leaf
+				lastPart := parts[len(parts)-1]
+				
+				// Handle array context for the leaf node
+				if IsArrayContext(lastPart) {
+					baseKey := strings.TrimSuffix(lastPart, "[]")
+					if value != "" {
+						items := strings.Split(value, ",")
+						for i := range items {
+							items[i] = strings.TrimSpace(items[i])
+						}
+						currentValue[baseKey] = items
+					} else {
+						currentValue[baseKey] = []string{}
+					}
+				} else {
+					currentValue[lastPart] = value
+				}
+			}
+		}
 	}
-	
-	// Add custom functions
-	funcMap := template.FuncMap{
-		"default": defaultFunction,
-		// Additional functions can be added here as needed
-	}
-	
-	// Parse and execute the template
-	tmpl, err := template.New("prompt").Funcs(funcMap).Parse(processedTemplate)
-	if err != nil {
-		return "", fmt.Errorf("template parsing error: %w", err)
-	}
-	
-	var output bytes.Buffer
-	err = tmpl.Execute(&output, varMap)
-	if err != nil {
-		return "", fmt.Errorf("template execution error: %w", err)
-	}
-	
-	// Replace "<no value>" with empty string for missing variables
-	result := strings.ReplaceAll(output.String(), "<no value>", "")
-	
-	return result, nil
-}
 
-// defaultFunction provides a default value for a variable if it doesn't exist or is empty
-// Usage in templates: {{.variable_name | default "default value"}}
-func defaultFunction(arg, defaultVal interface{}) interface{} {
-	// If arg is nil, return the default value
-	if arg == nil {
-		return defaultVal
-	}
-	
-	// If arg is a string and empty, return the default value
-	if s, ok := arg.(string); ok && s == "" {
-		return defaultVal
-	}
-	
-	// Otherwise, return the original arg
-	return arg
-}
+	// Pre-process the template to handle default values
+	// This regex matches patterns like {{.varname | default "defaultValue"}}
+	defaultPattern := regexp.MustCompile(`{{\.([a-zA-Z0-9_]+)\s*\|\s*default\s*"([^"]*)"}}`)
+	processedTemplate := defaultPattern.ReplaceAllStringFunc(templateContent, func(match string) string {
+		// Extract variable name and default value
+		submatches := defaultPattern.FindStringSubmatch(match)
+		if len(submatches) < 3 {
+			return match // Should not happen if regex works correctly
+		}
+		
+		varName := submatches[1]
+		defaultValue := submatches[2]
+		
+		// Check if the variable has a value
+		if value, exists := processedVars[varName]; exists && value != "" {
+			// Use the actual value
+			return fmt.Sprintf("{{.%s}}", varName)
+		}
+		
+		// Add the default value to the variables
+		processedVars[varName] = defaultValue
+		
+		// Use a simple variable reference
+		return fmt.Sprintf("{{.%s}}", varName)
+	})
 
-// processTemplate handles the actual template processing with error checking and context preparation
-// This is an internal function used by ApplyTemplateVariables
-func processTemplate(name, content string, variables map[string]interface{}, funcs template.FuncMap) (string, error) {
-	// Create a new template with functions
-	tmpl, err := template.New(name).Funcs(funcs).Parse(content)
-	if err != nil {
-		return "", fmt.Errorf("template parsing error: %w", err)
-	}
-	
-	// Execute template with variables
-	var output bytes.Buffer
-	err = tmpl.Execute(&output, variables)
-	if err != nil {
-		return "", fmt.Errorf("template execution error: %w", err)
-	}
-	
-	return output.String(), nil
-}
-
-// prepareContext converts string map to interface map and adds custom functions
-func prepareContext(variables map[string]string) TemplateContext {
-	// Convert string map to interface map
-	varMap := make(map[string]interface{})
-	for k, v := range variables {
-		varMap[k] = v
-	}
-	
 	// Create function map with custom functions
 	funcMap := template.FuncMap{
-		"default": defaultFunction,
-		// Additional functions can be added here as needed
+		"default": DefaultFunction,
 	}
+
+	// Create and execute the template
+	tmpl, err := template.New("content").Funcs(funcMap).Parse(processedTemplate)
+	if err != nil {
+		return "", fmt.Errorf("template parsing error: %w", err)
+	}
+
+	// Check for undefined variables before execution
+	undefinedVars := FindUndefinedVariables(processedTemplate, processedVars)
 	
-	return TemplateContext{
-		Variables: varMap,
-		Functions: funcMap,
+	// Execute template with variables
+	var result bytes.Buffer
+	if err := tmpl.Execute(&result, processedVars); err != nil {
+		return "", fmt.Errorf("template execution error: %w", err)
 	}
+
+	// Report undefined variables as warnings
+	if len(undefinedVars) > 0 {
+		return result.String(), fmt.Errorf("undefined template variables: %s", strings.Join(undefinedVars, ", "))
+	}
+
+	return result.String(), nil
 }
 
-// validateTemplate checks a template for potential issues before execution
-func validateTemplate(templateContent string) error {
+// contains checks if a string slice contains a specific string
+func contains(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateTemplate checks a template for potential issues before execution
+func ValidateTemplate(templateContent string) error {
 	// Basic validation - check if template can be parsed
-	_, err := template.New("validation").Parse(templateContent)
+	funcMap := template.FuncMap{
+		"default": DefaultFunction,
+	}
+	_, err := template.New("validation").Funcs(funcMap).Parse(templateContent)
 	if err != nil {
+		// Check if this is an unclosed tag error
+		if strings.Contains(err.Error(), "unexpected") && strings.Contains(err.Error(), "in define clause") {
+			return fmt.Errorf("template contains unclosed tags: %v", err)
+		}
 		return fmt.Errorf("template validation error: %w", err)
 	}
 	
@@ -173,4 +252,79 @@ func validateTemplate(templateContent string) error {
 	}
 	
 	return nil
+}
+
+// DefaultFunction provides a default value for a variable if it doesn't exist or is empty
+// Usage in templates: {{.variable_name | default "default value"}}
+func DefaultFunction(arg, defaultVal interface{}) interface{} {
+	// If arg is nil, return the default value
+	if arg == nil {
+		return defaultVal
+	}
+	
+	// If arg is a string, check if it's empty
+	if s, ok := arg.(string); ok {
+		if s == "" {
+			return defaultVal
+		}
+		return s
+	}
+	
+	// Handle other types - return arg if it's not zero-value
+	// For simplicity, we just return the original value for non-string types
+	return arg
+}
+
+// FindUndefinedVariables checks the template for variables that aren't defined in the variables map
+// Returns a slice of undefined variable names
+func FindUndefinedVariables(templateContent string, variables map[string]interface{}) []string {
+	// Regular expression to find all variable references in the template
+	varRefRegex := regexp.MustCompile(`{{\.([a-zA-Z0-9_]+)}}`)
+	matches := varRefRegex.FindAllStringSubmatch(templateContent, -1)
+	
+	undefinedVars := make([]string, 0)
+	
+	// Check each variable reference
+	for _, match := range matches {
+		if len(match) == 2 {
+			varName := match[1]
+			// Check if the variable is defined in the variables map
+			if _, exists := variables[varName]; !exists {
+				// Add to the list of undefined variables if it's not already there
+				if !contains(undefinedVars, varName) {
+					undefinedVars = append(undefinedVars, varName)
+				}
+			}
+		}
+	}
+	
+	return undefinedVars
+}
+
+// IsArrayContext checks if a variable is likely to be used in a range context
+// This is a simple heuristic based on common naming patterns
+func IsArrayContext(varName string) bool {
+	// If the variable explicitly ends with [], it's an array
+	if strings.HasSuffix(varName, "[]") {
+		return true
+	}
+
+	// Check for common plural forms or array-like names
+	// Explicitly exclude common words ending with 's' that aren't plurals
+	// Also, exclude single letter 's'
+	if strings.HasSuffix(varName, "s") && len(varName) > 1 {
+		// Exceptions - common words ending with 's' that aren't typically plurals
+		exceptions := []string{"address", "status", "business", "process", "canvas", "news", "focus", "bonus"}
+		for _, exception := range exceptions {
+			if varName == exception {
+				return false
+			}
+		}
+		return true
+	}
+	
+	return strings.HasSuffix(varName, "List") || 
+		   strings.HasSuffix(varName, "Array") || 
+		   strings.HasSuffix(varName, "Items") || 
+		   strings.HasSuffix(varName, "Collection")
 } 

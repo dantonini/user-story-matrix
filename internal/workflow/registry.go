@@ -155,6 +155,9 @@ func (r *WorkflowRegistry) RegisterBuiltInWorkflow(workflow *WorkflowDefinition)
 	defer r.mutex.Unlock()
 	
 	r.builtInWorkflows[workflow.Name] = workflow
+	
+	// Notify callbacks about the workflow change
+	notifyWorkflowCallbacks(workflow.Name, workflow)
 }
 
 // GetWorkflow retrieves a workflow by name.

@@ -7,6 +7,9 @@ package workflow
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 )
@@ -18,15 +21,72 @@ func init() {
 	// Ensure registry is created first
 	_ = GetGlobalRegistry()
 	
+	// Initialize the callbacks map
+	workflowCallbacks.mutex.Lock()
+	workflowCallbacks.callbacks = make(map[string][]workflowChangeCallback)
+	workflowCallbacks.mutex.Unlock()
+	
 	// Initialize the compatibility layer
 	initCompatibilityLayer()
 }
 
 // legacyAccessWarning holds state to prevent repeated warnings
 var legacyAccessWarning struct {
-	shown    bool
-	mutex    sync.Mutex
+	shown          bool
+	mutex          sync.Mutex
 	disableWarnings bool
+	logWriter       io.Writer
+}
+
+// workflowChangeCallback is a function type that handles workflow changes
+type workflowChangeCallback func(workflow *WorkflowDefinition)
+
+// workflowCallbacks stores callbacks for workflow changes
+var workflowCallbacks struct {
+	callbacks map[string][]workflowChangeCallback
+	mutex     sync.RWMutex
+}
+
+// AddWorkflowChangeCallback registers a callback to be executed when a workflow changes
+// This extends the WorkflowRegistry to support synchronization with StandardWorkflowSteps
+func (r *WorkflowRegistry) AddWorkflowChangeCallback(workflowName string, callback workflowChangeCallback) {
+	workflowCallbacks.mutex.Lock()
+	defer workflowCallbacks.mutex.Unlock()
+	
+	// Initialize the callbacks map if it's nil
+	if workflowCallbacks.callbacks == nil {
+		workflowCallbacks.callbacks = make(map[string][]workflowChangeCallback)
+	}
+	
+	// Initialize the slice if it doesn't exist
+	if _, exists := workflowCallbacks.callbacks[workflowName]; !exists {
+		workflowCallbacks.callbacks[workflowName] = make([]workflowChangeCallback, 0)
+	}
+	
+	// Add the callback
+	workflowCallbacks.callbacks[workflowName] = append(
+		workflowCallbacks.callbacks[workflowName], 
+		callback,
+	)
+}
+
+// notifyWorkflowCallbacks executes all registered callbacks for a workflow
+// This should be called whenever a workflow is updated in the registry
+func notifyWorkflowCallbacks(workflowName string, workflow *WorkflowDefinition) {
+	workflowCallbacks.mutex.RLock()
+	defer workflowCallbacks.mutex.RUnlock()
+	
+	// Check if callbacks map is initialized
+	if workflowCallbacks.callbacks == nil {
+		return
+	}
+	
+	// Execute all callbacks for this workflow
+	if callbacks, exists := workflowCallbacks.callbacks[workflowName]; exists {
+		for _, callback := range callbacks {
+			callback(workflow)
+		}
+	}
 }
 
 // initCompatibilityLayer sets up the compatibility between
@@ -34,11 +94,31 @@ var legacyAccessWarning struct {
 // This allows existing code to continue using StandardWorkflowSteps
 // while ensuring consistency with the registry.
 func initCompatibilityLayer() {
-	// TODO: Implement full two-way synchronization in MVI phase
+	// Set up warning log writer (defaults to stderr)
+	legacyAccessWarning.logWriter = os.Stderr
 	
-	// For now, just ensure StandardWorkflowSteps is loaded into registry
+	// Set up two-way synchronization between StandardWorkflowSteps and registry
 	registry := GetGlobalRegistry()
-	registry.RegisterBuiltInWorkflow(createStandardWorkflow())
+	
+	// Register the standard workflow using the current StandardWorkflowSteps
+	workflow := &WorkflowDefinition{
+		Name:        StandardWorkflowName,
+		Description: "Standard workflow for implementing user stories",
+		Steps:       StandardWorkflowSteps,
+	}
+	
+	registry.RegisterBuiltInWorkflow(workflow)
+	
+	// Set up a hook for when the registry's standard workflow changes
+	registry.AddWorkflowChangeCallback(StandardWorkflowName, func(workflow *WorkflowDefinition) {
+		// Update StandardWorkflowSteps with the registry's standard workflow
+		if workflow != nil && len(workflow.Steps) > 0 {
+			// This is a synchronization point to avoid repeatedly logging warnings
+			legacyAccessWarning.mutex.Lock()
+			StandardWorkflowSteps = workflow.Steps
+			legacyAccessWarning.mutex.Unlock()
+		}
+	})
 }
 
 // GetWorkflowStepFromLegacy provides a compatibility function to access
@@ -85,12 +165,33 @@ func logLegacyAccessWarning() {
 	}
 	
 	// Use runtime.Caller to identify the calling code
-	// Note: Variables are intentionally unused in this stub implementation
-	// They will be used in the full implementation during MVI phase
-	_, _, _, _ = runtime.Caller(2) // Skip this func and GetWorkflowStepFromLegacy
+	pc, file, line, ok := runtime.Caller(2) // Skip this func and GetWorkflowStepFromLegacy
 	
-	// Log warning about deprecated usage (will be implemented in full in MVI phase)
-	// For now, just set the flag to prevent repeated warnings
+	// Prepare warning message
+	warning := "WARNING: Direct access to StandardWorkflowSteps is deprecated. "
+	warning += "Use WorkflowRegistry.GetWorkflow(\"standard\") instead.\n"
+	
+	// Add caller information if available
+	if ok {
+		// Get function name from program counter
+		fn := runtime.FuncForPC(pc)
+		var funcName string
+		if fn != nil {
+			funcName = fn.Name()
+		} else {
+			funcName = "unknown_function"
+		}
+		
+		// Format just the filename without the full path
+		fileName := filepath.Base(file)
+		
+		warning += fmt.Sprintf("Called from %s (%s:%d)\n", funcName, fileName, line)
+	}
+	
+	// Log the warning
+	fmt.Fprint(legacyAccessWarning.logWriter, warning)
+	
+	// Set flag to prevent repeated warnings
 	legacyAccessWarning.shown = true
 }
 
@@ -110,4 +211,17 @@ func EnableLegacyWarnings() {
 	
 	legacyAccessWarning.disableWarnings = false
 	legacyAccessWarning.shown = false
+}
+
+// SetLegacyWarningWriter sets a custom writer for legacy warnings
+// This is primarily used for testing to capture warning output
+func SetLegacyWarningWriter(writer io.Writer) {
+	legacyAccessWarning.mutex.Lock()
+	defer legacyAccessWarning.mutex.Unlock()
+	
+	if writer == nil {
+		legacyAccessWarning.logWriter = os.Stderr
+	} else {
+		legacyAccessWarning.logWriter = writer
+	}
 } 
