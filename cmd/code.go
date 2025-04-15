@@ -16,6 +16,8 @@ import (
 )
 
 var resetFlag bool
+var workflowNameFlag string
+var workflowPathFlag string
 
 // codeCmd represents the code command
 var codeCmd = &cobra.Command{
@@ -24,7 +26,10 @@ var codeCmd = &cobra.Command{
 	Long: `The 'code' command provides a structured approach to implementing change requests.
 
 It breaks down the implementation process into predefined steps, guides you through each step,
-and keeps track of your progress. The workflow consists of 8 numbered steps:
+and keeps track of your progress. By default, it uses the standard workflow, but you can
+specify a custom workflow with --workflow or --workflow-path flags.
+
+The standard workflow consists of 8 numbered steps:
 
 1. Laying the foundation
 2. Laying the foundation testing
@@ -39,10 +44,17 @@ The command detects which step you're on, executes it by displaying the prompt,
 and updates your progress. Progress is stored in a .step file, allowing you to 
 resume where you left off.
 
-Example:
+Examples:
+  # Use the standard workflow
   usm code docs/changes-request/2025-03-26-020055-code-command.blueprint.md
 
-Use the --reset flag to start the workflow from the beginning:
+  # Use a custom workflow by name
+  usm code --workflow=my-custom-workflow docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+
+  # Use a custom workflow by path
+  usm code --workflow-path=path/to/my-workflow docs/changes-request/2025-03-26-020055-code-command.blueprint.md
+
+  # Reset the workflow and start from the beginning
   usm code --reset docs/changes-request/2025-03-26-020055-code-command.blueprint.md`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -50,8 +62,28 @@ Use the --reset flag to start the workflow from the beginning:
 		fs := io.NewOSFileSystem()
 		term := io.NewTerminalIOWithDebug(debug)
 
-		// Create workflow manager
-		wm := workflow.NewDefaultWorkflowManager(fs, term)
+		// Create workflow manager with custom workflow if specified
+		var wm *workflow.WorkflowManager
+		var err error
+		
+		if workflowPathFlag != "" {
+			// Workflow path takes precedence over workflow name
+			wm, err = workflow.NewWorkflowManagerWithPath(fs, term, workflowPathFlag)
+			if err != nil {
+				term.PrintError(fmt.Sprintf("❌ Error: %s", err.Error()))
+				os.Exit(1)
+			}
+		} else if workflowNameFlag != "" {
+			// Use named workflow
+			wm, err = workflow.NewWorkflowManagerWithName(fs, term, workflowNameFlag)
+			if err != nil {
+				term.PrintError(fmt.Sprintf("❌ Error: %s", err.Error()))
+				os.Exit(1)
+			}
+		} else {
+			// Use default workflow
+			wm = workflow.NewDefaultWorkflowManager(fs, term)
+		}
 
 		// Get the change request path
 		changeRequestPath := args[0]
@@ -173,5 +205,7 @@ func getFileName(filePath string) string {
 func init() {
 	rootCmd.AddCommand(codeCmd)
 	codeCmd.Flags().BoolVar(&resetFlag, "reset", false, "Reset the workflow and start from the beginning")
+	codeCmd.Flags().StringVar(&workflowNameFlag, "workflow", "", "Use a custom workflow by name")
+	codeCmd.Flags().StringVar(&workflowPathFlag, "workflow-path", "", "Use a custom workflow from a specific path")
 	logger.Debug("Code command added to root command")
 } 

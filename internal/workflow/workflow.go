@@ -237,27 +237,33 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 // Returns:
 //   - error if saving fails
 func (wm *WorkflowManager) SaveState(state WorkflowState) error {
+	// Always ensure the workflow name is set to the current workflow
+	state.WorkflowName = wm.workflow.Name
+	
+	// Update the last modified timestamp
+	state.LastModified = time.Now()
+	
+	// Debugging progress message
 	if wm.io.IsDebugEnabled() {
 		wm.io.PrintProgress(ProgressSavingState)
 	}
-
-	// Ensure workflow name is set
-	if state.WorkflowName == "" {
-		state.WorkflowName = StandardWorkflowName
-	}
-
-	// Update last modified time
-	state.LastModified = time.Now()
-
-	// Serialize to JSON
-	data, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("failed to serialize state: %w", err)
-	}
-
-	// Write to file
+	
+	// Generate the state file path
 	stateFilePath := GenerateStateFilePath(state.ChangeRequestPath)
-	return wm.fs.WriteFile(stateFilePath, data, 0644)
+	
+	// Marshal the state to JSON
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal state: %w", err)
+	}
+	
+	// Write the state file
+	err = wm.fs.WriteFile(stateFilePath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write state file: %w", err)
+	}
+	
+	return nil
 }
 
 // DetermineNextStep determines the next step in the workflow
@@ -659,4 +665,71 @@ func (wm *WorkflowManager) MapProgressBetweenWorkflows(state WorkflowState, targ
 	state.CompletedSteps = mappedCompletedSteps
 
 	return state, warnings
+}
+
+// NewWorkflowManagerWithName creates a new workflow manager using a custom workflow by name.
+//
+// Parameters:
+//   - fs: The file system interface
+//   - io: The user output interface
+//   - workflowName: The name of the workflow to use
+//
+// Returns:
+//   - A new WorkflowManager instance with the specified workflow
+//   - An error if the workflow was not found
+func NewWorkflowManagerWithName(fs io.FileSystem, io UserOutput, workflowName string) (*WorkflowManager, error) {
+	// Get the global registry
+	registry := GetGlobalRegistry()
+	
+	// Get the workflow by name
+	workflowDef, err := registry.GetWorkflow(workflowName)
+	if err != nil {
+		return nil, fmt.Errorf("workflow '%s' not found", workflowName)
+	}
+	
+	// Create a new workflow manager with the custom workflow
+	wm := &WorkflowManager{
+		fs:       fs,
+		io:       io,
+		registry: registry,
+		workflow: workflowDef,
+	}
+	
+	return wm, nil
+}
+
+// NewWorkflowManagerWithPath creates a new workflow manager using a custom workflow from a path.
+//
+// Parameters:
+//   - fs: The file system interface
+//   - io: The user output interface
+//   - workflowPath: The path to the workflow directory
+//
+// Returns:
+//   - A new WorkflowManager instance with the specified workflow
+//   - An error if the workflow could not be loaded
+func NewWorkflowManagerWithPath(fs io.FileSystem, io UserOutput, workflowPath string) (*WorkflowManager, error) {
+	// Check if the directory exists
+	if !fs.Exists(workflowPath) {
+		return nil, fmt.Errorf("workflow directory not found: %s", workflowPath)
+	}
+	
+	// Get the global registry
+	registry := GetGlobalRegistry()
+	
+	// Load the workflow from the directory
+	workflowDef, _, err := LoadWorkflowFromDirectory(fs, workflowPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load workflow: %w", err)
+	}
+	
+	// Create a new workflow manager with the custom workflow
+	wm := &WorkflowManager{
+		fs:       fs,
+		io:       io,
+		registry: registry,
+		workflow: workflowDef,
+	}
+	
+	return wm, nil
 }
