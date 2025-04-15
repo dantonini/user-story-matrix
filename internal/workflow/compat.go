@@ -50,6 +50,23 @@ var workflowCallbacks struct {
 // AddWorkflowChangeCallback registers a callback to be executed when a workflow changes
 // This extends the WorkflowRegistry to support synchronization with StandardWorkflowSteps
 func (r *WorkflowRegistry) AddWorkflowChangeCallback(workflowName string, callback workflowChangeCallback) {
+	if r == nil {
+		// This should never happen, but handle it gracefully
+		fmt.Fprintf(os.Stderr, "Error: AddWorkflowChangeCallback called on nil registry\n")
+		return
+	}
+	
+	if callback == nil {
+		// Ignore nil callbacks
+		return
+	}
+	
+	if workflowName == "" {
+		// Invalid workflow name
+		fmt.Fprintf(os.Stderr, "Error: AddWorkflowChangeCallback called with empty workflow name\n")
+		return
+	}
+	
 	workflowCallbacks.mutex.Lock()
 	defer workflowCallbacks.mutex.Unlock()
 	
@@ -73,6 +90,11 @@ func (r *WorkflowRegistry) AddWorkflowChangeCallback(workflowName string, callba
 // notifyWorkflowCallbacks executes all registered callbacks for a workflow
 // This should be called whenever a workflow is updated in the registry
 func notifyWorkflowCallbacks(workflowName string, workflow *WorkflowDefinition) {
+	if workflowName == "" || workflow == nil {
+		// Invalid parameters
+		return
+	}
+	
 	workflowCallbacks.mutex.RLock()
 	defer workflowCallbacks.mutex.RUnlock()
 	
@@ -84,7 +106,9 @@ func notifyWorkflowCallbacks(workflowName string, workflow *WorkflowDefinition) 
 	// Execute all callbacks for this workflow
 	if callbacks, exists := workflowCallbacks.callbacks[workflowName]; exists {
 		for _, callback := range callbacks {
-			callback(workflow)
+			if callback != nil {
+				callback(workflow)
+			}
 		}
 	}
 }
@@ -141,7 +165,13 @@ func GetWorkflowStepFromLegacy(index int) (WorkflowStep, error) {
 	}
 	
 	// Get step from standard workflow in registry
-	workflow := GetGlobalRegistry().GetStandardWorkflow()
+	registry := GetGlobalRegistry()
+	if registry == nil {
+		// If registry isn't available, fall back to StandardWorkflowSteps
+		return StandardWorkflowSteps[index], nil
+	}
+	
+	workflow := registry.GetStandardWorkflow()
 	if workflow == nil || index >= len(workflow.Steps) {
 		// Fallback to legacy array if registry access fails
 		return StandardWorkflowSteps[index], nil
@@ -188,8 +218,14 @@ func logLegacyAccessWarning() {
 		warning += fmt.Sprintf("Called from %s (%s:%d)\n", funcName, fileName, line)
 	}
 	
+	// Ensure writer is valid
+	writer := legacyAccessWarning.logWriter
+	if writer == nil {
+		writer = os.Stderr
+	}
+	
 	// Log the warning
-	fmt.Fprint(legacyAccessWarning.logWriter, warning)
+	fmt.Fprint(writer, warning)
 	
 	// Set flag to prevent repeated warnings
 	legacyAccessWarning.shown = true

@@ -568,127 +568,95 @@ func (wm *WorkflowManager) GetStepAtIndex(workflow *WorkflowDefinition, index in
 	return &workflow.Steps[index], nil
 }
 
-// MapProgressBetweenWorkflows attempts to map progress from one workflow to another
-// It creates a new WorkflowState with progress transferred between workflows.
-// This version includes enhanced handling for complex workflow structures and edge cases.
+// MapProgressBetweenWorkflows maps progress from one workflow to another
+// It tries to preserve as much progress information as possible
 //
 // Parameters:
-//   - oldState: Current WorkflowState
-//   - newWorkflowName: Name of the target workflow
+//   - state: Current workflow state
+//   - targetWorkflowName: Name of the target workflow
 //
 // Returns:
-//   - A new WorkflowState for the target workflow
-//   - A slice of warning messages, empty if no issues
-func (wm *WorkflowManager) MapProgressBetweenWorkflows(oldState WorkflowState, newWorkflowName string) (WorkflowState, []string) {
-	warnings := []string{}
+//   - Updated workflow state
+//   - Warnings encountered during mapping
+func (wm *WorkflowManager) MapProgressBetweenWorkflows(state WorkflowState, targetWorkflowName string) (WorkflowState, []string) {
+	warnings := make([]string, 0)
 	
-	// Get workflow definitions
-	oldWorkflow, err := wm.registry.GetWorkflow(oldState.WorkflowName)
-	if err != nil {
-		oldWorkflow = wm.registry.GetStandardWorkflow()
-		warnings = append(warnings, fmt.Sprintf("Source workflow '%s' not found, using standard workflow", 
-			oldState.WorkflowName))
+	// Check registry is available
+	if wm.registry == nil {
+		warnings = append(warnings, "Workflow registry not initialized, cannot map progress")
+		return state, warnings
 	}
-	
-	newWorkflow, err := wm.registry.GetWorkflow(newWorkflowName)
-	if err != nil {
-		// If new workflow doesn't exist, return the original state with a warning
-		warnings = append(warnings, fmt.Sprintf("Target workflow '%s' not found, keeping current workflow", 
-			newWorkflowName))
-		return oldState, warnings
+
+	// Get source and target workflows
+	sourceWorkflow, err := wm.registry.GetWorkflow(state.WorkflowName)
+	if err != nil || sourceWorkflow == nil {
+		warnings = append(warnings, fmt.Sprintf("Source workflow '%s' not found, mapping only workflow name", state.WorkflowName))
+		state.WorkflowName = targetWorkflowName
+		return state, warnings
 	}
-	
-	// Create a new state for the target workflow
-	newState := WorkflowState{
-		ChangeRequestPath: oldState.ChangeRequestPath,
-		LastModified:      time.Now(),
-		WorkflowName:      newWorkflowName,
-		WorkflowPath:      "", // Will be set if it's an external workflow
+
+	targetWorkflow, err := wm.registry.GetWorkflow(targetWorkflowName)
+	if err != nil || targetWorkflow == nil {
+		warnings = append(warnings, fmt.Sprintf("Target workflow '%s' not found, only updating workflow name", targetWorkflowName))
+		state.WorkflowName = targetWorkflowName
+		return state, warnings
 	}
-	
-	// Map completed steps between workflows
-	newState.CompletedSteps = []string{}
-	newStepMap := make(map[string]bool)
-	
-	// Build a map of step IDs in the new workflow
-	for _, step := range newWorkflow.Steps {
-		newStepMap[step.ID] = true
+
+	// Update workflow name
+	state.WorkflowName = targetWorkflowName
+
+	// Verify source step index is valid
+	if state.CurrentStepIndex < 0 || state.CurrentStepIndex >= len(sourceWorkflow.Steps) {
+		warnings = append(warnings, fmt.Sprintf("Invalid step index %d in source workflow '%s' (max index: %d)", 
+			state.CurrentStepIndex, sourceWorkflow.Name, len(sourceWorkflow.Steps)-1))
+		// Reset to beginning of workflow
+		state.CurrentStepIndex = 0
 	}
-	
-	// Transfer completed steps that exist in both workflows
-	for _, completedID := range oldState.CompletedSteps {
-		if newStepMap[completedID] {
-			newState.CompletedSteps = append(newState.CompletedSteps, completedID)
+
+	// Create maps of step IDs to indices for both workflows
+	sourceStepMap := make(map[string]int)
+	for i, step := range sourceWorkflow.Steps {
+		sourceStepMap[step.ID] = i
+	}
+
+	targetStepMap := make(map[string]int)
+	for i, step := range targetWorkflow.Steps {
+		targetStepMap[step.ID] = i
+	}
+
+	// Try to map the current step
+	sourceStepID := ""
+	if state.CurrentStepIndex >= 0 && state.CurrentStepIndex < len(sourceWorkflow.Steps) {
+		sourceStepID = sourceWorkflow.Steps[state.CurrentStepIndex].ID
+	}
+
+	// If we have a valid source step ID, try to find it in the target workflow
+	if sourceStepID != "" {
+		if targetIndex, exists := targetStepMap[sourceStepID]; exists {
+			state.CurrentStepIndex = targetIndex
 		} else {
-			warnings = append(warnings, fmt.Sprintf("Completed step '%s' not found in target workflow", 
-				completedID))
+			warnings = append(warnings, fmt.Sprintf("Current step '%s' not found in target workflow, resetting progress", sourceStepID))
+			state.CurrentStepIndex = 0
 		}
 	}
-	
-	// Map current step index with enhanced logic for complex workflows
-	currentStepIdx := oldState.CurrentStepIndex
-	
-	// Validate the current step index in the old workflow
-	if currentStepIdx < 0 {
-		// Handle negative index
-		newState.CurrentStepIndex = 0
-		warnings = append(warnings, "Invalid negative step index in source workflow, reset to first step")
-		return newState, warnings
+
+	// Safety check for target step index
+	if state.CurrentStepIndex >= len(targetWorkflow.Steps) {
+		warnings = append(warnings, fmt.Sprintf("Invalid step index %d in target workflow '%s' (max index: %d)", 
+			state.CurrentStepIndex, targetWorkflow.Name, len(targetWorkflow.Steps)-1))
+		state.CurrentStepIndex = 0
 	}
-	
-	if currentStepIdx >= len(oldWorkflow.Steps) {
-		// If we're past the end, check if the workflow is actually completed
-		if len(oldState.CompletedSteps) == len(oldWorkflow.Steps) {
-			// The workflow is complete - set to the last step of the new workflow
-			newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
-			warnings = append(warnings, "Source workflow is complete, set to last step in target workflow")
+
+	// Map completed steps - keep only steps that exist in the target workflow
+	mappedCompletedSteps := make([]string, 0)
+	for _, stepID := range state.CompletedSteps {
+		if _, exists := targetStepMap[stepID]; exists {
+			mappedCompletedSteps = append(mappedCompletedSteps, stepID)
 		} else {
-			// The index is invalid - reset to first step
-			newState.CurrentStepIndex = 0
-			warnings = append(warnings, "Invalid step index in source workflow, reset to first step")
-		}
-		return newState, warnings
-	}
-	
-	// Try to find the same step ID in the new workflow
-	currentStepID := oldWorkflow.Steps[currentStepIdx].ID
-	found := false
-	
-	for i, step := range newWorkflow.Steps {
-		if step.ID == currentStepID {
-			newState.CurrentStepIndex = i
-			found = true
-			break
+			warnings = append(warnings, fmt.Sprintf("Completed step '%s' not found in target workflow, progress for this step will be lost", stepID))
 		}
 	}
-	
-	if !found {
-		// If step not found, try to find the nearest completed step
-		maxCompletedIndex := -1
-		
-		for i, step := range newWorkflow.Steps {
-			for _, completedID := range newState.CompletedSteps {
-				if step.ID == completedID {
-					maxCompletedIndex = i
-					break
-				}
-			}
-		}
-		
-		if maxCompletedIndex >= 0 {
-			// Set to the step after the last completed step
-			newState.CurrentStepIndex = maxCompletedIndex + 1
-			if newState.CurrentStepIndex >= len(newWorkflow.Steps) {
-				newState.CurrentStepIndex = len(newWorkflow.Steps) - 1
-			}
-		} else {
-			// Default to first step if no mapping is possible
-			newState.CurrentStepIndex = 0
-		}
-		
-		warnings = append(warnings, fmt.Sprintf("Current step '%s' not found in target workflow, mapped to step %d", 
-			currentStepID, newState.CurrentStepIndex + 1))
-	}
-	
-	return newState, warnings
+	state.CompletedSteps = mappedCompletedSteps
+
+	return state, warnings
 }

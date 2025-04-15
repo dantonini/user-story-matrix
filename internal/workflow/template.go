@@ -119,7 +119,11 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 				parts := strings.Split(relativePath, ".")
 				
 				// Start at the top level object for this prefix
-				currentValue := processedVars[prefix].(map[string]interface{})
+				currentValue, ok := processedVars[prefix].(map[string]interface{})
+				if !ok {
+					// If this fails, it's a serious type mismatch error, log and skip
+					continue
+				}
 				
 				// Build the nested structure for all parts except the last one
 				for i := 0; i < len(parts)-1; i++ {
@@ -139,7 +143,12 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 					}
 					
 					// Move to the next level
-					currentValue = currentValue[part].(map[string]interface{})
+					nextValue, ok := currentValue[part].(map[string]interface{})
+					if !ok {
+						// If this fails, it's a type mismatch, skip this entry
+						break
+					}
+					currentValue = nextValue
 				}
 				
 				// Set the final value at the leaf
@@ -162,6 +171,12 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 				}
 			}
 		}
+	}
+
+	// Create a copy of processedVars for dot context to make variables accessible in all scopes
+	dotContext := make(map[string]interface{})
+	for k, v := range processedVars {
+		dotContext[k] = v
 	}
 
 	// Pre-process the template to handle default values
@@ -190,6 +205,56 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 		return fmt.Sprintf("{{.%s}}", varName)
 	})
 
+	// Pre-process the template to handle variable references inside range loops
+	// This regex matches range blocks with potential variable references
+	rangeRegex := regexp.MustCompile(`{{range\s+\.([a-zA-Z0-9_]+)}}(.*?){{end}}`)
+	processedTemplate = rangeRegex.ReplaceAllStringFunc(processedTemplate, func(match string) string {
+		submatches := rangeRegex.FindStringSubmatch(match)
+		if len(submatches) < 3 {
+			return match // Shouldn't happen if regex works
+		}
+
+		rangeName := submatches[1]
+		content := submatches[2]
+
+		// Look for variable references in the content that aren't dot (current item)
+		varRefRegex := regexp.MustCompile(`{{\.([a-zA-Z0-9_]+)}}`)
+		varRefs := varRefRegex.FindAllStringSubmatch(content, -1)
+
+		// Nothing to do if no variable references or only self-references
+		if len(varRefs) == 0 {
+			return match
+		}
+
+		// Create a modified content with variable references accessible in range scope
+		modifiedContent := content
+		for _, ref := range varRefs {
+			if len(ref) >= 2 {
+				varName := ref[1]
+				// Skip if it's referencing the same variable as the range
+				if varName == rangeName {
+					continue
+				}
+
+				// Replace with $ prefix to access the dot context directly
+				modifiedContent = strings.ReplaceAll(
+					modifiedContent,
+					fmt.Sprintf("{{.%s}}", varName),
+					fmt.Sprintf("{{$%s}}", varName),
+				)
+
+				// Ensure the variable exists in dot context
+				if _, exists := dotContext[varName]; exists {
+					// Set up variable declaration at the beginning of the range
+					modifiedContent = fmt.Sprintf("{{$%s := $.%s}}%s", 
+						varName, varName, modifiedContent)
+				}
+			}
+		}
+
+		return fmt.Sprintf("{{range .%s}}%s{{end}}", rangeName, modifiedContent)
+	})
+
 	// Create function map with custom functions
 	funcMap := template.FuncMap{
 		"default": DefaultFunction,
@@ -204,7 +269,7 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 	// Check for undefined variables before execution
 	undefinedVars := FindUndefinedVariables(processedTemplate, processedVars)
 	
-	// Execute template with variables
+	// Execute template with variables, making the original context available as "."
 	var result bytes.Buffer
 	if err := tmpl.Execute(&result, processedVars); err != nil {
 		return "", fmt.Errorf("template execution error: %w", err)

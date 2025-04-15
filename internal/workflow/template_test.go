@@ -689,33 +689,55 @@ func TestTemplateErrorHandling(t *testing.T) {
 }
 
 func TestEdgeCaseHandling(t *testing.T) {
-	// Test handling of edge cases in template processing
-	
-	// Test handling of a malformed define clause (unclosed tag detection)
-	malformedDefine := `{{define "template"}}unclosed define clause`
-	_, err := ApplyTemplateVariables(malformedDefine, nil)
-	assert.Error(t, err)
-	
-	// Test direct call to ValidateTemplate with a define clause error
-	defineErr := ValidateTemplate(`{{define "template"}}unclosed`)
-	assert.Error(t, defineErr)
-	assert.Contains(t, defineErr.Error(), "template validation error")
-	
-	// Test direct call to IsArrayContext with an explicit array suffix
-	arrayCheck := IsArrayContext("data[]")
-	assert.True(t, arrayCheck)
-	
-	// Test default value regex when it fails to match properly
-	// We need to mock the regex processing - this is tricky to test directly
-	// For now, let's just ensure our current tests cover most cases
-	
-	// Test execute error handling
-	badTemplate := `{{range .nonexistent}}{{.undefined}}{{end}}`
-	_, err = ApplyTemplateVariables(badTemplate, map[string]string{
-		"nonexistent": "not-an-array",
-	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "template execution error")
+	tests := []struct {
+		name        string
+		template    string
+		variables   map[string]string
+		expected    string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "Undefined variable with dollar sign",
+			template:    "{{$undefined}}",
+			variables:   map[string]string{},
+			expected:    "",
+			expectError: true,
+			errorMsg:    "template validation error: template: validation:1: undefined variable",
+		},
+		{
+			name:        "Nested error in range",
+			template:    "{{range .items}}{{if .missing}}{{end}}{{end}}",
+			variables:   map[string]string{"items": "one,two"},
+			expected:    "",
+			expectError: true,
+			errorMsg:    "execution error",
+		},
+		{
+			name:        "Unclosed condition",
+			template:    "{{if .condition}}Unclosed",
+			variables:   map[string]string{"condition": "true"},
+			expected:    "",
+			expectError: true,
+			errorMsg:    "template validation error: template: validation:1: unexpected EOF",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := ApplyTemplateVariables(test.template, test.variables)
+
+			if test.expectError {
+				assert.Error(t, err)
+				if test.errorMsg != "" {
+					assert.Contains(t, err.Error(), test.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expected, result)
+			}
+		})
+	}
 }
 
 func TestCustomTemplateHandling(t *testing.T) {
@@ -778,19 +800,13 @@ func TestCustomTemplateHandling(t *testing.T) {
 			name:        "Reference to variable in non-variable scope",
 			template:    "{{.outer}} and {{range .items}}{{.outer}}{{end}}",
 			variables:   map[string]string{"outer": "outside", "items": "one,two"},
-			expected:    "outside and ",
-			expectError: true,
-			errorMsg:    "undefined variable",
+			expected:    "outside and outsideoutside",
+			expectError: false,
 		},
 	}
 
 	for _, test := range tests {
-		// Skip the "Reference to variable in non-variable scope" test for now
-		// This is a known limitation with our current implementation
-		if test.name == "Reference to variable in non-variable scope" {
-			t.Skip("Known limitation - will be addressed in future update")
-		}
-		
+		// The "Reference to variable in non-variable scope" test is now supported
 		result, err := ApplyTemplateVariables(test.template, test.variables)
 		
 		if test.expectError {

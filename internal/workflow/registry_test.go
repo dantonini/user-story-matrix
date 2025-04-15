@@ -951,3 +951,199 @@ invalid-yaml:::::
 		assert.NotContains(t, discoveredWorkflows, "invalid-workflow", "Invalid workflow should not be discovered")
 	})
 }
+
+func TestWorkflowRegistry_LoadFromDirectory_NonExistentDirectory(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from a non-existent directory
+	workflow, err := registry.LoadFromDirectory(fs, "non-existent")
+	
+	// Verify error is returned
+	assert.Error(t, err)
+	assert.Nil(t, workflow)
+	assert.Contains(t, err.Error(), "workflow directory not found")
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_NoWorkflowFiles(t *testing.T) {
+	// Setup mock filesystem with directory but no workflow files
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory without workflow files
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify error is returned
+	assert.Error(t, err)
+	assert.Nil(t, workflow)
+	assert.Contains(t, err.Error(), "neither workflow.yaml nor workflow.json found")
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_WithJSONFile(t *testing.T) {
+	// Setup mock filesystem with directory and workflow.json
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	
+	// Create a valid workflow.json file
+	jsonContent := `{
+		"name": "test-workflow",
+		"description": "Test workflow description",
+		"steps": [
+			{
+				"id": "step1",
+				"description": "Step 1",
+				"prompt": "This is a test prompt for step 1"
+			}
+		]
+	}`
+	jsonPath := filepath.Join("test-dir", "workflow.json")
+	fs.AddFile(jsonPath, []byte(jsonContent))
+	
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory with workflow.json
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify workflow is loaded correctly
+	assert.NoError(t, err)
+	assert.NotNil(t, workflow)
+	assert.Equal(t, "test-workflow", workflow.Name)
+	assert.Equal(t, "Test workflow description", workflow.Description)
+	assert.Len(t, workflow.Steps, 1)
+	assert.Equal(t, "step1", workflow.Steps[0].ID)
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_InvalidJSON(t *testing.T) {
+	// Setup mock filesystem with directory and invalid workflow.json
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	
+	// Create an invalid workflow.json file
+	jsonPath := filepath.Join("test-dir", "workflow.json")
+	fs.AddFile(jsonPath, []byte("invalid json content"))
+	
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory with invalid workflow.json
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify error is returned
+	assert.Error(t, err)
+	assert.Nil(t, workflow)
+	assert.Contains(t, err.Error(), "failed to load workflow")
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_WithPromptFiles(t *testing.T) {
+	// Setup mock filesystem with directory, workflow.json, and prompt files
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	fs.AddDirectory(filepath.Join("test-dir", "prompts"))
+	
+	// Create a workflow.json file referencing prompt files
+	jsonContent := `{
+		"name": "test-workflow",
+		"description": "Test workflow description",
+		"steps": [
+			{
+				"id": "step1",
+				"description": "Step 1",
+				"prompt": "prompts/step1.md"
+			}
+		]
+	}`
+	jsonPath := filepath.Join("test-dir", "workflow.json")
+	fs.AddFile(jsonPath, []byte(jsonContent))
+	
+	// Create a prompt file
+	promptContent := "This is the content of the prompt file for step 1"
+	promptPath := filepath.Join("test-dir", "prompts", "step1.md")
+	fs.AddFile(promptPath, []byte(promptContent))
+	
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory with prompt files
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify workflow is loaded correctly with prompt content
+	assert.NoError(t, err)
+	assert.NotNil(t, workflow)
+	assert.Equal(t, "test-workflow", workflow.Name)
+	assert.Equal(t, promptContent, workflow.Steps[0].Prompt)
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_MissingPromptFile(t *testing.T) {
+	// Setup mock filesystem with directory and workflow.json, but missing prompt file
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	
+	// Create a workflow.json file referencing a non-existent prompt file
+	jsonContent := `{
+		"name": "test-workflow",
+		"description": "Test workflow description",
+		"steps": [
+			{
+				"id": "step1",
+				"description": "Step 1",
+				"prompt": "prompts/non-existent.md"
+			}
+		]
+	}`
+	jsonPath := filepath.Join("test-dir", "workflow.json")
+	fs.AddFile(jsonPath, []byte(jsonContent))
+	
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory with missing prompt file
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify error is returned
+	assert.Error(t, err)
+	assert.Nil(t, workflow)
+	assert.Contains(t, err.Error(), "referenced in workflow but not found")
+}
+
+func TestWorkflowRegistry_LoadFromDirectory_InvalidPromptFile(t *testing.T) {
+	// Create a mock file system with a read error for the prompt file
+	fs := io.NewMockFileSystem()
+	fs.AddDirectory("test-dir")
+	fs.AddDirectory(filepath.Join("test-dir", "prompts"))
+	
+	// Add workflow file
+	jsonContent := `{
+		"name": "test-workflow",
+		"description": "Test workflow description",
+		"steps": [
+			{
+				"id": "step1",
+				"description": "Step 1",
+				"prompt": "prompts/step1.md"
+			}
+		]
+	}`
+	jsonPath := filepath.Join("test-dir", "workflow.json")
+	fs.AddFile(jsonPath, []byte(jsonContent))
+	
+	// Add prompt file but set up a read error
+	promptPath := filepath.Join("test-dir", "prompts", "step1.md")
+	fs.AddFile(promptPath, []byte("content"))
+	fs.SetReadFileError(promptPath, os.ErrPermission)
+	
+	registry := NewWorkflowRegistry()
+	
+	// Test loading from directory with prompt file that cannot be read
+	workflow, err := registry.LoadFromDirectory(fs, "test-dir")
+	
+	// Verify error is returned
+	assert.Error(t, err)
+	assert.Nil(t, workflow)
+	assert.Contains(t, err.Error(), "failed to read prompt file")
+}
+
+func TestGetUserHomeDir(t *testing.T) {
+	// This test just verifies that the function returns a non-empty string
+	// as it's hard to mock os.UserHomeDir()
+	homeDir := getUserHomeDir()
+	assert.NotEmpty(t, homeDir)
+}
