@@ -179,6 +179,7 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 			LastModified:      time.Now(),
 			CompletedSteps:    []string{},
 			WorkflowName:      wm.workflow.Name, // Use current workflow name
+			WorkflowPath:      "", // No path for new state
 		}
 		return state, nil
 	}
@@ -193,10 +194,9 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 	var state WorkflowState
 	err = json.Unmarshal(content, &state)
 	if err != nil {
-		// Invalid state file
-		if wm.io.IsDebugEnabled() {
-			wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
-		}
+		// Invalid state file - always show warning regardless of debug mode
+		wm.io.PrintWarning(fmt.Sprintf(ErrInvalidStateFile, changeRequestPath))
+		
 		// Return new state
 		return WorkflowState{
 			ChangeRequestPath: changeRequestPath,
@@ -204,6 +204,7 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 			LastModified:      time.Now(),
 			CompletedSteps:    []string{},
 			WorkflowName:      wm.workflow.Name, // Use current workflow name
+			WorkflowPath:      "", // No path for new state
 		}, nil
 	}
 	
@@ -238,7 +239,9 @@ func (wm *WorkflowManager) LoadState(changeRequestPath string) (WorkflowState, e
 //   - error if saving fails
 func (wm *WorkflowManager) SaveState(state WorkflowState) error {
 	// Always ensure the workflow name is set to the current workflow
-	state.WorkflowName = wm.workflow.Name
+	if state.WorkflowName == "" {
+		state.WorkflowName = wm.workflow.Name
+	}
 	
 	// Update the last modified timestamp
 	state.LastModified = time.Now()
@@ -718,7 +721,7 @@ func NewWorkflowManagerWithPath(fs io.FileSystem, io UserOutput, workflowPath st
 	registry := GetGlobalRegistry()
 	
 	// Load the workflow from the directory
-	workflowDef, _, err := LoadWorkflowFromDirectory(fs, workflowPath)
+	workflowDef, info, err := LoadWorkflowFromDirectory(fs, workflowPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load workflow: %w", err)
 	}
@@ -729,6 +732,16 @@ func NewWorkflowManagerWithPath(fs io.FileSystem, io UserOutput, workflowPath st
 		io:       io,
 		registry: registry,
 		workflow: workflowDef,
+	}
+	
+	// Print debug info if enabled
+	if io.IsDebugEnabled() {
+		// Use the path from info if available, otherwise use the given path
+		pathToShow := workflowPath
+		if info != nil {
+			pathToShow = info.Path
+		}
+		io.PrintProgress(fmt.Sprintf("Using workflow from path: %s (%s)", pathToShow, workflowDef.Name))
 	}
 	
 	return wm, nil

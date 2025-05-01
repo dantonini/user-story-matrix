@@ -79,6 +79,11 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 				}
 				return val
 			},
+			"join": strings.Join,
+			"lower": strings.ToLower,
+			"upper": strings.ToUpper,
+			"title": strings.Title,
+			"trim": strings.TrimSpace,
 		}
 		
 		tmpl = template.New(filepath.Base(promptPath)).Funcs(funcMap)
@@ -149,8 +154,7 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 }
 
 // ExtractTemplateVariables extracts the variables used in a prompt template.
-// NOTE: This is a placeholder implementation that will need to be enhanced
-// to properly extract variables from Go templates.
+// This implementation uses basic pattern matching to find Go template variables.
 //
 // Parameters:
 //   - promptPath: Path to the prompt template file, relative to the workflow directory
@@ -175,42 +179,123 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 		return nil, fmt.Errorf("failed to read prompt file: %w", err)
 	}
 	
-	// Extract variables (simplified implementation)
-	// A more robust implementation would need to parse the template
-	// This is a placeholder that looks for {{.variable}} patterns
+	// Extract variables using regular expressions
 	promptText := string(promptData)
-	variables := make([]string, 0)
+	variableMap := make(map[string]bool) // Use map to deduplicate
 	
-	// Find all {{.name}} patterns
+	// Process the template to find all variable references
+	// This is a simplified approach that may not catch all variable usages in complex templates
+	
+	// Pattern 1: {{.variable}} and {{.variable | function}}
 	start := 0
 	for {
-		varStart := strings.Index(promptText[start:], "{{.")
-		if varStart == -1 {
+		// Find the next opening brace
+		openBrace := strings.Index(promptText[start:], "{{")
+		if openBrace == -1 {
 			break
 		}
-		varStart += start + 3 // Skip "{{."
+		openBrace += start
 		
-		varEnd := strings.Index(promptText[varStart:], "}}")
-		if varEnd == -1 {
+		// Find the corresponding closing brace
+		closeBrace := strings.Index(promptText[openBrace:], "}}")
+		if closeBrace == -1 {
 			break
 		}
+		closeBrace += openBrace
 		
-		// Extract variable name
-		varText := promptText[varStart : varStart+varEnd]
-		varName := strings.Split(varText, " ")[0]
-		varName = strings.Split(varName, "|")[0]
-		varName = strings.TrimSpace(varName)
+		// Extract the template expression
+		expression := strings.TrimSpace(promptText[openBrace+2:closeBrace])
 		
-		// Add to results if not already present
-		if !sliceContains(variables, varName) {
-			variables = append(variables, varName)
+		// Process expression
+		if strings.HasPrefix(expression, ".") {
+			// Simple variable reference like {{.varName}}
+			varName := extractVariableName(expression)
+			if varName != "" {
+				variableMap[varName] = true
+			}
+		} else if strings.HasPrefix(expression, "if .") || 
+		        strings.HasPrefix(expression, "with .") || 
+		        strings.HasPrefix(expression, "range .") {
+			// Control structure like {{if .varName}} or {{range .items}}
+			parts := strings.Fields(expression)
+			if len(parts) >= 2 && strings.HasPrefix(parts[1], ".") {
+				varName := parts[1][1:] // Remove the dot
+				// Remove any trailing characters like parentheses or pipes
+				varName = trimNonAlphanumeric(varName)
+				if varName != "" {
+					variableMap[varName] = true
+				}
+			}
+		} else if strings.Contains(expression, ".") {
+			// Function call with variable like {{join .items ", "}}
+			// This is a simplistic approach and won't work for all cases
+			parts := strings.Fields(expression)
+			for _, part := range parts {
+				if strings.HasPrefix(part, ".") {
+					varName := trimNonAlphanumeric(part[1:])
+					if varName != "" {
+						variableMap[varName] = true
+					}
+				}
+			}
 		}
 		
-		// Move past this variable
-		start = varStart + varEnd + 2
+		// Move past this expression
+		start = closeBrace + 2
+	}
+	
+	// Convert map to slice
+	variables := make([]string, 0, len(variableMap))
+	for varName := range variableMap {
+		variables = append(variables, varName)
 	}
 	
 	return variables, nil
+}
+
+// extractVariableName extracts a variable name from a template expression
+func extractVariableName(expr string) string {
+	// Remove leading dot
+	if !strings.HasPrefix(expr, ".") {
+		return ""
+	}
+	expr = expr[1:]
+	
+	// Find the end of the variable name (space, pipe, etc.)
+	end := 0
+	for i, c := range expr {
+		if !isValidVariableChar(c) {
+			end = i
+			break
+		}
+		end = i + 1
+	}
+	
+	if end == 0 {
+		return ""
+	}
+	
+	return expr[:end]
+}
+
+// isValidVariableChar checks if a character is valid in a variable name
+func isValidVariableChar(c rune) bool {
+	return (c >= 'a' && c <= 'z') || 
+	       (c >= 'A' && c <= 'Z') || 
+	       (c >= '0' && c <= '9') || 
+	       c == '_'
+}
+
+// trimNonAlphanumeric removes non-alphanumeric characters from the end of a string
+func trimNonAlphanumeric(s string) string {
+	end := len(s)
+	for i := len(s) - 1; i >= 0; i-- {
+		if isValidVariableChar(rune(s[i])) {
+			end = i + 1
+			break
+		}
+	}
+	return s[:end]
 }
 
 // sliceContains checks if a string slice contains a string

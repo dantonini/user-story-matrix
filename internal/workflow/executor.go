@@ -47,7 +47,7 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
 
-	// Extract path components for variables
+	// Extract path components for standard variables
 	dir := filepath.Dir(changeRequestPath)
 	base := filepath.Base(changeRequestPath)
 	base = strings.TrimSuffix(base, ".blueprint.md")
@@ -59,24 +59,68 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 		stepName = parts[1]
 	}
 
-	// Process the prompt with variable interpolation
-	processedPrompt, missingVars := InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
-		ChangeRequestFilePath: changeRequestPath,
-		ChangeRequestBasename: base,
-		BlueprintBasename:     base,
-		ChangeRequestDirname:  dir,
-		StepID:                step.ID,
-		StepName:              stepName,
-		ChangeRequestFullpath: fullpath,
-		Basename:              base, // Deprecated
-	})
+	var processedPrompt string
+	var err error
 
-	// Warn about missing variables
-	if len(missingVars) > 0 {
-		e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
+	// Handle the prompt based on its source
+	if step.source.sourceType == promptSourceFile {
+		// This is a template-based prompt loaded from a file
+		// Use the TemplateRenderer to process it with variables
+		
+		// Create base variables map with standard variables
+		variables := map[string]interface{}{
+			"ChangeRequestFilePath": changeRequestPath,
+			"ChangeRequestBasename": base,
+			"BlueprintBasename":     base,
+			"ChangeRequestDirname":  dir,
+			"StepID":                step.ID,
+			"StepName":              stepName,
+			"ChangeRequestFullpath": fullpath,
+			"Basename":              base, // Deprecated
+		}
+		
+		// Add custom variables from step definition
+		if step.Variables != nil {
+			for k, v := range step.Variables {
+				variables[k] = v
+			}
+		}
+		
+		// Get the workflow directory from the prompt path
+		workflowDir := filepath.Dir(filepath.Dir(step.source.filePath))
+		
+		// Create a template renderer
+		renderer := NewTemplateRenderer(e.fs, workflowDir)
+		
+		// Render the prompt with variables
+		promptPath := filepath.Join(filepath.Base(filepath.Dir(step.source.filePath)), filepath.Base(step.source.filePath))
+		processedPrompt, err = renderer.RenderPrompt(promptPath, variables)
+		if err != nil {
+			e.io.PrintError(fmt.Sprintf("Error rendering prompt: %v", err))
+			return false, err
+		}
+	} else {
+		// This is an embedded prompt or old-style prompt
+		// Use the legacy interpolation method
+		var missingVars []string
+		processedPrompt, missingVars = InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
+			ChangeRequestFilePath: changeRequestPath,
+			ChangeRequestBasename: base,
+			BlueprintBasename:     base,
+			ChangeRequestDirname:  dir,
+			StepID:                step.ID,
+			StepName:              stepName,
+			ChangeRequestFullpath: fullpath,
+			Basename:              base, // Deprecated
+		})
+		
+		// Warn about missing variables
+		if len(missingVars) > 0 {
+			e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
+		}
 	}
 
-	// Print the processed prompt directly to stdout instead of writing to a file
+	// Print the processed prompt directly to stdout
 	e.io.Print(processedPrompt)
 
 	return true, nil

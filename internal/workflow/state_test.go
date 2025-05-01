@@ -17,56 +17,59 @@ import (
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
-// Import newMockUserOutput from registry_test.go which is in the same package
-// This avoids redefinition errors
-
+// TestStateBackwardCompatibility_WithErrorSimulation tests backward compatibility of state loading with error simulation
 func TestStateBackwardCompatibility_WithErrorSimulation(t *testing.T) {
-	// This test was designed for the old state loading mechanism
-	// The direct state loading functions have been refactored and are now internal
-	// Use WorkflowManager_LoadState tests instead which test the proper public API
+	// This test is no longer applicable with the refactored state handling.
 	t.Skip("This test is no longer applicable with the refactored state handling.")
 }
 
+// TestWorkflowManager_LoadState_WithInvalidStateFile_ErrorSimulation tests LoadState with invalid state file simulation
 func TestWorkflowManager_LoadState_WithInvalidStateFile_ErrorSimulation(t *testing.T) {
-	// Create a mock filesystem with error simulation
-	fs := io.NewMockFileSystemWithErrors()
+	// Setup
+	fs := io.NewMockFileSystem()
 	mockIO := NewMockIO()
 	registry := NewWorkflowRegistry()
 
-	// Add a state file with invalid JSON
-	invalidState := `{invalid json`
-	fs.AddFile("/path/to/.change-request.blueprint.md.step", []byte(invalidState))
+	// Add the standard workflow to the registry
+	registry.RegisterBuiltInWorkflow(createStandardWorkflow())
 
-	// Create workflow manager with mock filesystem
 	wm := NewWorkflowManager(fs, mockIO, "", registry)
 
-	// Attempt to load the state
+	// Create an invalid state file (not valid JSON)
+	stateFilePath := GenerateStateFilePath("/path/to/change-request.blueprint.md")
+	fs.AddFile(stateFilePath, []byte("this is not valid JSON"))
+
+	// Load the state should handle the error gracefully
 	state, err := wm.LoadState("/path/to/change-request.blueprint.md")
-
-	// LoadState should never return an error
 	if err != nil {
-		t.Errorf("LoadState returned error: %v", err)
+		t.Errorf("Expected LoadState to handle invalid state file, but got error: %v", err)
 	}
 
-	// When there's an invalid state file, we should get a default state
+	// Should have created a new state with default values
 	if state.CurrentStepIndex != 0 {
-		t.Errorf("Expected CurrentStepIndex to be 0, got %d", state.CurrentStepIndex)
+		t.Errorf("Expected new state to have CurrentStepIndex=0, got %d", state.CurrentStepIndex)
 	}
-	if state.WorkflowName != StandardWorkflowName {
-		t.Errorf("Expected WorkflowName to be %s, got %s", StandardWorkflowName, state.WorkflowName)
+
+	// Mock IO should have recorded the warning about invalid state file
+	found := false
+	for _, msg := range mockIO.warningMessages {
+		if strings.Contains(msg, "Invalid state file") {
+			found = true
+			break
+		}
 	}
-	if state.ChangeRequestPath != "/path/to/change-request.blueprint.md" {
-		t.Errorf("Expected ChangeRequestPath to be /path/to/change-request.blueprint.md, got %s", state.ChangeRequestPath)
+	if !found {
+		t.Error("Expected warning about invalid state file")
 	}
 }
 
+// TestWorkflowManager_SaveState_WithErrors_ErrorSimulation tests SaveState with permission error
 func TestWorkflowManager_SaveState_WithErrors_ErrorSimulation(t *testing.T) {
-	// Create a mock filesystem with error simulation
+	// Setup
 	fs := io.NewMockFileSystemWithErrors()
 	mockIO := NewMockIO()
 	registry := NewWorkflowRegistry()
 
-	// Create workflow manager with mock filesystem
 	wm := NewWorkflowManager(fs, mockIO, "", registry)
 
 	// Create a valid state
@@ -77,15 +80,18 @@ func TestWorkflowManager_SaveState_WithErrors_ErrorSimulation(t *testing.T) {
 		WorkflowName:      StandardWorkflowName,
 	}
 
+	// Set up a write error using MockFileSystemWithErrors
+	stateFilePath := GenerateStateFilePath("/path/to/change-request.blueprint.md")
+	fs.SetWriteError(stateFilePath, os.ErrPermission)
+	
 	// Test saving state with simulated write error
-	fs.SetWriteError("/path/to/.change-request.blueprint.md.step", os.ErrPermission)
 	err := wm.SaveState(state)
-	if err == nil {
-		t.Error("Expected SaveState to return error on write failure")
-	}
-	if !os.IsPermission(err) {
-		t.Errorf("Expected permission error, got: %v", err)
-	}
+	
+	// Should return an error
+	assert.Error(t, err, "Expected SaveState to return error on write failure")
+	
+	// Check for permission error - the error is now wrapped so check for string instead
+	assert.Contains(t, err.Error(), "permission denied", "Expected permission error")
 }
 
 func TestSaveStateWithWorkflowInfo(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/user-story-matrix/usm/internal/io"
+	"gopkg.in/yaml.v3"
 )
 
 // ValidationResult represents the result of a workflow validation.
@@ -95,6 +96,12 @@ func (v *WorkflowValidator) ValidateWorkflow(dirPath string) *ValidationResult {
 	// Validate prompt templates
 	promptErrors := v.validatePromptTemplates(dirPath)
 	for _, err := range promptErrors {
+		result.AddError(err)
+	}
+	
+	// Validate variable references
+	variableErrors := v.ValidateVariableReferences(dirPath)
+	for _, err := range variableErrors {
 		result.AddError(err)
 	}
 	
@@ -188,8 +195,95 @@ func (v *WorkflowValidator) validatePromptTemplates(dirPath string) []error {
 // Helper function to parse workflow YAML data
 func parseWorkflowYAML(data []byte) (ExternalWorkflowDefinition, error) {
 	var externalWorkflow ExternalWorkflowDefinition
-	// TODO: Implement YAML parsing
-	// This is a stub for now - actual implementation will be provided later
-	// Will use yaml.Unmarshal from the gopkg.in/yaml.v3 package
-	return externalWorkflow, fmt.Errorf("parseWorkflowYAML not implemented yet")
+	err := yaml.Unmarshal(data, &externalWorkflow)
+	if err != nil {
+		return ExternalWorkflowDefinition{}, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+	return externalWorkflow, nil
+}
+
+// ValidateVariableReferences checks whether all variables used in prompt templates
+// are provided in step definitions.
+func (v *WorkflowValidator) ValidateVariableReferences(dirPath string) []error {
+	errors := make([]error, 0)
+	
+	// Read the workflow configuration
+	workflowYAMLPath := filepath.Join(dirPath, WorkflowConfigFile)
+	workflowData, err := v.fs.ReadFile(workflowYAMLPath)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("failed to read workflow configuration: %w", err))
+		return errors
+	}
+	
+	// Parse the workflow configuration
+	externalWorkflow, err := parseWorkflowYAML(workflowData)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("invalid workflow configuration: %w", err))
+		return errors
+	}
+	
+	// Create template renderer
+	renderer := NewTemplateRenderer(v.fs, dirPath)
+	
+	// Check each step for variable references
+	for _, step := range externalWorkflow.Steps {
+		// Skip steps without prompt
+		if step.Prompt == "" {
+			continue
+		}
+		
+		// Extract variables from prompt
+		variables, err := renderer.ExtractTemplateVariables(step.Prompt)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to extract variables from prompt '%s': %w", step.Prompt, err))
+			continue
+		}
+		
+		// Check if variables are provided
+		for _, varName := range variables {
+			if step.Variables == nil || step.Variables[varName] == "" {
+				// Variable not provided, check if it has a default value
+				hasDefault, err := v.checkForDefaultValue(dirPath, step.Prompt, varName)
+				if err != nil {
+					errors = append(errors, fmt.Errorf("failed to check for default value for variable '%s' in prompt '%s': %w", 
+						varName, step.Prompt, err))
+					continue
+				}
+				
+				if !hasDefault {
+					errors = append(errors, fmt.Errorf("variable '%s' is used in prompt '%s' but not provided in step '%s' and has no default value", 
+						varName, step.Prompt, step.ID))
+				}
+			}
+		}
+	}
+	
+	return errors
+}
+
+// checkForDefaultValue checks if a variable has a default value in the template.
+func (v *WorkflowValidator) checkForDefaultValue(dirPath string, promptPath string, varName string) (bool, error) {
+	// Get full path to prompt file
+	fullPath := promptPath
+	if !filepath.IsAbs(promptPath) {
+		fullPath = filepath.Join(dirPath, promptPath)
+	}
+	
+	// Check if prompt file exists
+	if !v.fs.Exists(fullPath) {
+		return false, fmt.Errorf("prompt file not found: %s", promptPath)
+	}
+	
+	// Read the prompt file
+	promptData, err := v.fs.ReadFile(fullPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read prompt file: %w", err)
+	}
+	
+	// Look for default value pattern: {{.varName | default "..."}}
+	promptText := string(promptData)
+	defaultPattern := fmt.Sprintf("{{.%s\\s*\\|\\s*default", varName)
+	
+	// Very simple check - a more robust implementation would use proper template parsing
+	return strings.Contains(promptText, defaultPattern), nil
 } 

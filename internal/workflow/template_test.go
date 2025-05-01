@@ -6,11 +6,13 @@
 package workflow
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"text/template"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/user-story-matrix/usm/internal/io"
 )
 
 // TestDefaultFunctionDirectly tests the default function directly in a template
@@ -818,5 +820,250 @@ func TestCustomTemplateHandling(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, result)
 		}
+	}
+}
+
+func TestRenderPrompt(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create a workflow directory
+	workflowDir := "/path/to/workflow"
+	fs.AddDirectory(workflowDir)
+	fs.AddDirectory(filepath.Join(workflowDir, "prompts"))
+	
+	// Add templates with different error behaviors
+	
+	// Template 1: Normal template with variables
+	promptPath := "prompts/template.md"
+	promptContent := `# Template with Variables
+
+Hello {{.name}},
+
+This is a template with variables.
+Here is a variable with default value: {{.optional | default "default value"}}
+And here is a variable formatted as uppercase: {{.uppercase | upper}}
+And a variable formatted as lowercase: {{.lowercase | lower}}
+
+Here's a list: {{join .items ", "}}
+
+{{if .conditional}}This will show if conditional is true.{{end}}
+`
+	fs.AddFile(filepath.Join(workflowDir, promptPath), []byte(promptContent))
+	
+	// Template 2: Template that produces errors with missing variables
+	promptWithErrorPath := "prompts/template_with_error.md"
+	promptWithErrorContent := `# Template that errors with missing variables
+
+This template uses a required variable in a context that will error if missing:
+{{len .required_array}}
+
+If this variable is missing, the template rendering will fail with an error.
+`
+	fs.AddFile(filepath.Join(workflowDir, promptWithErrorPath), []byte(promptWithErrorContent))
+	
+	// Template 3: Template that handles missing variables gracefully
+	promptPathWithOptional := "prompts/optional_template.md"
+	promptContentWithOptional := `# Template with Optional Variables
+
+Hello {{if .name}}{{.name}}{{else}}Guest{{end}},
+
+All variables here have defaults or conditionals.
+Here is a variable with default value: {{.optional | default "default value"}}
+And here is a variable that might not be present: {{if .uppercase}}{{.uppercase | upper}}{{else}}NO VALUE{{end}}
+
+The template can safely handle missing variables.
+`
+	fs.AddFile(filepath.Join(workflowDir, promptPathWithOptional), []byte(promptContentWithOptional))
+	
+	// Create a template renderer
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	
+	// Test cases
+	testCases := []struct {
+		name         string
+		templatePath string
+		variables    map[string]interface{}
+		expectedText string
+		expectError  bool
+	}{
+		{
+			name:         "Basic variable substitution",
+			templatePath: promptPath,
+			variables: map[string]interface{}{
+				"name":      "User",
+				"uppercase": "make me upper",
+				"lowercase": "MAKE ME LOWER",
+				"items":     []string{"item1", "item2", "item3"},
+				"conditional": true,
+			},
+			expectedText: `# Template with Variables
+
+Hello User,
+
+This is a template with variables.
+Here is a variable with default value: default value
+And here is a variable formatted as uppercase: MAKE ME UPPER
+And a variable formatted as lowercase: make me lower
+
+Here's a list: item1, item2, item3
+
+This will show if conditional is true.
+`,
+			expectError: false,
+		},
+		{
+			name:         "With optional variable",
+			templatePath: promptPath,
+			variables: map[string]interface{}{
+				"name":      "User",
+				"optional":  "custom value",
+				"uppercase": "make me upper",
+				"lowercase": "MAKE ME LOWER",
+				"items":     []string{"item1", "item2", "item3"},
+				"conditional": true,
+			},
+			expectedText: `# Template with Variables
+
+Hello User,
+
+This is a template with variables.
+Here is a variable with default value: custom value
+And here is a variable formatted as uppercase: MAKE ME UPPER
+And a variable formatted as lowercase: make me lower
+
+Here's a list: item1, item2, item3
+
+This will show if conditional is true.
+`,
+			expectError: false,
+		},
+		{
+			name:         "With missing required variable",
+			templatePath: promptWithErrorPath,
+			variables: map[string]interface{}{
+				// Missing required_array variable that will cause a template execution error
+			},
+			expectError: true,
+		},
+		{
+			name:         "Template handling missing variables safely",
+			templatePath: promptPathWithOptional,
+			variables: map[string]interface{}{
+				// All variables can be missing without errors
+			},
+			expectedText: `# Template with Optional Variables
+
+Hello Guest,
+
+All variables here have defaults or conditionals.
+Here is a variable with default value: default value
+And here is a variable that might not be present: NO VALUE
+
+The template can safely handle missing variables.
+`,
+			expectError: false,
+		},
+	}
+	
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Render the template
+			result, err := renderer.RenderPrompt(tc.templatePath, tc.variables)
+			
+			// Check error
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error, but got none")
+				}
+				return
+			}
+			
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+			
+			// Compare result with expected text
+			if result != tc.expectedText {
+				t.Errorf("Rendered template does not match expected:\nExpected:\n%s\nGot:\n%s", 
+					tc.expectedText, result)
+			}
+		})
+	}
+}
+
+func TestExtractTemplateVariables(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create a workflow directory
+	workflowDir := "/path/to/workflow"
+	fs.AddDirectory(workflowDir)
+	fs.AddDirectory(filepath.Join(workflowDir, "prompts"))
+	
+	// Add a prompt template with variables
+	promptPath := "prompts/template.md"
+	promptContent := `# Template with Variables
+
+Hello {{.name}},
+
+This is a template with variables.
+Here is a variable with default value: {{.optional | default "default value"}}
+And here is a variable formatted as uppercase: {{.name | upper}}
+And a variable formatted as lowercase: {{.name | lower}}
+
+Here's a list: {{join .items ", "}}
+
+{{if .conditional}}This will show if conditional is true.{{end}}
+`
+	
+	// Add the prompt file to the filesystem
+	fs.AddFile(filepath.Join(workflowDir, promptPath), []byte(promptContent))
+	
+	// Create a template renderer
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	
+	// Extract variables
+	variables, err := renderer.ExtractTemplateVariables(promptPath)
+	
+	// Check error
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+	
+	// Expected variables
+	expected := []string{"name", "optional", "items", "conditional"}
+	
+	// Convert to maps for easier comparison
+	expectedMap := make(map[string]bool)
+	for _, v := range expected {
+		expectedMap[v] = true
+	}
+	
+	actualMap := make(map[string]bool)
+	for _, v := range variables {
+		actualMap[v] = true
+	}
+	
+	// Check if all expected variables are found
+	for _, v := range expected {
+		if !actualMap[v] {
+			t.Errorf("Expected variable '%s' not found in extracted variables: %v", v, variables)
+		}
+	}
+	
+	// Check if any unexpected variables are found
+	for _, v := range variables {
+		if !expectedMap[v] {
+			t.Errorf("Unexpected variable '%s' found in extracted variables", v)
+		}
+	}
+	
+	// Check count
+	if len(variables) != len(expected) {
+		t.Errorf("Expected %d variables, got %d", len(expected), len(variables))
 	}
 } 
