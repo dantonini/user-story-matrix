@@ -60,15 +60,23 @@ func (e *ExternalWorkflowDefinition) ToWorkflowDefinition() *WorkflowDefinition 
 			Variables:   step.Variables,
 		}
 
-		// Initialize the source field if the prompt is a file reference
-		if strings.HasPrefix(step.Prompt, "prompts/") || filepath.Ext(step.Prompt) == ".md" {
-			// This is a file reference - create a file source
+		// Initialize the source field for all prompts that look like file paths
+		// This is more inclusive than the previous check to catch all potential file references
+		if strings.Contains(step.Prompt, "/") || 
+		   strings.Contains(step.Prompt, "\\") || 
+		   filepath.Ext(step.Prompt) != "" {
+			// This is likely a file reference - create a file source
 			workflowStep.source = promptSource{
 				sourceType: promptSourceFile,
 				filePath:   step.Prompt, // For now, store the relative path; it will be resolved later
 			}
+		} else if step.Prompt != "" {
+			// For non-empty, non-file prompts, set as embedded type
+			workflowStep.source = promptSource{
+				sourceType: promptSourceEmbedded,
+			}
 		}
-		// For non-file prompts, the source defaults to zero values which is fine
+		// For empty prompts, the source defaults to zero values which is fine
 		
 		steps[i] = workflowStep
 	}

@@ -65,6 +65,7 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 			filepath.Join(pwd, promptPath),                // Try relative to current directory
 			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
 			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
 		}
 		
 		foundPath := ""
@@ -154,6 +155,7 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 			filepath.Join(pwd, promptPath),                // Try relative to current directory
 			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
 			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
 		}
 		
 		foundPath := ""
@@ -228,6 +230,7 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 			filepath.Join(pwd, promptPath),                // Try relative to current directory
 			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
 			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
 		}
 		
 		foundPath := ""

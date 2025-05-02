@@ -80,13 +80,13 @@ Examples:
 		}
 		
 		// Display successful validation results
-		output.PrintSuccess("Workflow is valid")
+		output.PrintSuccess("✅ Workflow is valid")
 		
 		// Always display warnings when present, even for valid workflows
 		if len(result.Warnings) > 0 {
-			output.PrintWarning(fmt.Sprintf("Found %d warning(s) that should be addressed:", len(result.Warnings)))
+			output.PrintWarning(fmt.Sprintf("\n⚠️  Found %d warning(s) that should be addressed:", len(result.Warnings)))
 			
-			// Group warnings by step ID and type for better organization
+			// Group warnings by type for better organization
 			warningsByStep := make(map[string][]string)
 			unusedVarWarnings := []string{}
 			missingVarWarnings := []string{}
@@ -106,48 +106,58 @@ Examples:
 			// Display missing variable warnings with suggested fixes
 			if len(missingVarWarnings) > 0 {
 				output.PrintWarning("\n🔍 MISSING VARIABLES")
+				output.Print("   Variables used in templates but not defined in the workflow:")
 				for _, warning := range missingVarWarnings {
 					// Extract key information from the warning
 					stepID, varName, templatePath := extractInfoFromMissingVarWarning(warning)
 					
 					// Create more user-friendly message with fix suggestion
-					output.PrintWarning(fmt.Sprintf("  • Step '%s': Variable '%s' is used in '%s' but not defined", 
+					output.PrintWarning(fmt.Sprintf("   • Step '%s': Variable '%s' in '%s'", 
 						stepID, varName, templatePath))
-					output.Print(fmt.Sprintf("    ↳ Fix: Add to your workflow.yaml under this step's 'variables' section:"))
-					output.Print(fmt.Sprintf("      %s: \"your_value_here\"", varName))
+					output.Print(fmt.Sprintf("     ↳ Fix: Add to workflow.yaml in step '%s':", stepID))
+					output.Print(fmt.Sprintf("         variables:"))
+					output.Print(fmt.Sprintf("           %s: \"your_value_here\"", varName))
 				}
+				
+				output.Print("\n   Example variable usage in templates:")
+				output.Print("     {{.variable_name}} - Basic usage")
+				output.Print("     {{.variable_name | default \"fallback\"}} - With default value")
 			}
 			
 			// Display unused variable warnings
 			if len(unusedVarWarnings) > 0 {
 				output.PrintWarning("\n⚠️  UNUSED VARIABLES")
+				output.Print("   Variables defined in the workflow but not used in templates:")
 				for _, warning := range unusedVarWarnings {
 					// Extract key information from the warning
 					varName, stepID, templatePath := extractInfoFromUnusedVarWarning(warning)
 					
 					// Create more user-friendly message with fix suggestion
-					output.PrintWarning(fmt.Sprintf("  • Step '%s': Variable '%s' is defined but not used in '%s'", 
+					output.PrintWarning(fmt.Sprintf("   • Step '%s': Variable '%s' in '%s'", 
 						stepID, varName, templatePath))
-					output.Print(fmt.Sprintf("    ↳ Fix options:"))
-					output.Print(fmt.Sprintf("      1. Use it in the template with {{.%s}}", varName))
-					output.Print(fmt.Sprintf("      2. Remove it from the 'variables' section in workflow.yaml"))
+					output.Print(fmt.Sprintf("     ↳ Fix options:"))
+					output.Print(fmt.Sprintf("       1. Use the variable in template: {{.%s}}", varName))
+					output.Print(fmt.Sprintf("       2. Remove from workflow.yaml if not needed"))
 				}
 			}
 			
 			// Display other warnings
-			for stepID, warnings := range warningsByStep {
-				if len(warnings) > 0 {
-					output.PrintWarning(fmt.Sprintf("\n⚙️  OTHER WARNINGS FOR STEP '%s':", stepID))
-					for _, warning := range warnings {
-						output.PrintWarning(fmt.Sprintf("  • %s", warning))
+			if len(warningsByStep) > 0 {
+				output.PrintWarning("\n⚙️  OTHER WARNINGS")
+				for stepID, warnings := range warningsByStep {
+					if len(warnings) > 0 {
+						output.PrintWarning(fmt.Sprintf("   Step '%s':", stepID))
+						for _, warning := range warnings {
+							output.Print(fmt.Sprintf("   • %s", warning))
+						}
 					}
 				}
 			}
 			
 			// Provide a summary footer with next steps
-			output.PrintWarning("\nRecommended next steps:")
-			output.Print("  1. Fix the warnings above")
-			output.Print("  2. Run 'usm workflow validate asd' again to confirm")
+			output.PrintWarning("\n🛠️  RECOMMENDED NEXT STEPS")
+			output.Print("   1. Fix the warnings shown above")
+			output.Print("   2. Run 'usm workflow validate' again to confirm")
 		}
 	},
 }
