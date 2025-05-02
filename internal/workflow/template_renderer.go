@@ -8,6 +8,7 @@ package workflow
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -55,9 +56,30 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 		fullPath = filepath.Join(r.workflowDir, promptPath)
 	}
 	
-	// Check if prompt file exists
+	// First try with the provided path
 	if !r.fs.Exists(fullPath) {
-		return "", fmt.Errorf("prompt file not found: %s", promptPath)
+		// If file doesn't exist at the direct path, try to find it in standard locations
+		pwd, _ := os.Getwd()
+		possiblePaths := []string{
+			fullPath,
+			filepath.Join(pwd, promptPath),                // Try relative to current directory
+			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
+			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+		}
+		
+		foundPath := ""
+		for _, path := range possiblePaths {
+			if r.fs.Exists(path) {
+				foundPath = path
+				break
+			}
+		}
+		
+		if foundPath == "" {
+			return "", fmt.Errorf("prompt file not found: %s", promptPath)
+		}
+		
+		fullPath = foundPath
 	}
 	
 	// Read the prompt file
@@ -122,9 +144,31 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 		fullPath = filepath.Join(r.workflowDir, promptPath)
 	}
 	
-	// Check if prompt file exists
+	// First try with the provided path
 	if !r.fs.Exists(fullPath) {
-		return fmt.Errorf("prompt file not found: %s", promptPath)
+		// If file doesn't exist at the direct path, try to find it in standard locations
+		// Read the current directory structure to help debug
+		pwd, _ := os.Getwd()
+		possiblePaths := []string{
+			fullPath,
+			filepath.Join(pwd, promptPath),                // Try relative to current directory
+			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
+			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+		}
+		
+		foundPath := ""
+		for _, path := range possiblePaths {
+			if r.fs.Exists(path) {
+				foundPath = path
+				break
+			}
+		}
+		
+		if foundPath == "" {
+			return fmt.Errorf("prompt file not found: %s", promptPath)
+		}
+		
+		fullPath = foundPath
 	}
 	
 	// Read the prompt file
@@ -174,9 +218,31 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 		fullPath = filepath.Join(r.workflowDir, promptPath)
 	}
 	
-	// Check if prompt file exists
+	// First try with the provided path
 	if !r.fs.Exists(fullPath) {
-		return nil, fmt.Errorf("prompt file not found: %s", promptPath)
+		// If file doesn't exist at the direct path, try to find it in standard locations
+		// Read the current directory structure to help debug
+		pwd, _ := os.Getwd()
+		possiblePaths := []string{
+			fullPath,
+			filepath.Join(pwd, promptPath),                // Try relative to current directory
+			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
+			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
+		}
+		
+		foundPath := ""
+		for _, path := range possiblePaths {
+			if r.fs.Exists(path) {
+				foundPath = path
+				break
+			}
+		}
+		
+		if foundPath == "" {
+			return nil, fmt.Errorf("prompt file not found: %s", promptPath)
+		}
+		
+		fullPath = foundPath
 	}
 	
 	// Read the prompt file

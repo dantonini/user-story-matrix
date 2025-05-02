@@ -907,4 +907,57 @@ steps:
 
 	// This assertion should pass when the bug is fixed
 	assert.True(t, foundWarning, "Should find warning about missing key2 variable")
+}
+
+// TestValidateWorkflowRelativePaths tests that the validator reports paths correctly
+// without introducing incorrect path prefixes like ../../../
+func TestValidateWorkflowRelativePaths(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	workflowDir := "/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Create a prompt file
+	step1PromptPath := filepath.Join(promptsDir, "step1.md")
+	step1Content := `This step uses {{.key1}} and {{.key2}}.`
+	fs.WriteFile(step1PromptPath, []byte(step1Content), 0644)
+
+	// Create workflow definition with relative prompt path
+	workflow := &WorkflowDefinition{
+		Name:        "test-workflow",
+		Description: "Test workflow with relative path",
+		Steps: []WorkflowStep{
+			{
+				ID:          "step1",
+				Description: "First step",
+				Variables:   map[string]string{"key1": "value1"},
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   "prompts/step1.md", // Relative path as would be stored in workflow.yaml
+				},
+			},
+		},
+	}
+
+	// Create validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflow)
+	assert.NoError(t, err, "Validation should not error")
+
+	// There should be warnings about missing variables
+	foundWarning := false
+	for _, warning := range result.Warnings {
+		t.Logf("Warning: %s", warning)
+		// The warning should contain the proper relative path, not ../../../ etc.
+		if strings.Contains(warning, "key2") {
+			foundWarning = true
+			assert.Contains(t, warning, "prompts/step1.md", "Warning should use the correct relative path")
+			assert.NotContains(t, warning, "../", "Warning should not contain ../ path components")
+		}
+	}
+
+	assert.True(t, foundWarning, "Should find warning about missing key2 variable")
 } 

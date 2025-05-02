@@ -7,6 +7,7 @@ package workflow
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -145,21 +146,27 @@ func (v *WorkflowValidator) validatePromptTemplates(workflow *WorkflowDefinition
 		if promptSource.sourceType == promptSourceFile {
 			// Validate template
 			promptPath := promptSource.filePath
-			promptRelPath, err := filepath.Rel(v.workflowPath, promptPath)
-			if err != nil {
-				promptRelPath = promptPath
+			
+			// Use the original prompt path from the workflow file for display
+			// This avoids showing incorrect relative paths like ../../../prompts/step1.md
+			displayPath := promptPath
+			
+			// Get full path for validation
+			fullPromptPath := promptPath
+			if !filepath.IsAbs(promptPath) {
+				fullPromptPath = filepath.Join(v.workflowPath, promptPath)
 			}
 			
 			// Validate template syntax
-			err = v.renderer.ValidateTemplate(promptPath)
+			err := v.renderer.ValidateTemplate(fullPromptPath)
 			if err != nil {
-				result.AddError(fmt.Sprintf("invalid template in '%s': %s", promptRelPath, err.Error()))
+				result.AddError(fmt.Sprintf("invalid template in '%s': %s", displayPath, err.Error()))
 			}
 			
 			// Extract and validate variables
-			variables, err := v.renderer.ExtractTemplateVariables(promptPath)
+			variables, err := v.renderer.ExtractTemplateVariables(fullPromptPath)
 			if err != nil {
-				result.AddError(fmt.Sprintf("failed to extract variables from '%s': %s", promptRelPath, err.Error()))
+				result.AddError(fmt.Sprintf("failed to extract variables from '%s': %s", displayPath, err.Error()))
 				continue
 			}
 			
@@ -167,9 +174,9 @@ func (v *WorkflowValidator) validatePromptTemplates(workflow *WorkflowDefinition
 			for _, varName := range variables {
 				if _, exists := step.Variables[varName]; !exists {
 					// Check if variable has a default value before warning
-					if !checkForDefaultValue(v.fs, promptPath, varName) {
+					if !checkForDefaultValue(v.fs, fullPromptPath, varName) {
 						result.AddWarning(fmt.Sprintf("step '%s' uses variable '%s' in template '%s' but it is not provided in step definition",
-							step.ID, varName, promptRelPath))
+							step.ID, varName, displayPath))
 					}
 				}
 			}
@@ -186,7 +193,7 @@ func (v *WorkflowValidator) validatePromptTemplates(workflow *WorkflowDefinition
 				
 				if !found {
 					result.AddWarning(fmt.Sprintf("variable '%s' is defined in step '%s' but not used in template '%s'",
-						varName, step.ID, promptRelPath))
+						varName, step.ID, displayPath))
 				}
 			}
 		}
@@ -209,14 +216,19 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 		if promptSource.sourceType == promptSourceFile {
 			// Extract variables from template
 			promptPath := promptSource.filePath
-			promptRelPath, err := filepath.Rel(workflowDir, promptPath)
-			if err != nil {
-				promptRelPath = promptPath
+			
+			// Use the original path for display in error messages
+			displayPath := promptPath
+			
+			// Get full path for validation
+			fullPromptPath := promptPath
+			if !filepath.IsAbs(promptPath) {
+				fullPromptPath = filepath.Join(workflowDir, promptPath)
 			}
 			
-			variables, err := renderer.ExtractTemplateVariables(promptPath)
+			variables, err := renderer.ExtractTemplateVariables(fullPromptPath)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to extract variables from '%s': %w", promptRelPath, err))
+				errors = append(errors, fmt.Errorf("failed to extract variables from '%s': %w", displayPath, err))
 				continue
 			}
 			
@@ -224,7 +236,7 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 			missingVars := make([]string, 0)
 			for _, varName := range variables {
 				if _, exists := step.Variables[varName]; !exists {
-					if !checkForDefaultValue(fs, promptPath, varName) {
+					if !checkForDefaultValue(fs, fullPromptPath, varName) {
 						missingVars = append(missingVars, varName)
 					}
 				}
@@ -233,7 +245,7 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 			if len(missingVars) > 0 {
 				sort.Strings(missingVars)
 				errors = append(errors, fmt.Errorf("step '%s' uses variables %v in template '%s' but they are not provided in step definition",
-					step.ID, missingVars, promptRelPath))
+					step.ID, missingVars, displayPath))
 			}
 			
 			// Check if there are unused variables defined
@@ -255,7 +267,7 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 			if len(unusedVars) > 0 {
 				sort.Strings(unusedVars)
 				warnings = append(warnings, fmt.Errorf("variables %v are defined in step '%s' but not used in template '%s'",
-					unusedVars, step.ID, promptRelPath))
+					unusedVars, step.ID, displayPath))
 			}
 		}
 	}
@@ -270,7 +282,29 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 
 // checkForDefaultValue checks if a variable has a default value in the template.
 func checkForDefaultValue(fs io.FileSystem, promptPath string, varName string) bool {
-	data, err := fs.ReadFile(promptPath)
+	// Make sure we have an absolute path for reading
+	fullPath := promptPath
+	if !filepath.IsAbs(promptPath) {
+		// Try to resolve the path
+		workingDir, err := os.Getwd()
+		if err == nil {
+			// Try a few different possible locations
+			possiblePaths := []string{
+				promptPath, // As is (might be relative to current working directory)
+				filepath.Join(workingDir, promptPath), // Relative to working directory
+			}
+			
+			// Try to find the file in any of these locations
+			for _, path := range possiblePaths {
+				if fs.Exists(path) {
+					fullPath = path
+					break
+				}
+			}
+		}
+	}
+
+	data, err := fs.ReadFile(fullPath)
 	if err != nil {
 		return false
 	}
