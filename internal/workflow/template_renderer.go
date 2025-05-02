@@ -133,7 +133,7 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 		return fmt.Errorf("failed to read prompt file: %w", err)
 	}
 	
-	// Create new template
+	// Create function map with common functions used in templates
 	funcMap := template.FuncMap{
 		"default": func(defaultVal interface{}, val interface{}) interface{} {
 			if val == nil {
@@ -144,6 +144,10 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 			}
 			return val
 		},
+		"join":  strings.Join,
+		"lower": strings.ToLower,
+		"upper": strings.ToUpper,
+		"trim":  strings.TrimSpace,
 	}
 	
 	tmpl := template.New(filepath.Base(promptPath)).Funcs(funcMap)
@@ -181,8 +185,25 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 		return nil, fmt.Errorf("failed to read prompt file: %w", err)
 	}
 	
+	// Create function map with common functions used in templates
+	funcMap := template.FuncMap{
+		"default": func(defaultVal interface{}, val interface{}) interface{} {
+			if val == nil {
+				return defaultVal
+			}
+			if s, ok := val.(string); ok && s == "" {
+				return defaultVal
+			}
+			return val
+		},
+		"join":  strings.Join,
+		"lower": strings.ToLower,
+		"upper": strings.ToUpper,
+		"trim":  strings.TrimSpace,
+	}
+	
 	// Parse the template to get the AST
-	tmpl, err := template.New(filepath.Base(promptPath)).Parse(string(promptData))
+	tmpl, err := template.New(filepath.Base(promptPath)).Funcs(funcMap).Parse(string(promptData))
 	if err != nil {
 		return nil, fmt.Errorf("invalid template syntax in %s: %w", promptPath, err)
 	}

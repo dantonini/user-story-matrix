@@ -166,9 +166,11 @@ func (v *WorkflowValidator) validatePromptTemplates(workflow *WorkflowDefinition
 			// Check if all extracted variables are provided
 			for _, varName := range variables {
 				if _, exists := step.Variables[varName]; !exists {
-					// This is only a warning because the template might have default values
-					result.AddWarning(fmt.Sprintf("step '%s' uses variable '%s' in template '%s' but it is not provided in step definition",
-						step.ID, varName, promptRelPath))
+					// Check if variable has a default value before warning
+					if !checkForDefaultValue(v.fs, promptPath, varName) {
+						result.AddWarning(fmt.Sprintf("step '%s' uses variable '%s' in template '%s' but it is not provided in step definition",
+							step.ID, varName, promptRelPath))
+					}
 				}
 			}
 			
@@ -275,15 +277,34 @@ func checkForDefaultValue(fs io.FileSystem, promptPath string, varName string) b
 	
 	promptContent := string(data)
 	
-	// Look for default value pattern like {{.varName | default "value"}}
-	// This is a simplified approach that doesn't handle all possible template formats
-	pattern := fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+`, regexp.QuoteMeta(varName))
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return false
+	// More comprehensive pattern to match different default value formats
+	// - {{ .varName | default "value" }}  - with quotes
+	// - {{ .varName | default value }}    - without quotes
+	// - {{ .varName | default 123 }}      - numeric values
+	// - {{.varName|default "value"}}      - compressed format
+	patterns := []string{
+		// With quotes (string literal)
+		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+"[^"]*"\s*\}\}`, regexp.QuoteMeta(varName)),
+		// With single quotes
+		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+'[^']*'\s*\}\}`, regexp.QuoteMeta(varName)),
+		// With backticks
+		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+` + "`[^`]*`" + `\s*\}\}`, regexp.QuoteMeta(varName)),
+		// Numeric or unquoted value (must be followed by space or }})
+		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+[^"\s][^\s}]*(?:\s|\}\})`, regexp.QuoteMeta(varName)),
 	}
 	
-	return re.MatchString(promptContent)
+	for _, pattern := range patterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			continue // Skip this pattern if compilation fails
+		}
+		
+		if re.MatchString(promptContent) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // Helper function to find a line number in text

@@ -58,22 +58,33 @@ Examples:
 		// Call the business logic function
 		result := validateWorkflow(nameOrPath, fs, output)
 		
+		// Display progress message first
+		output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", result.WorkflowName))
+		
 		// Handle the result
 		if !result.Success {
+			// Display any errors
 			output.PrintError(result.ErrorMessage)
+			
+			// Display specific errors if available
+			if len(result.Errors) > 0 {
+				for _, err := range result.Errors {
+					output.PrintError(fmt.Sprintf("- %s", err))
+				}
+			}
+			
 			os.Exit(1)
 			return
 		}
 		
 		// Display successful validation results
-		output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", result.WorkflowName))
 		output.PrintSuccess("Workflow is valid")
 		
-		// Display any warnings
+		// Always display warnings when present, even for valid workflows
 		if len(result.Warnings) > 0 {
-			output.PrintWarning(fmt.Sprintf("Found %d warnings:", len(result.Warnings)))
+			output.PrintWarning(fmt.Sprintf("Found %d warning(s):", len(result.Warnings)))
 			for _, warning := range result.Warnings {
-				output.Print(fmt.Sprintf("- %s", warning))
+				output.PrintWarning(fmt.Sprintf("- %s", warning))
 			}
 		}
 	},

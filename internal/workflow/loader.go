@@ -53,12 +53,24 @@ type ExternalWorkflowStep struct {
 func (e *ExternalWorkflowDefinition) ToWorkflowDefinition() *WorkflowDefinition {
 	steps := make([]WorkflowStep, len(e.Steps))
 	for i, step := range e.Steps {
-		steps[i] = WorkflowStep{
+		workflowStep := WorkflowStep{
 			ID:          step.ID,
 			Description: step.Description,
 			Prompt:      step.Prompt,
 			Variables:   step.Variables,
 		}
+
+		// Initialize the source field if the prompt is a file reference
+		if strings.HasPrefix(step.Prompt, "prompts/") || filepath.Ext(step.Prompt) == ".md" {
+			// This is a file reference - create a file source
+			workflowStep.source = promptSource{
+				sourceType: promptSourceFile,
+				filePath:   step.Prompt, // For now, store the relative path; it will be resolved later
+			}
+		}
+		// For non-file prompts, the source defaults to zero values which is fine
+		
+		steps[i] = workflowStep
 	}
 	
 	return &WorkflowDefinition{

@@ -7,6 +7,7 @@ package workflow
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -692,4 +693,218 @@ func TestValidationErrorString(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.err.Error())
 		})
 	}
+}
+
+// TestValidateWorkflowWithDefaultValues tests that the validator correctly handles default values in templates
+func TestValidateWorkflowWithDefaultValues(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	workflowDir := "/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Add test prompt templates with clearer separation of test cases
+	promptWithDefaultsPath := filepath.Join(promptsDir, "with-defaults.md")
+	templateContent := `
+# Template with variables
+- Variable with value: {{.key1}}
+- Variable without value or default: {{.key2}}
+- Variable with default: {{.optional_var | default "default value"}}
+`
+	fs.WriteFile(promptWithDefaultsPath, []byte(templateContent), 0644)
+
+	// Create a workflow validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+
+	// Create test workflow
+	workflow := &WorkflowDefinition{
+		Name:        "test-workflow",
+		Description: "Test workflow with default values",
+		Steps: []WorkflowStep{
+			{
+				ID:          "step1",
+				Description: "Test step with defaults",
+				Variables:   map[string]string{"key1": "value1"},
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   promptWithDefaultsPath,
+				},
+			},
+		},
+	}
+
+	// Test the checkForDefaultValue function directly first
+	hasDefaultKey1 := checkForDefaultValue(fs, promptWithDefaultsPath, "key1")
+	hasDefaultKey2 := checkForDefaultValue(fs, promptWithDefaultsPath, "key2")
+	hasDefaultOptional := checkForDefaultValue(fs, promptWithDefaultsPath, "optional_var")
+	
+	t.Logf("Direct function test - hasDefaultKey1: %v, hasDefaultKey2: %v, hasDefaultOptional: %v", 
+		hasDefaultKey1, hasDefaultKey2, hasDefaultOptional)
+	
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflow)
+	
+	// Print debug information
+	t.Logf("Validation result - Errors: %v, Warnings: %v", result.Errors, result.Warnings)
+	
+	// Assertions
+	assert.NoError(t, err)
+	
+	// The validation should succeed with warnings
+	assert.True(t, result.IsValid(), "Result should be valid (no errors) despite warnings")
+	assert.Greater(t, len(result.Warnings), 0, "There should be at least one warning")
+	
+	// Check that key2 is reported as missing but optional_var is not (due to default value)
+	foundMissingKey2Warning := false
+	foundOptionalVarWarning := false
+	
+	for _, warning := range result.Warnings {
+		t.Logf("Warning: %s", warning)
+		if strings.Contains(warning, "key2") {
+			foundMissingKey2Warning = true
+		}
+		if strings.Contains(warning, "optional_var") {
+			foundOptionalVarWarning = true
+		}
+	}
+	
+	assert.True(t, foundMissingKey2Warning, "Warning for missing key2 should be reported")
+	assert.False(t, foundOptionalVarWarning, "Warning for optional_var with default should not be reported")
+}
+
+// TestValidateMultiStepWorkflow reproduces a real-world issue where workflow validation
+// doesn't properly detect missing variables in multi-step workflows
+func TestValidateMultiStepWorkflow(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	workflowDir := "/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Add test prompt templates resembling the actual issue
+	step1PromptPath := filepath.Join(promptsDir, "step1.md")
+	step1Content := `
+# Step 1: First Step
+
+This is the first step. You can use variable substitution with {{ .key1 }} and {{ .key2 }}.
+
+You can also use default values: {{ .optional_var | default "default value" }}.
+`
+	fs.WriteFile(step1PromptPath, []byte(step1Content), 0644)
+
+	step2PromptPath := filepath.Join(promptsDir, "step2.md")
+	step2Content := `
+# Step 2: Second Step
+
+This step uses {{ .key1 }} and {{ .key2 }}.
+`
+	fs.WriteFile(step2PromptPath, []byte(step2Content), 0644)
+
+	// Create a workflow that resembles the problematic workflow 
+	// where key2 is referenced in step1 but only defined in step2
+	workflow := &WorkflowDefinition{
+		Name:        "multi-step-workflow",
+		Description: "Test multi-step workflow with missing variable reference",
+		Steps: []WorkflowStep{
+			{
+				ID:          "01-step-one",
+				Description: "First step",
+				Variables:   map[string]string{"key1": "value1", "keyA": "value2"},
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   step1PromptPath,
+				},
+			},
+			{
+				ID:          "02-step-two",
+				Description: "Second step",
+				Variables:   map[string]string{"key1": "value1", "key2": "value2"},
+				source: promptSource{
+					sourceType: promptSourceFile,
+					filePath:   step2PromptPath,
+				},
+			},
+		},
+	}
+
+	// Create a workflow validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+	
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflow)
+	
+	// Print debug information
+	t.Logf("Validation result - Errors: %v, Warnings: %v", result.Errors, result.Warnings)
+	
+	// Assertions
+	assert.NoError(t, err, "Validation should not return an error")
+	assert.True(t, result.IsValid(), "Result should be valid (warnings don't make it invalid)")
+	
+	// We expect to find a warning about key2 missing in step 1
+	foundMissingKey2Warning := false
+	for _, warning := range result.Warnings {
+		t.Logf("Warning: %s", warning)
+		if strings.Contains(warning, "key2") && strings.Contains(warning, "01-step-one") {
+			foundMissingKey2Warning = true
+			break
+		}
+	}
+	
+	assert.True(t, foundMissingKey2Warning, "Warning for missing key2 in step 01-step-one should be reported")
+}
+
+// TestValidateWorkflowFromYAML reproduces the issue with workflow validation not detecting
+// missing variables when loading from a YAML file
+func TestValidateWorkflowFromYAML(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	workflowDir := "/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Create a prompt file that references a missing variable
+	step1PromptPath := filepath.Join(promptsDir, "step1.md")
+	step1Content := `This step uses {{.key1}} and {{.key2}}.`
+	fs.WriteFile(step1PromptPath, []byte(step1Content), 0644)
+
+	// Create the workflow.yaml file with missing variable
+	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+	workflowYAMLContent := `name: "test-workflow"
+description: "Test workflow with missing variable"
+steps:
+  - id: "step1"
+    description: "First step"
+    prompt: "prompts/step1.md"
+    variables:
+      key1: "value1"
+      # key2 is missing intentionally
+`
+	fs.WriteFile(workflowYAMLPath, []byte(workflowYAMLContent), 0644)
+
+	// Load the workflow from the YAML file
+	workflowDef, err := LoadWorkflowFromFile(fs, workflowYAMLPath)
+	assert.NoError(t, err, "Should load workflow from YAML")
+
+	// Create validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err, "Validation should not error")
+
+	// The validation should succeed (missing variable is just a warning)
+	assert.True(t, result.IsValid(), "Result should be valid")
+
+	// But it should generate a warning about the missing variable
+	foundWarning := false
+	for _, warning := range result.Warnings {
+		t.Logf("Warning: %s", warning)
+		if strings.Contains(warning, "key2") {
+			foundWarning = true
+			break
+		}
+	}
+
+	// This assertion should pass when the bug is fixed
+	assert.True(t, foundWarning, "Should find warning about missing key2 variable")
 } 
