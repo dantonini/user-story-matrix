@@ -15,6 +15,15 @@ import (
 	"github.com/user-story-matrix/usm/internal/workflow"
 )
 
+// ValidationResult represents the result of a workflow validation operation
+type ValidationResult struct {
+	Success      bool
+	WorkflowName string
+	Errors       []string
+	Warnings     []string
+	ErrorMessage string
+}
+
 // ValidateCmd represents the workflow validate command
 var ValidateCmd = &cobra.Command{
 	Use:   "validate [name-or-path]",
@@ -44,98 +53,135 @@ Examples:
 		nameOrPath := args[0]
 		
 		output := io.NewTerminalIO()
-		
 		fs := io.NewOSFileSystem()
 		
-		registry := workflow.GetGlobalRegistry()
+		// Call the business logic function
+		result := validateWorkflow(nameOrPath, fs, output)
 		
-		// Discover available workflows
-		// This is required to find workflows that were created by the user
-		// but might not have been loaded into the registry yet
-		registry.DiscoverWorkflows(fs)
-		
-		// Determine if input is a path or a name
-		var workflowPath string
-		var workflowDef *workflow.WorkflowDefinition
-		
-		if fs.Exists(nameOrPath) && isValidWorkflowDir(fs, nameOrPath) {
-			// Input is a path
-			workflowPath = nameOrPath
-			
-			// Try to load the workflow from this path
-			workflowYAMLPath := filepath.Join(workflowPath, workflow.WorkflowConfigFile)
-			var err error
-			workflowDef, err = workflow.LoadWorkflowFromFile(fs, workflowYAMLPath)
-			if err != nil {
-				output.PrintError(fmt.Sprintf("Failed to load workflow: %s", err.Error()))
-				os.Exit(1)
-				return
-			}
-		} else {
-			// Assume input is a name, try to find it in registry
-			var err error
-			workflowDef, err = registry.GetWorkflow(nameOrPath)
-			if err != nil {
-				output.PrintError(fmt.Sprintf("Workflow '%s' not found. Use 'usm workflow list' to see available workflows.", nameOrPath))
-				os.Exit(1)
-				return
-			}
-			
-			// First check for source path in the registry's cache
-			source, path := registry.GetWorkflowSourceInfo(nameOrPath)
-			if path != "-" && path != "" {
-				workflowPath = path
-			} else {
-				// If no source path available, try to find it by name
-				workflowPath = findWorkflowByName(fs, nameOrPath)
-				if workflowPath == "" {
-					// For built-in workflows, we don't need a path for validation
-					if source == workflow.SourceBuiltIn {
-						// Built-in workflows don't need prompt validation
-						output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", workflowDef.Name))
-						output.PrintSuccess("Workflow is valid")
-						return
-					}
-					
-					// For other workflow types, we need a path to validate prompt references
-					output.PrintError(fmt.Sprintf("Cannot find workflow directory for '%s'", nameOrPath))
-					os.Exit(1)
-					return
-				}
-			}
-		}
-		
-		// Create validator with the workflow path
-		validator := workflow.NewWorkflowValidator(fs, workflowPath)
-		
-		// Validate workflow
-		output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", workflowDef.Name))
-		result, err := validator.ValidateWorkflow(workflowDef)
-		if err != nil {
-			output.PrintError(fmt.Sprintf("Validation failed: %s", err.Error()))
+		// Handle the result
+		if !result.Success {
+			output.PrintError(result.ErrorMessage)
 			os.Exit(1)
 			return
 		}
 		
-		// Display results
-		if result.IsValid() {
-			output.PrintSuccess("Workflow is valid")
-			
-			// Display any warnings
-			if len(result.Warnings) > 0 {
-				output.PrintWarning(fmt.Sprintf("Found %d warnings:", len(result.Warnings)))
-				for _, warning := range result.Warnings {
-					output.Print(fmt.Sprintf("- %s", warning))
-				}
+		// Display successful validation results
+		output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", result.WorkflowName))
+		output.PrintSuccess("Workflow is valid")
+		
+		// Display any warnings
+		if len(result.Warnings) > 0 {
+			output.PrintWarning(fmt.Sprintf("Found %d warnings:", len(result.Warnings)))
+			for _, warning := range result.Warnings {
+				output.Print(fmt.Sprintf("- %s", warning))
 			}
-		} else {
-			output.PrintError(fmt.Sprintf("Workflow validation failed with %d errors:", len(result.Errors)))
-			for _, err := range result.Errors {
-				output.Print(fmt.Sprintf("- %s", err))
-			}
-			os.Exit(1)
 		}
 	},
+}
+
+// validateWorkflow implements the business logic for workflow validation
+// It extracts the validation logic from the command's Run function to make it testable
+//
+// Parameters:
+//   - nameOrPath: Either a workflow name or path to a workflow directory
+//   - fs: The filesystem interface for file operations
+//   - output: The output interface for user feedback (used only for logging, not errors)
+//
+// Returns:
+//   - ValidationResult containing success status and validation details
+func validateWorkflow(nameOrPath string, fs io.FileSystem, output io.UserOutput) ValidationResult {
+	// Get the global registry
+	registry := workflow.GetGlobalRegistry()
+	
+	// Discover available workflows
+	// This is required to find workflows that were created by the user
+	// but might not have been loaded into the registry yet
+	registry.DiscoverWorkflows(fs)
+	
+	// Determine if input is a path or a name
+	var workflowPath string
+	var workflowDef *workflow.WorkflowDefinition
+	
+	if fs.Exists(nameOrPath) && isValidWorkflowDir(fs, nameOrPath) {
+		// Input is a path
+		workflowPath = nameOrPath
+		
+		// Try to load the workflow from this path
+		workflowYAMLPath := filepath.Join(workflowPath, workflow.WorkflowConfigFile)
+		var err error
+		workflowDef, err = workflow.LoadWorkflowFromFile(fs, workflowYAMLPath)
+		if err != nil {
+			return ValidationResult{
+				Success:      false,
+				ErrorMessage: fmt.Sprintf("Failed to load workflow: %s", err.Error()),
+			}
+		}
+	} else {
+		// Assume input is a name, try to find it in registry
+		var err error
+		workflowDef, err = registry.GetWorkflow(nameOrPath)
+		if err != nil {
+			return ValidationResult{
+				Success:      false,
+				ErrorMessage: fmt.Sprintf("Workflow '%s' not found. Use 'usm workflow list' to see available workflows.", nameOrPath),
+			}
+		}
+		
+		// First check for source path in the registry's cache
+		source, path := registry.GetWorkflowSourceInfo(nameOrPath)
+		if path != "-" && path != "" {
+			workflowPath = path
+		} else {
+			// If no source path available, try to find it by name
+			workflowPath = findWorkflowByName(fs, nameOrPath)
+			if workflowPath == "" {
+				// For built-in workflows, we don't need a path for validation
+				if source == workflow.SourceBuiltIn {
+					// Built-in workflows don't need prompt validation
+					return ValidationResult{
+						Success:      true,
+						WorkflowName: workflowDef.Name,
+						Warnings:     []string{"Built-in workflow validated without prompt reference checks"},
+					}
+				}
+				
+				// For other workflow types, we need a path to validate prompt references
+				return ValidationResult{
+					Success:      false,
+					ErrorMessage: fmt.Sprintf("Cannot find workflow directory for '%s'", nameOrPath),
+				}
+			}
+		}
+	}
+	
+	// Create validator with the workflow path
+	validator := workflow.NewWorkflowValidator(fs, workflowPath)
+	
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	if err != nil {
+		return ValidationResult{
+			Success:      false,
+			WorkflowName: workflowDef.Name,
+			ErrorMessage: fmt.Sprintf("Validation failed: %s", err.Error()),
+		}
+	}
+	
+	// Create the result based on validation
+	if result.IsValid() {
+		return ValidationResult{
+			Success:      true,
+			WorkflowName: workflowDef.Name,
+			Warnings:     result.Warnings,
+		}
+	} else {
+		return ValidationResult{
+			Success:      false,
+			WorkflowName: workflowDef.Name,
+			Errors:       result.Errors,
+			ErrorMessage: fmt.Sprintf("Workflow validation failed with %d errors", len(result.Errors)),
+		}
+	}
 }
 
 // isValidWorkflowDir checks if a directory contains a valid workflow structure
