@@ -309,14 +309,6 @@ func sanitizeTableCell(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// max returns the larger of two integers
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // getTerminalWidth returns the width of the terminal
 func getTerminalWidth() int {
 	// Default width if we can't determine actual width

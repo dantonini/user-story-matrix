@@ -374,6 +374,14 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 	// Use logger instead of fmt.Printf for debug output
 	logger.Debug("Searching directories", zap.Strings("directories", directories))
 	
+	// Check if each directory exists
+	for _, dir := range directories {
+		exists := fs.Exists(dir)
+		logger.Debug("Directory existence check", 
+			zap.String("dir", dir), 
+			zap.Bool("exists", exists))
+	}
+	
 	// Function to process a workflow YAML or JSON file
 	processWorkflowFile := func(filePath string) {
 		logger.Debug("Processing workflow file", zap.String("file", filePath))
@@ -446,7 +454,12 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 			
 			// Check for workflow.yaml
 			workflowYAMLPath := filepath.Join(workflowDir, StandardWorkflowYAML)
-			if fs.Exists(workflowYAMLPath) {
+			workflowYAMLExists := fs.Exists(workflowYAMLPath)
+			logger.Debug("Workflow YAML existence check", 
+				zap.String("path", workflowYAMLPath), 
+				zap.Bool("exists", workflowYAMLExists))
+			
+			if workflowYAMLExists {
 				logger.Debug("Found workflow YAML file", zap.String("path", workflowYAMLPath))
 				processWorkflowFile(workflowYAMLPath)
 				continue
@@ -454,12 +467,32 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 			
 			// Check for workflow.json as fallback
 			workflowJSONPath := filepath.Join(workflowDir, "workflow.json")
-			if fs.Exists(workflowJSONPath) {
+			workflowJSONExists := fs.Exists(workflowJSONPath)
+			logger.Debug("Workflow JSON existence check", 
+				zap.String("path", workflowJSONPath), 
+				zap.Bool("exists", workflowJSONExists))
+			
+			if workflowJSONExists {
 				logger.Debug("Found workflow JSON file", zap.String("path", workflowJSONPath))
 				processWorkflowFile(workflowJSONPath)
 			}
 		}
 	}
+	
+	// Add built-in workflows to the discovered workflows
+	for name, workflow := range r.builtInWorkflows {
+		discoveredWorkflows[name] = workflow
+	}
+	
+	// Extract workflow names for logging
+	workflowNames := make([]string, 0, len(discoveredWorkflows))
+	for name := range discoveredWorkflows {
+		workflowNames = append(workflowNames, name)
+	}
+	
+	logger.Debug("Discovered workflows", 
+		zap.Int("count", len(discoveredWorkflows)),
+		zap.Strings("names", workflowNames))
 	
 	return discoveredWorkflows
 }
@@ -551,7 +584,7 @@ func (r *WorkflowRegistry) isWorkflowModified(fs io.FileSystem, name string) (bo
 //   - Slice of directory paths where workflows might be found
 func GetStandardWorkflowDirectories() []string {
 	// Standard locations to look for workflows
-	return []string{
+	dirs := []string{
 		// Local development paths
 		StandardTemplateDir,
 		"internal/workflow/templates",
@@ -563,6 +596,10 @@ func GetStandardWorkflowDirectories() []string {
 		// Project-specific workflows in .usm directory
 		".usm/workflows",
 	}
+	
+	logger.Debug("Standard workflow directories", zap.Strings("directories", dirs))
+	
+	return dirs
 }
 
 // getUserHomeDir returns the user's home directory
@@ -594,4 +631,84 @@ func createStandardWorkflow() *WorkflowDefinition {
 	}
 }
 
-// LoadWorkflowFromFile loads a workflow definition from the given file path
+// GetWorkflowSourceInfo returns the source and path information for a workflow.
+// This helps determine where a workflow came from (built-in, user, project)
+// and its filesystem path (if applicable).
+//
+// Parameters:
+//   - name: The name of the workflow to get source info for
+//
+// Returns:
+//   - source: The source of the workflow (built-in, user, project)
+//   - path: The filesystem path of the workflow (if available)
+func (r *WorkflowRegistry) GetWorkflowSourceInfo(name string) (string, string) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	
+	// Check if it's a built-in workflow
+	if _, exists := r.builtInWorkflows[name]; exists {
+		return SourceBuiltIn, "-"
+	}
+	
+	// Check if it's in the cache and has source info
+	if sourcePath, exists := r.cache.sources[name]; exists {
+		// If we have a source path, determine the source type
+		if sourcePath != "" {
+			if strings.Contains(sourcePath, ".usm/workflows") || 
+			   strings.Contains(sourcePath, ".usm\\workflows") {
+				// Extract the base directory to keep path consistent
+				sourceDir := filepath.Dir(sourcePath)
+				return SourceProject, sourceDir
+			} else if homeDir := getUserHomeDir(); homeDir != "" && 
+				(strings.Contains(sourcePath, filepath.Join(homeDir, ".usm/workflows")) || 
+				 strings.Contains(sourcePath, filepath.Join(homeDir, ".usm\\workflows"))) {
+				return SourceUser, sourcePath
+			}
+			
+			// If we have a path but can't determine the source type,
+			// just return the path with unknown source
+			return "unknown", sourcePath
+		}
+	}
+	
+	// If we don't have source info, try to determine it from the name
+	if strings.HasPrefix(name, "project-") {
+		return SourceProject, "-"
+	} else if strings.HasPrefix(name, "user-") {
+		return SourceUser, "-"
+	}
+	
+	// Default values if we can't determine the source
+	return "unknown", "-"
+}
+
+// AddToCache adds a workflow to the registry's cache.
+// This is useful for testing scenarios where we want to simulate
+// a workflow being loaded from a file, but don't want to go through
+// the full discovery process.
+//
+// Parameters:
+//   - workflow: The WorkflowDefinition to add to the cache
+//   - sourcePath: The path to associate with this workflow
+func (r *WorkflowRegistry) AddToCache(workflow *WorkflowDefinition, sourcePath string) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	
+	r.cache.workflows[workflow.Name] = workflow
+	r.cache.sources[workflow.Name] = sourcePath
+	r.cache.modified[workflow.Name] = time.Now()
+}
+
+// ClearBuiltInWorkflows removes all built-in workflows from the registry.
+// This is primarily used for testing scenarios where a completely empty
+// registry is needed to test behavior with no workflows present.
+//
+// IMPORTANT: This method should only be used in tests and should never be
+// called in production code, as it will make the standard workflow unavailable.
+func (r *WorkflowRegistry) ClearBuiltInWorkflows() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	
+	// Clear all built-in workflows
+	r.builtInWorkflows = make(map[string]*WorkflowDefinition)
+}
