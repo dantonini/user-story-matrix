@@ -6,13 +6,34 @@
 package workflow
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/workflow"
 )
+
+// WorkflowInfo represents a workflow for output formatting
+type WorkflowInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Source      string `json:"source"`
+	Path        string `json:"path"`
+}
+
+// ListResult represents the result of the list command execution
+type ListResult struct {
+	Success      bool
+	ErrorMessage string
+	Output       string
+	Workflows    []WorkflowInfo
+	NoWorkflows  bool
+}
 
 // ListCmd represents the workflow list command
 var ListCmd = &cobra.Command{
@@ -48,57 +69,134 @@ Examples:
 		if err != nil {
 			format = "text" // Default to text format if error
 		}
-		
-		// Create output instance
+
 		output := io.NewTerminalIO()
-		
-		// Create filesystem
 		fs := io.NewOSFileSystem()
 		
-		// Get global registry
-		registry := workflow.GetGlobalRegistry()
+		// Execute the actual logic
+		result := listWorkflows(format, output, fs)
 		
-		// Discover workflows
-		output.PrintProgress("Discovering workflows...")
-		workflows := registry.DiscoverWorkflows(fs)
-		
-		// Display results
-		if len(workflows) == 0 {
-			output.Print("No workflows found")
+		// Handle the result
+		if !result.Success {
+			output.PrintError(result.ErrorMessage)
 			return
 		}
 		
-		// Sort workflows by name for consistent output
-		names := make([]string, 0, len(workflows))
-		for name := range workflows {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		
-		// Format and display results
-		switch format {
-		case "json":
-			// TODO: Implement JSON output
-			output.PrintError("JSON output format not implemented yet")
-		default:
-			// Text output (default)
-			output.PrintSuccess(fmt.Sprintf("Found %d workflows:", len(workflows)))
-			
-			// Print table header and rows
-			headers := []string{"NAME", "DESCRIPTION", "SOURCE", "PATH"}
-			rows := make([][]string, len(names))
-			
-			for i, name := range names {
-				wf := workflows[name]
-				// TODO: Add source and path information
-				source := "built-in" // Placeholder
-				path := "-"          // Placeholder
-				rows[i] = []string{wf.Name, wf.Description, source, path}
-			}
-			
-			output.PrintTable(headers, rows)
+		// If there's output to print, print it
+		if result.Output != "" {
+			output.Print(result.Output)
 		}
 	},
+}
+
+// listWorkflows contains the actual logic for listing workflows
+// It never calls os.Exit directly
+func listWorkflows(format string, output io.UserOutput, fs io.FileSystem) ListResult {
+	registry := workflow.GetGlobalRegistry()
+
+	output.PrintProgress("Discovering workflows...")
+	workflowDefs := registry.DiscoverWorkflows(fs)
+
+	if len(workflowDefs) == 0 {
+		output.Print("No workflows found")
+		return ListResult{
+			Success:     true,
+			NoWorkflows: true,
+		}
+	}
+
+	workflowInfos := make([]WorkflowInfo, 0, len(workflowDefs))
+
+	for name, wf := range workflowDefs {
+		// Default source and path
+		source := "unknown"
+		path := "-"
+
+		// Check if it's a built-in workflow
+		if _, err := registry.GetWorkflow(name); err == nil {
+			builtInWorkflows := []string{"standard", "old-workflow"} // Known built-in workflows
+			for _, bw := range builtInWorkflows {
+				if name == bw {
+					source = workflow.SourceBuiltIn
+					break
+				}
+			}
+		}
+
+		// For non-built-in workflows, try to determine source from path
+		if source == "unknown" {
+			// Check registryInfo in the registry's cache if available
+			// Since we can't directly access the registry's cache, we use heuristics
+			if strings.HasPrefix(name, "project-") {
+				source = workflow.SourceProject
+			} else if strings.HasPrefix(name, "user-") {
+				source = workflow.SourceUser
+			}
+
+			// Get more accurate path information where possible
+			// This is a simplified approach since we can't directly access the registry's cache
+			if source == workflow.SourceProject {
+				path = ".usm/workflows/" + name
+			} else if source == workflow.SourceUser {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					// If we can't get the home directory, use a placeholder
+					path = "~/.usm/workflows/" + name
+				} else {
+					path = filepath.Join(homeDir, ".usm/workflows/", name)
+				}
+			}
+		}
+
+		workflowInfos = append(workflowInfos, WorkflowInfo{
+			Name:        wf.Name,
+			Description: wf.Description,
+			Source:      source,
+			Path:        path,
+		})
+	}
+
+	// Sort workflows by name for consistent output
+	sort.Slice(workflowInfos, func(i, j int) bool {
+		return workflowInfos[i].Name < workflowInfos[j].Name
+	})
+
+	var resultOutput string
+	
+	// Format and display results
+	switch format {
+	case "json":
+		// JSON output
+		jsonData, err := json.MarshalIndent(workflowInfos, "", "  ")
+		if err != nil {
+			return ListResult{
+				Success:      false,
+				ErrorMessage: fmt.Sprintf("Failed to generate JSON: %s", err),
+			}
+		}
+		resultOutput = string(jsonData)
+		
+	default:
+		// Text output (default)
+		output.PrintSuccess(fmt.Sprintf("Found %d workflows:", len(workflowInfos)))
+
+		// Print table header and rows
+		headers := []string{"NAME", "DESCRIPTION", "SOURCE", "PATH"}
+		rows := make([][]string, len(workflowInfos))
+
+		for i, info := range workflowInfos {
+			rows[i] = []string{info.Name, info.Description, info.Source, info.Path}
+		}
+
+		output.PrintTable(headers, rows)
+		resultOutput = "" // Text output is printed directly to terminal
+	}
+
+	return ListResult{
+		Success:   true,
+		Output:    resultOutput,
+		Workflows: workflowInfos,
+	}
 }
 
 func init() {

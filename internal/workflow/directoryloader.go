@@ -14,6 +14,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TODO: Extend phase improvements for directoryloader.go:
+// - Add support for shared template fragments in the shared/ directory
+// - Implement recursive directory traversal for nested directories
+// - Add support for importing templates from other workflows
+// - Implement workflow versioning support
+// - Add cache invalidation for modified prompt files
+
 // DirectoryWorkflowInfo represents metadata about a workflow stored in a directory
 type DirectoryWorkflowInfo struct {
 	// Path is the file system path to the workflow directory

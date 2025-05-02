@@ -41,39 +41,62 @@ Examples:
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get name or path from args
 		nameOrPath := args[0]
 		
-		// Create output instance
 		output := io.NewTerminalIO()
 		
-		// Create filesystem
 		fs := io.NewOSFileSystem()
+		
+		registry := workflow.GetGlobalRegistry()
 		
 		// Determine if input is a path or a name
 		var workflowPath string
+		var workflowDef *workflow.WorkflowDefinition
+		
 		if fs.Exists(nameOrPath) && isValidWorkflowDir(fs, nameOrPath) {
 			// Input is a path
 			workflowPath = nameOrPath
-		} else {
-			// Assume input is a name, try to find it in standard locations
-			workflowPath = findWorkflowByName(fs, nameOrPath)
-			if workflowPath == "" {
-				output.PrintError(fmt.Sprintf("Workflow '%s' not found", nameOrPath))
+			
+			// Try to load the workflow from this path
+			workflowYAMLPath := filepath.Join(workflowPath, workflow.WorkflowConfigFile)
+			var err error
+			workflowDef, err = workflow.LoadWorkflowFromFile(fs, workflowYAMLPath)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to load workflow: %s", err.Error()))
 				os.Exit(1)
 				return
 			}
+		} else {
+			// Assume input is a name, try to find it in registry
+			var err error
+			workflowDef, err = registry.GetWorkflow(nameOrPath)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Workflow '%s' not found. Use 'usm workflow list' to see available workflows.", nameOrPath))
+				os.Exit(1)
+				return
+			}
+			
+			workflowPath = findWorkflowByName(fs, nameOrPath)
+			if workflowPath == "" {
+				// Use current directory as fallback
+				workflowPath = "."
+			}
 		}
 		
-		// Create validator
-		validator := workflow.NewWorkflowValidator(fs)
+		// Create validator with the workflow path
+		validator := workflow.NewWorkflowValidator(fs, workflowPath)
 		
 		// Validate workflow
-		output.PrintProgress(fmt.Sprintf("Validating workflow at %s", workflowPath))
-		result := validator.ValidateWorkflow(workflowPath)
+		output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", workflowDef.Name))
+		result, err := validator.ValidateWorkflow(workflowDef)
+		if err != nil {
+			output.PrintError(fmt.Sprintf("Validation failed: %s", err.Error()))
+			os.Exit(1)
+			return
+		}
 		
 		// Display results
-		if result.IsValid {
+		if result.IsValid() {
 			output.PrintSuccess("Workflow is valid")
 			
 			// Display any warnings
@@ -86,7 +109,7 @@ Examples:
 		} else {
 			output.PrintError(fmt.Sprintf("Workflow validation failed with %d errors:", len(result.Errors)))
 			for _, err := range result.Errors {
-				output.Print(fmt.Sprintf("- %s", err.Error()))
+				output.Print(fmt.Sprintf("- %s", err))
 			}
 			os.Exit(1)
 		}

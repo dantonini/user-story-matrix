@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/user-story-matrix/usm/internal/io"
 )
@@ -82,7 +83,8 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 			"join": strings.Join,
 			"lower": strings.ToLower,
 			"upper": strings.ToUpper,
-			"title": strings.Title,
+			// Title is deprecated - leaving as a comment for the extend phase to implement properly
+			// "title": strings.Title,
 			"trim": strings.TrimSpace,
 		}
 		
@@ -154,7 +156,7 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 }
 
 // ExtractTemplateVariables extracts the variables used in a prompt template.
-// This implementation uses basic pattern matching to find Go template variables.
+// This implementation uses the Go template parser to accurately extract variables.
 //
 // Parameters:
 //   - promptPath: Path to the prompt template file, relative to the workflow directory
@@ -179,69 +181,16 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 		return nil, fmt.Errorf("failed to read prompt file: %w", err)
 	}
 	
-	// Extract variables using regular expressions
-	promptText := string(promptData)
+	// Parse the template to get the AST
+	tmpl, err := template.New(filepath.Base(promptPath)).Parse(string(promptData))
+	if err != nil {
+		return nil, fmt.Errorf("invalid template syntax in %s: %w", promptPath, err)
+	}
+	
+	// Extract variables from the template AST
 	variableMap := make(map[string]bool) // Use map to deduplicate
-	
-	// Process the template to find all variable references
-	// This is a simplified approach that may not catch all variable usages in complex templates
-	
-	// Pattern 1: {{.variable}} and {{.variable | function}}
-	start := 0
-	for {
-		// Find the next opening brace
-		openBrace := strings.Index(promptText[start:], "{{")
-		if openBrace == -1 {
-			break
-		}
-		openBrace += start
-		
-		// Find the corresponding closing brace
-		closeBrace := strings.Index(promptText[openBrace:], "}}")
-		if closeBrace == -1 {
-			break
-		}
-		closeBrace += openBrace
-		
-		// Extract the template expression
-		expression := strings.TrimSpace(promptText[openBrace+2:closeBrace])
-		
-		// Process expression
-		if strings.HasPrefix(expression, ".") {
-			// Simple variable reference like {{.varName}}
-			varName := extractVariableName(expression)
-			if varName != "" {
-				variableMap[varName] = true
-			}
-		} else if strings.HasPrefix(expression, "if .") || 
-		        strings.HasPrefix(expression, "with .") || 
-		        strings.HasPrefix(expression, "range .") {
-			// Control structure like {{if .varName}} or {{range .items}}
-			parts := strings.Fields(expression)
-			if len(parts) >= 2 && strings.HasPrefix(parts[1], ".") {
-				varName := parts[1][1:] // Remove the dot
-				// Remove any trailing characters like parentheses or pipes
-				varName = trimNonAlphanumeric(varName)
-				if varName != "" {
-					variableMap[varName] = true
-				}
-			}
-		} else if strings.Contains(expression, ".") {
-			// Function call with variable like {{join .items ", "}}
-			// This is a simplistic approach and won't work for all cases
-			parts := strings.Fields(expression)
-			for _, part := range parts {
-				if strings.HasPrefix(part, ".") {
-					varName := trimNonAlphanumeric(part[1:])
-					if varName != "" {
-						variableMap[varName] = true
-					}
-				}
-			}
-		}
-		
-		// Move past this expression
-		start = closeBrace + 2
+	for _, node := range tmpl.Tree.Root.Nodes {
+		extractVariablesFromNode(node, variableMap)
 	}
 	
 	// Convert map to slice
@@ -253,58 +202,91 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 	return variables, nil
 }
 
-// extractVariableName extracts a variable name from a template expression
-func extractVariableName(expr string) string {
-	// Remove leading dot
-	if !strings.HasPrefix(expr, ".") {
-		return ""
-	}
-	expr = expr[1:]
-	
-	// Find the end of the variable name (space, pipe, etc.)
-	end := 0
-	for i, c := range expr {
-		if !isValidVariableChar(c) {
-			end = i
-			break
+// extractVariablesFromNode recursively extracts variable names from a template AST node
+func extractVariablesFromNode(node parse.Node, variables map[string]bool) {
+	switch n := node.(type) {
+	case *parse.ActionNode:
+		// ActionNode represents a {{...}} action
+		extractVariablesFromPipe(n.Pipe, variables)
+	case *parse.IfNode:
+		// IfNode represents an {{if ...}} action
+		extractVariablesFromPipe(n.Pipe, variables)
+		for _, ifNode := range n.List.Nodes {
+			extractVariablesFromNode(ifNode, variables)
 		}
-		end = i + 1
+		if n.ElseList != nil {
+			for _, elseNode := range n.ElseList.Nodes {
+				extractVariablesFromNode(elseNode, variables)
+			}
+		}
+	case *parse.RangeNode:
+		// RangeNode represents a {{range ...}} action
+		extractVariablesFromPipe(n.Pipe, variables)
+		for _, rangeNode := range n.List.Nodes {
+			extractVariablesFromNode(rangeNode, variables)
+		}
+		if n.ElseList != nil {
+			for _, elseNode := range n.ElseList.Nodes {
+				extractVariablesFromNode(elseNode, variables)
+			}
+		}
+	case *parse.WithNode:
+		// WithNode represents a {{with ...}} action
+		extractVariablesFromPipe(n.Pipe, variables)
+		for _, withNode := range n.List.Nodes {
+			extractVariablesFromNode(withNode, variables)
+		}
+		if n.ElseList != nil {
+			for _, elseNode := range n.ElseList.Nodes {
+				extractVariablesFromNode(elseNode, variables)
+			}
+		}
+	case *parse.ListNode:
+		// ListNode represents a list of nodes
+		if n != nil {
+			for _, listNode := range n.Nodes {
+				extractVariablesFromNode(listNode, variables)
+			}
+		}
+	case *parse.TemplateNode:
+		// TemplateNode represents a {{template ...}} action
+		if n.Pipe != nil {
+			extractVariablesFromPipe(n.Pipe, variables)
+		}
 	}
-	
-	if end == 0 {
-		return ""
-	}
-	
-	return expr[:end]
 }
 
-// isValidVariableChar checks if a character is valid in a variable name
-func isValidVariableChar(c rune) bool {
-	return (c >= 'a' && c <= 'z') || 
-	       (c >= 'A' && c <= 'Z') || 
-	       (c >= '0' && c <= '9') || 
-	       c == '_'
-}
-
-// trimNonAlphanumeric removes non-alphanumeric characters from the end of a string
-func trimNonAlphanumeric(s string) string {
-	end := len(s)
-	for i := len(s) - 1; i >= 0; i-- {
-		if isValidVariableChar(rune(s[i])) {
-			end = i + 1
-			break
+// extractVariablesFromPipe extracts variable names from a template pipe node
+func extractVariablesFromPipe(pipe *parse.PipeNode, variables map[string]bool) {
+	if pipe == nil {
+		return
+	}
+	
+	for _, cmd := range pipe.Cmds {
+		for _, arg := range cmd.Args {
+			extractVariablesFromArg(arg, variables)
 		}
 	}
-	return s[:end]
 }
 
-// sliceContains checks if a string slice contains a string
-// Local helper function to avoid naming conflicts
-func sliceContains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
+// extractVariablesFromArg extracts variable names from a template argument node
+func extractVariablesFromArg(arg parse.Node, variables map[string]bool) {
+	switch n := arg.(type) {
+	case *parse.FieldNode:
+		// FieldNode represents a .Field or .Field.Field etc.
+		if len(n.Ident) > 0 {
+			variables[n.Ident[0]] = true
 		}
+	case *parse.VariableNode:
+		// VariableNode represents a $variable
+		if len(n.Ident) > 0 {
+			variables[n.Ident[0]] = true
+		}
+	case *parse.PipeNode:
+		// Nested pipe
+		extractVariablesFromPipe(n, variables)
+	case *parse.ChainNode:
+		// ChainNode represents a function call with arguments
+		extractVariablesFromArg(n.Node, variables)
 	}
-	return false
 } 

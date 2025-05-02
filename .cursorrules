@@ -95,7 +95,9 @@ When to use simple components:
 - Use interfaces for cross-component communication
 
 # Cobra cmd
-- Cobra cmd should be a thin wrapper around the business logic
+- Cobra cmd should be a thin wrapper around the business logic:
+  - Never mix business logic and early exits in the main run function.
+
 - Allow to test the business logic in isolation:
   - Extract the business logic into a separate function
   - Return the result instead of managing its own state

@@ -30,22 +30,18 @@ Example:
   usm extract-workflow --output ./my-workflow
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Create output instance
 		output := io.NewTerminalIO()
 		
-		// Extract flag value handling
 		outputDir, err := cmd.Flags().GetString("output")
 		if err != nil {
 			output.PrintError(fmt.Sprintf("Error getting output directory flag: %v", err))
 			return
 		}
 
-		// Use default location if not specified
 		if outputDir == "" {
 			outputDir = workflow.StandardTemplateDir
 		}
 
-		// Create absolute path if needed
 		if !filepath.IsAbs(outputDir) {
 			var err error
 			outputDir, err = filepath.Abs(outputDir)
@@ -54,13 +50,10 @@ Example:
 			}
 		}
 
-		// Create filesystem
 		fs := io.NewOSFileSystem()
 		
-		// Show progress
 		output.PrintProgress("Extracting standard workflow to " + outputDir)
 		
-		// Extract the workflow
 		err = workflow.ExtractStandardWorkflow(fs, outputDir)
 		if err != nil {
 			output.PrintError("Failed to extract workflow: " + err.Error())
