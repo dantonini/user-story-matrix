@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
@@ -82,10 +84,70 @@ Examples:
 		
 		// Always display warnings when present, even for valid workflows
 		if len(result.Warnings) > 0 {
-			output.PrintWarning(fmt.Sprintf("Found %d warning(s):", len(result.Warnings)))
+			output.PrintWarning(fmt.Sprintf("Found %d warning(s) that should be addressed:", len(result.Warnings)))
+			
+			// Group warnings by step ID and type for better organization
+			warningsByStep := make(map[string][]string)
+			unusedVarWarnings := []string{}
+			missingVarWarnings := []string{}
+			
 			for _, warning := range result.Warnings {
-				output.PrintWarning(fmt.Sprintf("- %s", warning))
+				if strings.Contains(warning, "not used in template") {
+					unusedVarWarnings = append(unusedVarWarnings, warning)
+				} else if strings.Contains(warning, "uses variable") && strings.Contains(warning, "but it is not provided") {
+					missingVarWarnings = append(missingVarWarnings, warning)
+				} else {
+					// Extract step ID from the warning
+					stepID := extractStepIDFromWarning(warning)
+					warningsByStep[stepID] = append(warningsByStep[stepID], warning)
+				}
 			}
+			
+			// Display missing variable warnings with suggested fixes
+			if len(missingVarWarnings) > 0 {
+				output.PrintWarning("\n🔍 MISSING VARIABLES")
+				for _, warning := range missingVarWarnings {
+					// Extract key information from the warning
+					stepID, varName, templatePath := extractInfoFromMissingVarWarning(warning)
+					
+					// Create more user-friendly message with fix suggestion
+					output.PrintWarning(fmt.Sprintf("  • Step '%s': Variable '%s' is used in '%s' but not defined", 
+						stepID, varName, templatePath))
+					output.Print(fmt.Sprintf("    ↳ Fix: Add to your workflow.yaml under this step's 'variables' section:"))
+					output.Print(fmt.Sprintf("      %s: \"your_value_here\"", varName))
+				}
+			}
+			
+			// Display unused variable warnings
+			if len(unusedVarWarnings) > 0 {
+				output.PrintWarning("\n⚠️  UNUSED VARIABLES")
+				for _, warning := range unusedVarWarnings {
+					// Extract key information from the warning
+					varName, stepID, templatePath := extractInfoFromUnusedVarWarning(warning)
+					
+					// Create more user-friendly message with fix suggestion
+					output.PrintWarning(fmt.Sprintf("  • Step '%s': Variable '%s' is defined but not used in '%s'", 
+						stepID, varName, templatePath))
+					output.Print(fmt.Sprintf("    ↳ Fix options:"))
+					output.Print(fmt.Sprintf("      1. Use it in the template with {{.%s}}", varName))
+					output.Print(fmt.Sprintf("      2. Remove it from the 'variables' section in workflow.yaml"))
+				}
+			}
+			
+			// Display other warnings
+			for stepID, warnings := range warningsByStep {
+				if len(warnings) > 0 {
+					output.PrintWarning(fmt.Sprintf("\n⚙️  OTHER WARNINGS FOR STEP '%s':", stepID))
+					for _, warning := range warnings {
+						output.PrintWarning(fmt.Sprintf("  • %s", warning))
+					}
+				}
+			}
+			
+			// Provide a summary footer with next steps
+			output.PrintWarning("\nRecommended next steps:")
+			output.Print("  1. Fix the warnings above")
+			output.Print("  2. Run 'usm workflow validate asd' again to confirm")
 		}
 	},
 }
@@ -221,6 +283,81 @@ func findWorkflowByName(fs io.FileSystem, name string) string {
 	}
 	
 	return ""
+}
+
+// Helper function to extract step ID from a warning message
+func extractStepIDFromWarning(warning string) string {
+	// Default if we can't extract
+	stepID := "unknown"
+	
+	// Try to extract step ID using regex
+	re := regexp.MustCompile(`step '([^']+)'`)
+	matches := re.FindStringSubmatch(warning)
+	if len(matches) >= 2 {
+		stepID = matches[1]
+	}
+	
+	return stepID
+}
+
+// Helper function to extract information from missing variable warnings
+func extractInfoFromMissingVarWarning(warning string) (string, string, string) {
+	stepID := "unknown"
+	varName := "unknown"
+	templatePath := "unknown"
+	
+	// Extract step ID
+	stepRe := regexp.MustCompile(`step '([^']+)'`)
+	stepMatches := stepRe.FindStringSubmatch(warning)
+	if len(stepMatches) >= 2 {
+		stepID = stepMatches[1]
+	}
+	
+	// Extract variable name
+	varRe := regexp.MustCompile(`variable '([^']+)'`)
+	varMatches := varRe.FindStringSubmatch(warning)
+	if len(varMatches) >= 2 {
+		varName = varMatches[1]
+	}
+	
+	// Extract template path
+	templateRe := regexp.MustCompile(`template '([^']+)'`)
+	templateMatches := templateRe.FindStringSubmatch(warning)
+	if len(templateMatches) >= 2 {
+		templatePath = templateMatches[1]
+	}
+	
+	return stepID, varName, templatePath
+}
+
+// Helper function to extract information from unused variable warnings
+func extractInfoFromUnusedVarWarning(warning string) (string, string, string) {
+	varName := "unknown"
+	stepID := "unknown"
+	templatePath := "unknown"
+	
+	// Extract variable name
+	varRe := regexp.MustCompile(`variable '([^']+)'`)
+	varMatches := varRe.FindStringSubmatch(warning)
+	if len(varMatches) >= 2 {
+		varName = varMatches[1]
+	}
+	
+	// Extract step ID
+	stepRe := regexp.MustCompile(`step '([^']+)'`)
+	stepMatches := stepRe.FindStringSubmatch(warning)
+	if len(stepMatches) >= 2 {
+		stepID = stepMatches[1]
+	}
+	
+	// Extract template path
+	templateRe := regexp.MustCompile(`template '([^']+)'`)
+	templateMatches := templateRe.FindStringSubmatch(warning)
+	if len(templateMatches) >= 2 {
+		templatePath = templateMatches[1]
+	}
+	
+	return varName, stepID, templatePath
 }
 
 func init() {
