@@ -70,11 +70,17 @@ Examples:
 			format = "text" // Default to text format if error
 		}
 
+		// Get debug flag
+		showDebug, err := cmd.Flags().GetBool("debug")
+		if err != nil {
+			showDebug = false // Default to no debug output
+		}
+
 		output := io.NewTerminalIO()
 		fs := io.NewOSFileSystem()
 		
 		// Execute the actual logic
-		result := listWorkflows(format, output, fs)
+		result := listWorkflows(format, output, fs, showDebug)
 		
 		// Handle the result
 		if !result.Success {
@@ -91,11 +97,32 @@ Examples:
 
 // listWorkflows contains the actual logic for listing workflows
 // It never calls os.Exit directly
-func listWorkflows(format string, output io.UserOutput, fs io.FileSystem) ListResult {
+func listWorkflows(format string, output io.UserOutput, fs io.FileSystem, showDebug bool) ListResult {
 	registry := workflow.GetGlobalRegistry()
 
 	output.PrintProgress("Discovering workflows...")
+	
+	// Temporarily redirect debug output if not requested
+	var originalStdout *os.File
+	if !showDebug {
+		originalStdout = os.Stdout
+		nullFile, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err == nil {
+			os.Stdout = nullFile
+			defer func() {
+				os.Stdout = originalStdout
+				nullFile.Close()
+			}()
+		}
+	}
+	
+	// Discover workflows (debug output will be redirected if showDebug is false)
 	workflowDefs := registry.DiscoverWorkflows(fs)
+	
+	// Restore stdout if it was redirected
+	if !showDebug && originalStdout != nil {
+		os.Stdout = originalStdout
+	}
 
 	if len(workflowDefs) == 0 {
 		output.Print("No workflows found")
@@ -148,9 +175,15 @@ func listWorkflows(format string, output io.UserOutput, fs io.FileSystem) ListRe
 			}
 		}
 
+		// Sanitize the values to prevent display issues
+		name = sanitizeForDisplay(name)
+		description := sanitizeForDisplay(wf.Description)
+		source = sanitizeForDisplay(source)
+		path = sanitizeForDisplay(path)
+
 		workflowInfos = append(workflowInfos, WorkflowInfo{
-			Name:        wf.Name,
-			Description: wf.Description,
+			Name:        name,
+			Description: description,
 			Source:      source,
 			Path:        path,
 		})
@@ -180,15 +213,13 @@ func listWorkflows(format string, output io.UserOutput, fs io.FileSystem) ListRe
 		// Text output (default)
 		output.PrintSuccess(fmt.Sprintf("Found %d workflows:", len(workflowInfos)))
 
-		// Print table header and rows
+		// Manual table formatting for consistent display
 		headers := []string{"NAME", "DESCRIPTION", "SOURCE", "PATH"}
-		rows := make([][]string, len(workflowInfos))
-
-		for i, info := range workflowInfos {
-			rows[i] = []string{info.Name, info.Description, info.Source, info.Path}
-		}
-
-		output.PrintTable(headers, rows)
+		
+		// Format the table using our custom formatting function
+		table := formatWorkflowTable(headers, workflowInfos)
+		fmt.Println(table)
+		
 		resultOutput = "" // Text output is printed directly to terminal
 	}
 
@@ -199,7 +230,76 @@ func listWorkflows(format string, output io.UserOutput, fs io.FileSystem) ListRe
 	}
 }
 
+// formatWorkflowTable creates a formatted table string from workflow data
+func formatWorkflowTable(headers []string, workflows []WorkflowInfo) string {
+	// Define column widths (adjust as needed based on typical content)
+	nameWidth := 15
+	descWidth := 40
+	sourceWidth := 10
+	pathWidth := 30
+	
+	// Build the table
+	var sb strings.Builder
+	
+	// Write header row
+	sb.WriteString(fmt.Sprintf("%-*s %-*s %-*s %-*s\n", 
+		nameWidth, headers[0], 
+		descWidth, headers[1], 
+		sourceWidth, headers[2], 
+		pathWidth, headers[3]))
+	
+	// Write separator
+	sb.WriteString(fmt.Sprintf("%-*s %-*s %-*s %-*s\n",
+		nameWidth, strings.Repeat("─", nameWidth),
+		descWidth, strings.Repeat("─", descWidth),
+		sourceWidth, strings.Repeat("─", sourceWidth),
+		pathWidth, strings.Repeat("─", pathWidth)))
+	
+	// Write data rows
+	for _, wf := range workflows {
+		// Truncate fields if needed
+		name := truncateWithEllipsis(wf.Name, nameWidth)
+		desc := truncateWithEllipsis(wf.Description, descWidth)
+		source := truncateWithEllipsis(wf.Source, sourceWidth)
+		path := truncateWithEllipsis(wf.Path, pathWidth)
+		
+		sb.WriteString(fmt.Sprintf("%-*s %-*s %-*s %-*s\n", 
+			nameWidth, name, 
+			descWidth, desc, 
+			sourceWidth, source, 
+			pathWidth, path))
+	}
+	
+	return sb.String()
+}
+
+// truncateWithEllipsis truncates a string to the specified length, adding an ellipsis if truncated
+func truncateWithEllipsis(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	
+	return s[:maxLen-3] + "..."
+}
+
+// sanitizeForDisplay cleans up a string for display in a terminal table
+// by removing newlines and other problematic characters
+func sanitizeForDisplay(s string) string {
+	// Replace all newlines with spaces
+	s = strings.ReplaceAll(s, "\n", " ")
+	
+	// Replace multiple spaces with a single space
+	s = strings.Join(strings.Fields(s), " ")
+	
+	return s
+}
+
 func init() {
 	// Add flags
 	ListCmd.Flags().StringP("format", "f", "text", "Output format (text, json)")
+	ListCmd.Flags().Bool("debug", false, "Show debug output")
 } 

@@ -244,43 +244,54 @@ func SaveWorkflowToFile(fs io.FileSystem, workflow *WorkflowDefinition, filePath
 // Returns:
 //   - An error if validation failed
 func validateExternalWorkflow(workflow *ExternalWorkflowDefinition) error {
-	// Check required fields
+	// Ensure the workflow has a name
 	if workflow.Name == "" {
-		return fmt.Errorf("workflow name is required")
+		return fmt.Errorf("workflow must have a name")
 	}
+
+	// Sanitize workflow name and description
+	workflow.Name = sanitizeWorkflowField(workflow.Name)
+	workflow.Description = sanitizeWorkflowField(workflow.Description)
 	
-	if workflow.Description == "" {
-		return fmt.Errorf("workflow description is required")
-	}
-	
+	// Ensure the workflow has at least one step
 	if len(workflow.Steps) == 0 {
 		return fmt.Errorf("workflow must have at least one step")
 	}
 	
-	// Validate steps
-	stepIDs := make(map[string]bool)
+	// Ensure all steps have IDs and prompts
 	for i, step := range workflow.Steps {
-		// Check required step fields
 		if step.ID == "" {
-			return fmt.Errorf("step %d has no ID", i+1)
+			return fmt.Errorf("step %d must have an ID", i)
 		}
 		
-		// Check for duplicate step IDs
-		if stepIDs[step.ID] {
-			return fmt.Errorf("duplicate step ID: %s", step.ID)
-		}
-		stepIDs[step.ID] = true
+		// Sanitize step fields
+		workflow.Steps[i].ID = sanitizeWorkflowField(step.ID)
+		workflow.Steps[i].Description = sanitizeWorkflowField(step.Description)
 		
-		// Make sure step has a description
-		if step.Description == "" {
-			return fmt.Errorf("step %s has no description", step.ID)
-		}
-		
-		// No longer requiring prompt to be non-empty, as it can be loaded from a file later
-		// or set programmatically
+		// Prompt can be empty - will be preserved as is
 	}
 	
 	return nil
+}
+
+// sanitizeWorkflowField ensures workflow fields don't contain newlines
+// or other problematic characters that could break display
+func sanitizeWorkflowField(s string) string {
+	// Replace newlines with spaces
+	s = strings.ReplaceAll(s, "\n", " ")
+	
+	// Replace tabs with spaces
+	s = strings.ReplaceAll(s, "\t", " ")
+	
+	// Replace carriage returns with spaces
+	s = strings.ReplaceAll(s, "\r", " ")
+	
+	// Normalize multiple spaces to a single space
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+	
+	return strings.TrimSpace(s)
 }
 
 // ValidateWorkflowPromptReferences checks that all prompt files referenced in a workflow exist

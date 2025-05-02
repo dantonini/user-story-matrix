@@ -119,11 +119,13 @@ description: Test workflow for unit tests
 steps:
   - id: step1
     description: First step
+    prompt: This is a test prompt for step 1
     variables:
       test_var: test value
       another_var: another value
   - id: step2
     description: Second step
+    prompt: This is a test prompt for step 2
 `
 	// Add the test workflow to the mock file system
 	homeDir, _ := os.UserHomeDir()

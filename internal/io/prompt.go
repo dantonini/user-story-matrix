@@ -7,6 +7,9 @@ package io
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -186,12 +189,29 @@ func (t *TerminalIO) PrintError(message string) {
 
 // PrintTable displays data in a table format
 func (t *TerminalIO) PrintTable(headers []string, rows [][]string) {
-	// Calculate column widths
+	// Get terminal width (fallback to 80 if can't determine)
+	width := getTerminalWidth()
+	if width <= 0 {
+		width = 80
+	}
+	
+	// Sanitize all input data
+	for i, header := range headers {
+		headers[i] = sanitizeTableCell(header)
+	}
+	
+	for i, row := range rows {
+		for j, cell := range row {
+			rows[i][j] = sanitizeTableCell(cell)
+		}
+	}
+	
+	// Calculate column widths based on content
 	colWidths := make([]int, len(headers))
 	for i, header := range headers {
 		colWidths[i] = len(header)
 	}
-
+	
 	for _, row := range rows {
 		for i, cell := range row {
 			if i < len(colWidths) && len(cell) > colWidths[i] {
@@ -199,31 +219,128 @@ func (t *TerminalIO) PrintTable(headers []string, rows [][]string) {
 			}
 		}
 	}
-
+	
+	// Calculate total width including spacing
+	totalContentWidth := 0
+	for _, w := range colWidths {
+		totalContentWidth += w
+	}
+	
+	// Add spacing between columns (3 spaces)
+	spacing := 3
+	totalWidth := totalContentWidth + (len(colWidths)-1)*spacing
+	
+	// If table is too wide, reduce column widths
+	if totalWidth > width && len(colWidths) > 0 {
+		// Calculate how much we need to trim
+		excessWidth := totalWidth - width
+		
+		// Distribute the reduction proportionally
+		for i := range colWidths {
+			// Calculate reduction for this column (proportional to its width)
+			reduction := (colWidths[i] * excessWidth) / totalContentWidth
+			
+			// Apply reduction, but ensure minimum width
+			colWidths[i] = max(10, colWidths[i] - reduction)
+		}
+	}
+	
 	// Print headers
-	headerCells := make([]string, len(headers))
 	for i, header := range headers {
-		headerCells[i] = t.styles.header.Width(colWidths[i]).Render(header)
-	}
-	fmt.Println(strings.Join(headerCells, " "))
-
-	// Print separator
-	sep := make([]string, len(headers))
-	for i, width := range colWidths {
-		sep[i] = strings.Repeat("─", width)
-	}
-	fmt.Println(strings.Join(sep, " "))
-
-	// Print rows
-	for _, row := range rows {
-		rowCells := make([]string, len(row))
-		for i, cell := range row {
-			if i < len(colWidths) {
-				rowCells[i] = t.styles.cell.Width(colWidths[i]).Render(cell)
+		// Truncate if necessary
+		if len(header) > colWidths[i] {
+			if colWidths[i] > 3 {
+				header = header[:colWidths[i]-3] + "..."
+			} else {
+				header = header[:colWidths[i]]
 			}
 		}
-		fmt.Println(strings.Join(rowCells, " "))
+		
+		if i > 0 {
+			fmt.Print(strings.Repeat(" ", spacing))
+		}
+		fmt.Print(t.styles.header.Width(colWidths[i]).Render(header))
 	}
+	fmt.Println()
+	
+	// Print separator
+	for i, width := range colWidths {
+		if i > 0 {
+			fmt.Print(strings.Repeat(" ", spacing))
+		}
+		fmt.Print(strings.Repeat("─", width))
+	}
+	fmt.Println()
+	
+	// Print rows
+	for _, row := range rows {
+		for i, cell := range row {
+			// Truncate cell content if too long
+			if len(cell) > colWidths[i] {
+				if colWidths[i] > 3 {
+					cell = cell[:colWidths[i]-3] + "..."
+				} else if colWidths[i] > 0 {
+					cell = cell[:colWidths[i]]
+				}
+			}
+			
+			if i > 0 {
+				fmt.Print(strings.Repeat(" ", spacing))
+			}
+			fmt.Print(t.styles.cell.Width(colWidths[i]).Render(cell))
+		}
+		fmt.Println()
+	}
+}
+
+// sanitizeTableCell prepares a string for display in a table
+func sanitizeTableCell(s string) string {
+	// Replace newlines with spaces
+	s = strings.ReplaceAll(s, "\n", " ")
+	
+	// Replace tabs with spaces
+	s = strings.ReplaceAll(s, "\t", " ")
+	
+	// Normalize consecutive spaces to a single space
+	for strings.Contains(s, "  ") {
+		s = strings.ReplaceAll(s, "  ", " ")
+	}
+	
+	return strings.TrimSpace(s)
+}
+
+// max returns the larger of two integers
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// getTerminalWidth returns the width of the terminal
+func getTerminalWidth() int {
+	// Default width if we can't determine actual width
+	defaultWidth := 80
+	
+	// Try to get terminal width using ANSI escape sequence
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+	if err != nil {
+		return defaultWidth
+	}
+	
+	parts := strings.Split(strings.TrimSpace(string(out)), " ")
+	if len(parts) != 2 {
+		return defaultWidth
+	}
+	
+	width, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return defaultWidth
+	}
+	
+	return width
 }
 
 // PrintWarning displays a warning message

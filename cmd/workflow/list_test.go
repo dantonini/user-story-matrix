@@ -26,7 +26,7 @@ func TestListWorkflow_NoWorkflows(t *testing.T) {
 	
 	// Use a registry that would return no workflows
 	// This is testing the empty workflow case
-	result := listWorkflows("text", mockTermIO, mockFS)
+	result := listWorkflows("text", mockTermIO, mockFS, false)
 	
 	// Validate result
 	assert.True(t, result.Success)
@@ -42,6 +42,7 @@ func TestListCmd_TextFormat(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().StringP("format", "f", "text", "Output format")
 	_ = cmd.Flags().Set("format", "text")
+	cmd.Flags().Bool("debug", false, "Show debug output")
 	
 	// Create a buffer to capture output
 	var output bytes.Buffer

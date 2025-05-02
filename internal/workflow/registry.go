@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/user-story-matrix/usm/internal/io"
+	"github.com/user-story-matrix/usm/internal/logger"
+	"go.uber.org/zap"
 )
 
 // Standard workflow constants
@@ -369,25 +371,21 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 	// Get standard workflow directories
 	directories := GetStandardWorkflowDirectories()
 	
-	// Add user's home directory workflow location if available
-	homeDir := getUserHomeDir()
-	if homeDir != "" {
-		userWorkflowsDir := filepath.Join(homeDir, ".usm", "workflows")
-		directories = append(directories, userWorkflowsDir)
-	}
-	
-	// Add project-specific workflows directory if it exists
-	if fs.Exists("workflows") {
-		directories = append(directories, "workflows")
-	}
+	// Use logger instead of fmt.Printf for debug output
+	logger.Debug("Searching directories", zap.Strings("directories", directories))
 	
 	// Function to process a workflow YAML or JSON file
 	processWorkflowFile := func(filePath string) {
+		logger.Debug("Processing workflow file", zap.String("file", filePath))
 		workflow, err := LoadWorkflowFromFile(fs, filePath)
 		if err != nil {
-			fmt.Printf("Error loading workflow from %s: %v\n", filePath, err)
+			logger.Error("Error loading workflow", zap.String("file", filePath), zap.Error(err))
 			return
 		}
+		
+		logger.Debug("Successfully loaded workflow", 
+			zap.String("name", workflow.Name), 
+			zap.String("file", filePath))
 		
 		// Add to cache with proper source tracking
 		r.cache.workflows[workflow.Name] = workflow
@@ -398,19 +396,33 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 	
 	// Load workflows from each directory
 	for _, dir := range directories {
+		logger.Debug("Checking directory", zap.String("dir", dir))
 		if !fs.Exists(dir) {
+			logger.Debug("Directory does not exist", zap.String("dir", dir))
 			continue
 		}
 		
 		// Check for workflow files directly in this directory
 		entries, err := fs.ReadDir(dir)
 		if err != nil {
-			fmt.Printf("Error reading workflow directory %s: %v\n", dir, err)
+			logger.Error("Error reading workflow directory", 
+				zap.String("dir", dir), 
+				zap.Error(err))
 			continue
 		}
 		
+		logger.Debug("Found entries in directory", 
+			zap.String("dir", dir), 
+			zap.Int("count", len(entries)))
+		
 		// First look for direct workflow files (workflow.yaml or workflow.json)
 		for _, entry := range entries {
+			entryName := entry.Name()
+			isDir := entry.IsDir()
+			logger.Debug("Found entry", 
+				zap.String("name", entryName), 
+				zap.Bool("isDir", isDir))
+			
 			if entry.IsDir() {
 				continue
 			}
@@ -418,6 +430,7 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 			name := entry.Name()
 			if name == "workflow.yaml" || name == "workflow.yml" || name == "workflow.json" {
 				workflowPath := filepath.Join(dir, name)
+				logger.Debug("Found workflow file", zap.String("path", workflowPath))
 				processWorkflowFile(workflowPath)
 			}
 		}
@@ -429,10 +442,12 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 			}
 			
 			workflowDir := filepath.Join(dir, entry.Name())
+			logger.Debug("Checking workflow dir", zap.String("dir", workflowDir))
 			
 			// Check for workflow.yaml
 			workflowYAMLPath := filepath.Join(workflowDir, StandardWorkflowYAML)
 			if fs.Exists(workflowYAMLPath) {
+				logger.Debug("Found workflow YAML file", zap.String("path", workflowYAMLPath))
 				processWorkflowFile(workflowYAMLPath)
 				continue
 			}
@@ -440,6 +455,7 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 			// Check for workflow.json as fallback
 			workflowJSONPath := filepath.Join(workflowDir, "workflow.json")
 			if fs.Exists(workflowJSONPath) {
+				logger.Debug("Found workflow JSON file", zap.String("path", workflowJSONPath))
 				processWorkflowFile(workflowJSONPath)
 			}
 		}
@@ -542,7 +558,10 @@ func GetStandardWorkflowDirectories() []string {
 		"templates",
 		
 		// User directories
-		filepath.Join(getUserHomeDir(), ".usm", "templates"),
+		filepath.Join(getUserHomeDir(), ".usm", "workflows"),
+		
+		// Project-specific workflows in .usm directory
+		".usm/workflows",
 	}
 }
 
@@ -570,54 +589,9 @@ func getUserHomeDir() string {
 func createStandardWorkflow() *WorkflowDefinition {
 	return &WorkflowDefinition{
 		Name:        StandardWorkflowName,
-		Description: "Standard USM implementation workflow",
+		Description: "The default USM workflow for implementation",
 		Steps:       StandardWorkflowSteps,
 	}
 }
 
-// Custom Workflow Implementation Plan:
-//
-// Phase 1: COMPLETED - Refactor StandardWorkflowSteps structure (dev-01)
-// ✓ Refactored workflow structure with WorkflowDefinition and WorkflowRegistry
-// ✓ Created global registry instance for cross-component access
-// ✓ Maintained backward compatibility with legacy code
-//
-// Phase 2: COMPLETED - Extract prompt files from standard workflow (dev-02)
-// ✓ Extracted long prompts from StandardWorkflowSteps into separate Markdown files
-// ✓ Organized files in standard directory structure for workflow templates
-// ✓ Generated workflow.yaml from the current StandardWorkflowSteps metadata
-// ✓ Implemented mechanism to load prompts from files with fallback to embedded prompts
-// ✓ Added ExtractStandardWorkflow function with proper cross-platform path handling
-//
-// Phase 3: COMPLETED - Add workflow loading from filesystem (dev-03)
-// ✓ Extended WorkflowRegistry to load workflow definitions from disk
-// ✓ Implemented discovery of workflows in standard locations
-// ✓ Added validation of workflow.yaml format and prompt references
-// ✓ Created caching mechanism with source tracking and modification timestamps
-// ✓ Implemented format detection for both YAML and JSON workflow files
-//
-// Phase 4: COMPLETED - Update workflow state format (dev-04)
-// ✓ Updated WorkflowState to include workflow identification (WorkflowName and WorkflowPath)
-// ✓ Maintained backward compatibility with existing state files
-// ✓ Updated WorkflowManager methods to handle the new state format
-// ✓ Implemented validation for workflow switching with ValidateWorkflowSwitch
-// ✓ Added MapProgressBetweenWorkflows for preserving progress when switching workflows
-//
-// Phase 5: Implement template variables support (dev-05)
-// - Add Variables field to WorkflowStep struct
-// - Implement template processing system using Go's text/template
-// - Support variable substitution, default values, conditionals, and iteration
-// - Add validation and error handling for template processing
-//
-// Phase 6: Deprecate StandardWorkflowSteps (dev-06)
-// - Mark StandardWorkflowSteps as deprecated
-// - Add linter rules to flag direct usage
-// - Implement compatibility layer for legacy code
-// - Update documentation and provide migration guides
-//
-// Phase 7: Migrate legacy workflows (dev-07)
-// - Convert StandardWorkflowSteps to a built-in workflow template
-// - Ensure compatibility with existing state files
-// - Provide backward compatibility for direct code references
-// - Create migration command for advanced users
-// - Document migration process
+// LoadWorkflowFromFile loads a workflow definition from the given file path

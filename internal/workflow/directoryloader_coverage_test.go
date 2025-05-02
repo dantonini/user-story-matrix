@@ -150,7 +150,7 @@ steps:
 				fs.AddFile("/path/to/workflow/workflow.yaml", []byte(yaml))
 			},
 			dirPath:       "/path/to/workflow",
-			expectedError: "workflow name is required",
+			expectedError: "workflow must have a name",
 		},
 		{
 			name: "Missing prompts directory",
