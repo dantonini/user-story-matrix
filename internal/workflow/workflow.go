@@ -684,9 +684,33 @@ func NewWorkflowManagerWithName(fs io.FileSystem, io UserOutput, workflowName st
 	// Get the global registry
 	registry := GetGlobalRegistry()
 	
-	// Get the workflow by name
-	workflowDef, err := registry.GetWorkflow(workflowName)
+	// Add debug output about available workflows
+	if io.IsDebugEnabled() {
+		workflows := registry.ListWorkflows()
+		io.PrintProgress(fmt.Sprintf("Available workflows in registry: %v", workflows))
+		
+		// Check if the named workflow is listed 
+		found := false
+		for _, name := range workflows {
+			if name == workflowName {
+				found = true
+				break
+			}
+		}
+		
+		if found {
+			io.PrintProgress(fmt.Sprintf("Workflow '%s' found in registry list", workflowName))
+		} else {
+			io.PrintProgress(fmt.Sprintf("Workflow '%s' NOT found in registry list", workflowName))
+		}
+	}
+	
+	// Get the workflow by name, explicitly passing the filesystem for auto-discovery
+	workflowDef, err := registry.GetWorkflowWithFS(workflowName, fs)
 	if err != nil {
+		if io.IsDebugEnabled() {
+			io.PrintProgress(fmt.Sprintf("GetWorkflowWithFS('%s') failed: %v", workflowName, err))
+		}
 		return nil, fmt.Errorf("workflow '%s' not found", workflowName)
 	}
 	
@@ -696,6 +720,11 @@ func NewWorkflowManagerWithName(fs io.FileSystem, io UserOutput, workflowName st
 		io:       io,
 		registry: registry,
 		workflow: workflowDef,
+	}
+	
+	// Print debug info if enabled
+	if io.IsDebugEnabled() {
+		io.PrintProgress(fmt.Sprintf("Created workflow manager with workflow: %s", workflowDef.Name))
 	}
 	
 	return wm, nil

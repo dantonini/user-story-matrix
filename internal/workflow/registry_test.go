@@ -1180,3 +1180,225 @@ func TestGetUserHomeDir(t *testing.T) {
 	homeDir := getUserHomeDir()
 	assert.NotEmpty(t, homeDir)
 }
+
+func TestWorkflowListVsGetWorkflowDiscrepancy(t *testing.T) {
+	// Create mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Set up workflow files in the mock filesystem
+	workflowDir := ".usm/workflows/test-workflow"
+	workflowConfigPath := filepath.Join(workflowDir, "workflow.yaml")
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	
+	// Create directories
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(promptsDir, 0755)
+	
+	// Create workflow.yaml
+	workflowYAML := `name: test-workflow
+description: Test workflow for bug reproduction
+steps:
+  - id: step1
+    description: First step
+    prompt: test-prompt.md
+`
+	fs.WriteFile(workflowConfigPath, []byte(workflowYAML), 0644)
+	
+	// Create a test prompt file
+	fs.WriteFile(filepath.Join(promptsDir, "test-prompt.md"), []byte("Test prompt content"), 0644)
+	
+	// Reset the global registry to ensure a clean state
+	registry := ResetGlobalRegistry()
+	
+	// Discover workflows
+	discoveredWorkflows := registry.DiscoverWorkflows(fs)
+	
+	// Verify that the test-workflow was discovered
+	if _, found := discoveredWorkflows["test-workflow"]; !found {
+		t.Fatalf("test-workflow not found in discovered workflows")
+	}
+	
+	// Get the list of workflows from ListWorkflows
+	listedWorkflows := registry.ListWorkflows()
+	
+	// Verify that test-workflow is in the list
+	foundInList := false
+	for _, name := range listedWorkflows {
+		if name == "test-workflow" {
+			foundInList = true
+			break
+		}
+	}
+	
+	if !foundInList {
+		t.Fatalf("test-workflow not found in ListWorkflows result")
+	}
+	
+	// Try to get the workflow using GetWorkflow
+	workflow, err := registry.GetWorkflow("test-workflow")
+	
+	// Verify that GetWorkflow works
+	if err != nil {
+		t.Fatalf("GetWorkflow failed: %v", err)
+	}
+	
+	if workflow == nil {
+		t.Fatalf("Workflow is nil despite no error from GetWorkflow")
+	}
+	
+	if workflow.Name != "test-workflow" {
+		t.Fatalf("Wrong workflow name: expected 'test-workflow', got '%s'", workflow.Name)
+	}
+}
+
+func TestWorkflowManagerWithNameConsistency(t *testing.T) {
+	// Create mock filesystem with workflow structure
+	fs := io.NewMockFileSystem()
+	
+	// Set up workflow files in the mock filesystem
+	workflowDir := ".usm/workflows/test-workflow"
+	workflowConfigPath := filepath.Join(workflowDir, "workflow.yaml")
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	
+	// Create directories
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(promptsDir, 0755)
+	
+	// Create workflow.yaml
+	workflowYAML := `name: test-workflow
+description: Test workflow for bug reproduction
+steps:
+  - id: step1
+    description: First step
+    prompt: test-prompt.md
+`
+	fs.WriteFile(workflowConfigPath, []byte(workflowYAML), 0644)
+	
+	// Create a test prompt file
+	fs.WriteFile(filepath.Join(promptsDir, "test-prompt.md"), []byte("Test prompt content"), 0644)
+	
+	// Create mock IO
+	mockIO := NewMockIO()
+	mockIO.debugEnabled = true // Use the field directly
+	
+	// Reset the global registry to ensure a clean state
+	ResetGlobalRegistry()
+	
+	// Create a registry instance and discover workflows
+	registry := GetGlobalRegistry()
+	registry.DiscoverWorkflows(fs)
+	
+	// Attempt to create a workflow manager with the workflow name
+	wm, err := NewWorkflowManagerWithName(fs, mockIO, "test-workflow")
+	
+	// Verify that the workflow manager was created successfully
+	if err != nil {
+		t.Fatalf("Failed to create workflow manager: %v", err)
+	}
+	
+	if wm == nil {
+		t.Fatalf("Workflow manager is nil")
+	}
+	
+	// Verify that the workflow is correct
+	if wm.workflow == nil || wm.workflow.Name != "test-workflow" {
+		t.Fatalf("Wrong workflow: expected 'test-workflow', got '%s'", 
+		    wm.workflow.Name)
+	}
+}
+
+func TestWorkflowRegistry_AutoDiscovery(t *testing.T) {
+	// Create a mock filesystem
+	fs := io.NewMockFileSystem()
+
+	// Set up a workflow directory
+	workflowDir := ".usm/workflows/test-workflow"
+	workflowConfigPath := filepath.Join(workflowDir, "workflow.yaml")
+	promptsDir := filepath.Join(workflowDir, "prompts")
+
+	// Create directories and files
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Create a simple workflow.yaml file
+	workflowYAML := `name: test-workflow
+description: Test workflow for auto-discovery
+steps:
+  - id: step1
+    description: Step 1
+    prompt: prompts/step1.md
+`
+	fs.WriteFile(workflowConfigPath, []byte(workflowYAML), 0644)
+	fs.WriteFile(filepath.Join(promptsDir, "step1.md"), []byte("Test prompt content"), 0644)
+
+	// Reset the global registry for clean state
+	registry := ResetGlobalRegistry()
+
+	// Add the test-workflow to the registry cache
+	workflow, _, err := LoadWorkflowFromDirectory(fs, workflowDir)
+	assert.NoError(t, err, "LoadWorkflowFromDirectory should not fail")
+	assert.NotNil(t, workflow, "Workflow should not be nil")
+	
+	registry.AddToCache(workflow, workflowDir)
+
+	// Now try to get the workflow by name
+	retrievedWorkflow, err := registry.GetWorkflow("test-workflow")
+	assert.NoError(t, err, "GetWorkflow should find the workflow that was added to cache")
+	assert.NotNil(t, retrievedWorkflow, "Retrieved workflow should not be nil")
+	assert.Equal(t, "test-workflow", retrievedWorkflow.Name, "Workflow name should match")
+}
+
+func TestWorkflowRegistry_GetWorkflowAfterList(t *testing.T) {
+	// Create a mock filesystem
+	fs := io.NewMockFileSystem()
+
+	// Set up a workflow directory
+	workflowDir := ".usm/workflows/test-workflow"
+	workflowConfigPath := filepath.Join(workflowDir, "workflow.yaml")
+	promptsDir := filepath.Join(workflowDir, "prompts")
+
+	// Create directories and files
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Create a simple workflow.yaml file
+	workflowYAML := `name: test-workflow
+description: Test workflow for list consistency
+steps:
+  - id: step1
+    description: Step 1
+    prompt: prompts/step1.md
+`
+	fs.WriteFile(workflowConfigPath, []byte(workflowYAML), 0644)
+	fs.WriteFile(filepath.Join(promptsDir, "step1.md"), []byte("Test prompt content"), 0644)
+
+	// Reset the global registry for clean state
+	registry := ResetGlobalRegistry()
+
+	// First call ListWorkflows after explicit discovery
+	discoveredWorkflows := registry.DiscoverWorkflows(fs)
+	
+	// Verify workflow was discovered
+	assert.Contains(t, discoveredWorkflows, "test-workflow", "test-workflow should be in discovered workflows")
+	
+	// Get list of workflows
+	listedWorkflows := registry.ListWorkflows()
+
+	// Verify that the workflow appears in the list
+	found := false
+	for _, name := range listedWorkflows {
+		if name == "test-workflow" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "test-workflow should be found in ListWorkflows")
+
+	// Now try to get the workflow directly
+	workflow, err := registry.GetWorkflowWithFS("test-workflow", fs)
+
+	// Verify that GetWorkflow finds the workflow that was discovered by ListWorkflows
+	assert.NoError(t, err, "GetWorkflow should find the workflow after ListWorkflows")
+	assert.NotNil(t, workflow, "Workflow should not be nil")
+	assert.Equal(t, "test-workflow", workflow.Name, "Workflow name should match")
+}

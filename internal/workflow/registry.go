@@ -171,21 +171,90 @@ func (r *WorkflowRegistry) RegisterBuiltInWorkflow(workflow *WorkflowDefinition)
 // Returns:
 //   - The requested WorkflowDefinition, or an error if it doesn't exist
 func (r *WorkflowRegistry) GetWorkflow(name string) (*WorkflowDefinition, error) {
+	return r.GetWorkflowWithFS(name, nil)
+}
+
+// GetWorkflowWithFS retrieves a workflow by name, using the provided filesystem
+// for auto-discovery if needed. If fs is nil, it creates an OSFileSystem.
+//
+// Parameters:
+//   - name: The unique identifier of the workflow to retrieve
+//   - fs: Optional filesystem to use for auto-discovery (can be nil)
+//
+// Returns:
+//   - The requested WorkflowDefinition, or an error if it doesn't exist
+func (r *WorkflowRegistry) GetWorkflowWithFS(name string, fs io.FileSystem) (*WorkflowDefinition, error) {
+	// First try with a read lock
 	r.mutex.RLock()
-	defer r.mutex.RUnlock()
 	
-	// First check built-in workflows
+	// Check built-in workflows
 	workflow, exists := r.builtInWorkflows[name]
 	if exists {
+		r.mutex.RUnlock()
 		return workflow, nil
 	}
 	
-	// Then check cached workflows from filesystem
+	// Check cached workflows
 	workflow, exists = r.cache.workflows[name]
 	if exists {
+		r.mutex.RUnlock()
 		return workflow, nil
 	}
 	
+	// Release read lock before trying discovery
+	r.mutex.RUnlock()
+	
+	// Try discovery if not found in cache or built-in
+	logger.Debug("Workflow not found in registry, attempting discovery", 
+		zap.String("name", name))
+	
+	// Create a filesystem if one wasn't provided
+	if fs == nil {
+		fs = io.NewOSFileSystem()
+	}
+	
+	// Get standard workflow directories
+	directories := GetStandardWorkflowDirectories()
+	
+	// Check for the specific workflow in these directories
+	workflowFound := false
+	var discoveredWorkflow *WorkflowDefinition
+	
+	// Check for the specific workflow in each standard directory
+	for _, dir := range directories {
+		if !fs.Exists(dir) {
+			continue
+		}
+		
+		// Check if the directory contains a workflow with this name
+		workflowDir := filepath.Join(dir, name)
+		workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+		
+		if fs.Exists(workflowYAMLPath) {
+			// Found the workflow, try to load it
+			loadedWorkflow, _, err := LoadWorkflowFromDirectory(fs, workflowDir)
+			if err == nil {
+				// Successfully loaded the workflow
+				workflowFound = true
+				discoveredWorkflow = loadedWorkflow
+				break
+			}
+		}
+	}
+	
+	// If we found the workflow, add it to the registry cache
+	if workflowFound && discoveredWorkflow != nil {
+		// Now get a write lock to update the cache
+		r.mutex.Lock()
+		r.cache.workflows[name] = discoveredWorkflow
+		r.cache.sources[name] = filepath.Join(".usm/workflows", name)
+		r.cache.modified[name] = time.Now()
+		r.mutex.Unlock()
+		
+		return discoveredWorkflow, nil
+	}
+	
+	// Still not found after targeted discovery
 	return nil, fmt.Errorf("workflow '%s' not found", name)
 }
 
