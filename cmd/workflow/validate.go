@@ -49,6 +49,11 @@ Examples:
 		
 		registry := workflow.GetGlobalRegistry()
 		
+		// Discover available workflows
+		// This is required to find workflows that were created by the user
+		// but might not have been loaded into the registry yet
+		registry.DiscoverWorkflows(fs)
+		
 		// Determine if input is a path or a name
 		var workflowPath string
 		var workflowDef *workflow.WorkflowDefinition
@@ -76,10 +81,27 @@ Examples:
 				return
 			}
 			
-			workflowPath = findWorkflowByName(fs, nameOrPath)
-			if workflowPath == "" {
-				// Use current directory as fallback
-				workflowPath = "."
+			// First check for source path in the registry's cache
+			source, path := registry.GetWorkflowSourceInfo(nameOrPath)
+			if path != "-" && path != "" {
+				workflowPath = path
+			} else {
+				// If no source path available, try to find it by name
+				workflowPath = findWorkflowByName(fs, nameOrPath)
+				if workflowPath == "" {
+					// For built-in workflows, we don't need a path for validation
+					if source == workflow.SourceBuiltIn {
+						// Built-in workflows don't need prompt validation
+						output.PrintProgress(fmt.Sprintf("Validating workflow '%s'", workflowDef.Name))
+						output.PrintSuccess("Workflow is valid")
+						return
+					}
+					
+					// For other workflow types, we need a path to validate prompt references
+					output.PrintError(fmt.Sprintf("Cannot find workflow directory for '%s'", nameOrPath))
+					os.Exit(1)
+					return
+				}
 			}
 		}
 		
