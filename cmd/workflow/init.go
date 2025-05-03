@@ -36,10 +36,16 @@ var InitCmd = &cobra.Command{
 	Short: "Initialize a new workflow",
 	Long: `Initialize a new workflow with the specified name.
 
-This command creates a directory structure for a new workflow:
-- workflow.yaml: Configuration file with workflow metadata and step definitions
-- prompts/: Directory containing individual prompt files
-- shared/ (optional): Directory for reusable prompt templates
+Directory structure created:
+
+[workflow-name]/
+  ├── workflow.yaml     # Configuration file with workflow metadata and step definitions
+  ├── README.md        # Documentation and usage instructions
+  └── prompts/         # Directory containing prompt files
+      ├── step1.md     # Individual prompt files
+      ├── step2.md     # (number and names vary by template)
+	  └── shared/      # Reusable prompt templates (optional)
+           └── *.md     # Shared template fragments
 
 Available templates:
 - skeleton: A bare structure to build upon - minimal starting point
