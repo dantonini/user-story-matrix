@@ -261,6 +261,7 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 
 // ExtractTemplateVariables extracts the variables used in a prompt template.
 // This implementation uses the Go template parser to accurately extract variables.
+// It also processes nested templates referenced with the {{template "name" .}} directive.
 //
 // Parameters:
 //   - promptPath: Path to the prompt template file, relative to the workflow directory
@@ -307,6 +308,69 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 	variableMap := make(map[string]bool) // Use map to deduplicate
 	for _, node := range tmpl.Tree.Root.Nodes {
 		extractVariablesFromNode(node, variableMap)
+	}
+	
+	// Find all template references
+	templateRefs := findTemplateReferences(string(promptData))
+	
+	// Process nested templates
+	for _, templateRef := range templateRefs {
+		// Try to find the referenced template file
+		nestedTemplatePath := ""
+		if strings.HasPrefix(templateRef, "shared/") {
+			// For shared references, look in the shared directory relative to the current template
+			nestedTemplatePath = filepath.Join(filepath.Dir(resolvedPath), templateRef)
+		} else {
+			// For other references, try to resolve using the standard mechanism
+			nestedTemplatePath = r.resolvePromptPath(templateRef)
+		}
+		
+		if nestedTemplatePath == "" {
+			// Skip if template not found - this will be caught by validation elsewhere
+			continue
+		}
+		
+		// Extract variables from the nested template
+		nestedData, err := r.fs.ReadFile(nestedTemplatePath)
+		if err != nil {
+			// Skip if template can't be read - this will be caught by validation elsewhere
+			continue
+		}
+		
+		// Parse the nested template
+		nestedTmpl, err := template.New(filepath.Base(nestedTemplatePath)).Funcs(funcMap).Parse(string(nestedData))
+		if err != nil {
+			// Skip if template has syntax errors - this will be caught by validation elsewhere
+			continue
+		}
+		
+		// Extract variables from the nested template AST
+		for _, node := range nestedTmpl.Tree.Root.Nodes {
+			extractVariablesFromNode(node, variableMap)
+		}
+		
+		// Also check for further nested templates (recursively)
+		nestedTemplateRefs := findTemplateReferences(string(nestedData))
+		for _, nestedRef := range nestedTemplateRefs {
+			// Avoid infinite recursion by checking if we've already processed this template
+			if nestedRef != templateRef {
+				// Get the path based on the current location of the nested template
+				nestedRefPath := ""
+				if strings.HasPrefix(nestedRef, "shared/") {
+					nestedRefPath = filepath.Join(filepath.Dir(nestedTemplatePath), nestedRef)
+				} else {
+					nestedRefPath = r.resolvePromptPath(nestedRef)
+				}
+				
+				if nestedRefPath != "" {
+					// Extract variables from further nested templates
+					nestedVars, _ := r.ExtractTemplateVariables(nestedRefPath)
+					for _, v := range nestedVars {
+						variableMap[v] = true
+					}
+				}
+			}
+		}
 	}
 	
 	// Convert map to slice

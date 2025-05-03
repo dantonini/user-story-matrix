@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"text/template"
 
@@ -615,4 +616,54 @@ Content
 			assert.ElementsMatch(t, tc.expected, result, "Template references should match expected")
 		})
 	}
+}
+
+func TestExtractVariablesFromNestedTemplates(t *testing.T) {
+	// Create a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Add a main template that includes a nested template
+	mainTemplate := `# {{ .title }} Template
+This is the main template.
+
+{{ template "shared/header.md" . }}
+
+More content with {{ .mainVar }}
+
+{{ template "shared/footer.md" . }}
+`
+	
+	// Add a nested header template with its own variables
+	headerTemplate := `## {{ .subtitle }}
+This is a header with {{ .headerVar }}.
+`
+	
+	// Add a nested footer template with its own variables
+	footerTemplate := `## Footer
+This is a footer with {{ .footerVar }}.
+`
+	
+	// Add the templates to the mock file system
+	workflowDir := "/workflow"
+	fs.AddFile(filepath.Join(workflowDir, "main.md"), []byte(mainTemplate))
+	fs.AddFile(filepath.Join(workflowDir, "shared/header.md"), []byte(headerTemplate))
+	fs.AddFile(filepath.Join(workflowDir, "shared/footer.md"), []byte(footerTemplate))
+	
+	// Create a template renderer with the mock file system
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	
+	// Extract variables from the main template
+	vars, err := renderer.ExtractTemplateVariables(filepath.Join(workflowDir, "main.md"))
+	
+	// Verify that no error occurred
+	assert.NoError(t, err)
+	
+	// Sort the variables for consistent comparison
+	sort.Strings(vars)
+	
+	// Verify that variables from both the main and nested templates are extracted
+	expectedVars := []string{"title", "mainVar", "subtitle", "headerVar", "footerVar"}
+	sort.Strings(expectedVars)
+	
+	assert.Equal(t, expectedVars, vars, "Failed to extract variables from nested templates")
 } 

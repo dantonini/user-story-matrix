@@ -960,4 +960,89 @@ func TestValidateWorkflowRelativePaths(t *testing.T) {
 	}
 
 	assert.True(t, foundWarning, "Should find warning about missing key2 variable")
+}
+
+func TestValidateWorkflowWithNestedTemplates(t *testing.T) {
+	// Create a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Create a workflow directory structure
+	workflowDir := "/workflows/test-nested"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	sharedDir := filepath.Join(promptsDir, "shared")
+	
+	// Create directories
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(promptsDir, 0755)
+	fs.MkdirAll(sharedDir, 0755)
+	
+	// Create the workflow.yaml file
+	workflowYAML := `name: "test-nested"
+description: "Test workflow with nested templates"
+steps:
+  - id: "01-foundation"
+    description: "Lay the foundation"
+    prompt: "prompts/foundation.md"
+    variables:
+      phase: "foundation"
+      # focus variable is missing but used in the nested template
+`
+	
+	fs.WriteFile(filepath.Join(workflowDir, WorkflowConfigFile), []byte(workflowYAML), 0644)
+	
+	// Create the main template file that includes a nested template
+	foundationTemplate := `# {{ .phase }} Phase
+
+This step focuses on laying the foundation for the implementation:
+
+{{ template "shared/phase_header.md" . }}
+
+## Primary Tasks
+
+1. Set up the project structure
+2. Define key interfaces and data structures
+3. Establish the overall architecture
+4. Create scaffolding for the main components
+
+## Expected Outcome
+
+By the end of this phase, we should have a solid architectural foundation.
+`
+	
+	fs.WriteFile(filepath.Join(promptsDir, "foundation.md"), []byte(foundationTemplate), 0644)
+	
+	// Create the nested template that uses the 'focus' variable
+	headerTemplate := `## Focus Area: {{ .focus }}
+
+This phase we're focusing on {{ .focus }}.
+
+---
+`
+	
+	fs.WriteFile(filepath.Join(sharedDir, "phase_header.md"), []byte(headerTemplate), 0644)
+	
+	// Load the workflow
+	workflowDef, err := LoadWorkflowFromFile(fs, filepath.Join(workflowDir, WorkflowConfigFile))
+	assert.NoError(t, err)
+	
+	// Create a validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+	
+	// Validate the workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err)
+	
+	// The workflow should be valid (no errors) but have warnings about missing variables
+	assert.True(t, result.IsValid(), "Workflow should be valid")
+	
+	// Check that there's a warning about the missing 'focus' variable
+	foundFocusWarning := false
+	for _, warning := range result.Warnings {
+		if strings.Contains(warning, "'focus'") {
+			foundFocusWarning = true
+			break
+		}
+	}
+	
+	assert.True(t, foundFocusWarning, "Validator should warn about missing 'focus' variable used in nested template")
 } 
