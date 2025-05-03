@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/user-story-matrix/usm/internal/io"
+	"github.com/user-story-matrix/usm/internal/logger"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -86,15 +88,33 @@ func LoadWorkflowFromDirectory(fs io.FileSystem, dirPath string) (*WorkflowDefin
 	// Determine the workflow source
 	source := determineWorkflowSource(dirPath)
 	
-	// Validate the workflow
+	// Only validate prompt references when we know we're in the correct workflow directory
+	// This prevents validating standard workflow prompts against custom workflow directories
 	errors := ValidateWorkflowPromptReferences(fs, dirPath, &externalWorkflow)
 	if len(errors) > 0 {
-		// Combine all errors into a single error message
-		errorMsgs := make([]string, len(errors))
-		for i, err := range errors {
-			errorMsgs[i] = err.Error()
+		// If we're loading a workflow directory directly (not during discovery)
+		// then we should fail on validation errors
+		if strings.Contains(dirPath, externalWorkflow.Name) || 
+		   (source != SourceBuiltIn && !strings.Contains(dirPath, "templates")) {
+			// Combine all errors into a single error message
+			errorMsgs := make([]string, len(errors))
+			for i, err := range errors {
+				errorMsgs[i] = err.Error()
+			}
+			return nil, nil, fmt.Errorf("workflow validation failed:\n- %s", strings.Join(errorMsgs, "\n- "))
+		} else {
+			// Otherwise, just log the errors but continue loading
+			// Convert errors to strings for logging
+			errorMsgs := make([]string, len(errors))
+			for i, err := range errors {
+				errorMsgs[i] = err.Error()
+			}
+			
+			logger.Debug("Non-critical validation errors during workflow discovery", 
+				zap.String("workflowName", externalWorkflow.Name),
+				zap.Strings("errors", errorMsgs),
+				zap.String("dirPath", dirPath))
 		}
-		return nil, nil, fmt.Errorf("workflow validation failed:\n- %s", strings.Join(errorMsgs, "\n- "))
 	}
 	
 	// Create workflow info

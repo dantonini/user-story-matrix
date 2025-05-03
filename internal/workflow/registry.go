@@ -18,6 +18,7 @@ import (
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/logger"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 // Standard workflow constants
@@ -461,134 +462,130 @@ func (r *WorkflowRegistry) LoadFromDirectory(fs io.FileSystem, path string) (*Wo
 	return workflow, nil
 }
 
-// DiscoverWorkflows finds and loads workflows from standard locations
-// This method searches in multiple directories and loads workflows from each.
+// DiscoverWorkflows scans standard directories for workflows and loads them
 //
 // Parameters:
 //   - fs: FileSystem interface for file operations
 //
 // Returns:
-//   - A map of workflow names to their definitions
+//   - A map of all discovered workflow definitions, keyed by name
 func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*WorkflowDefinition {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	
 	discoveredWorkflows := make(map[string]*WorkflowDefinition)
 	
-	// Get standard workflow directories
-	directories := GetStandardWorkflowDirectories()
-	
-	// Use logger instead of fmt.Printf for debug output
-	logger.Debug("Searching directories", zap.Strings("directories", directories))
-	
-	// Check if each directory exists
-	for _, dir := range directories {
-		exists := fs.Exists(dir)
-		logger.Debug("Directory existence check", 
-			zap.String("dir", dir), 
-			zap.Bool("exists", exists))
-	}
-	
-	// Function to process a workflow YAML or JSON file
-	processWorkflowFile := func(filePath string) {
-		logger.Debug("Processing workflow file", zap.String("file", filePath))
-		workflow, err := LoadWorkflowFromFile(fs, filePath)
-		if err != nil {
-			logger.Error("Error loading workflow", zap.String("file", filePath), zap.Error(err))
-			return
-		}
-		
-		logger.Debug("Successfully loaded workflow", 
-			zap.String("name", workflow.Name), 
-			zap.String("file", filePath))
-		
-		// Add to cache with proper source tracking
-		r.cache.workflows[workflow.Name] = workflow
-		r.cache.sources[workflow.Name] = filePath
-		r.cache.modified[workflow.Name] = time.Now()
-		discoveredWorkflows[workflow.Name] = workflow
-	}
-	
-	// Load workflows from each directory
-	for _, dir := range directories {
-		logger.Debug("Checking directory", zap.String("dir", dir))
-		if !fs.Exists(dir) {
-			logger.Debug("Directory does not exist", zap.String("dir", dir))
+	// Scan standard locations for workflow files
+	for _, scanDir := range GetStandardWorkflowDirectories() {
+		// Skip non-existent directories
+		if !fs.Exists(scanDir) {
+			logger.Debug("Skipping non-existent directory", zap.String("dir", scanDir))
 			continue
 		}
 		
-		// Check for workflow files directly in this directory
-		entries, err := fs.ReadDir(dir)
+		// List directories to scan
+		entries, err := fs.ReadDir(scanDir)
 		if err != nil {
-			logger.Error("Error reading workflow directory", 
-				zap.String("dir", dir), 
-				zap.Error(err))
+			logger.Error("Failed to read directory", zap.String("dir", scanDir), zap.Error(err))
 			continue
 		}
 		
-		logger.Debug("Found entries in directory", 
-			zap.String("dir", dir), 
-			zap.Int("count", len(entries)))
+		// Function to process workflow files
+		processWorkflowFile := func(filePath string) {
+			workflow, err := LoadWorkflowFromFile(fs, filePath)
+			if err != nil {
+				logger.Error("Failed to load workflow file", zap.String("file", filePath), zap.Error(err))
+				return
+			}
+			
+			// Skip unnamed workflows
+			if workflow.Name == "" {
+				logger.Error("Skipping workflow with empty name", zap.String("file", filePath))
+				return
+			}
+			
+			// Add to cache with proper source tracking
+			r.cache.workflows[workflow.Name] = workflow
+			r.cache.sources[workflow.Name] = filePath
+			r.cache.modified[workflow.Name] = time.Now()
+			discoveredWorkflows[workflow.Name] = workflow
+			
+			logger.Debug("Successfully loaded workflow file", 
+				zap.String("name", workflow.Name), 
+				zap.String("file", filePath))
+		}
 		
-		// First look for direct workflow files (workflow.yaml or workflow.json)
+		// Check for workflow.yaml files directly in the scan directory
 		for _, entry := range entries {
-			entryName := entry.Name()
-			isDir := entry.IsDir()
-			logger.Debug("Found entry", 
-				zap.String("name", entryName), 
-				zap.Bool("isDir", isDir))
-			
-			if entry.IsDir() {
-				continue
-			}
-			
-			name := entry.Name()
-			if name == "workflow.yaml" || name == "workflow.yml" || name == "workflow.json" {
-				workflowPath := filepath.Join(dir, name)
-				logger.Debug("Found workflow file", zap.String("path", workflowPath))
-				processWorkflowFile(workflowPath)
+			if !entry.IsDir() && isWorkflowFile(entry.Name()) {
+				logger.Debug("Found potential workflow file", 
+					zap.String("file", entry.Name()), 
+					zap.String("dir", scanDir))
+				
+				processWorkflowFile(filepath.Join(scanDir, entry.Name()))
 			}
 		}
 		
-		// Then check for workflow directories
+		// Check for workflow.yaml files in subdirectories of the scan directory
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
 			
-			workflowDir := filepath.Join(dir, entry.Name())
-			logger.Debug("Checking workflow dir", zap.String("dir", workflowDir))
+			workflowDir := filepath.Join(scanDir, entry.Name())
+			logger.Debug("Checking subdirectory for workflows", zap.String("dir", workflowDir))
 			
-			// For registry tests with mock file system, we need this special handling
-			// When using the mock file system in tests, sometimes directory entries aren't
-			// properly reported by ReadDir even if the directory exists
-			if fs.Exists(workflowDir) && !containsDirectoryEntry(entries, entry.Name()) {
-				// This is a test-specific workaround
-				logger.Debug("Directory exists but wasn't reported in entries, checking for workflow file", 
-					zap.String("dir", workflowDir))
+			// Special case for catalog entries - load info.yaml instead of workflow.yaml if available
+			infoYamlPath := filepath.Join(workflowDir, "info.yaml")
+			if fs.Exists(infoYamlPath) {
+				logger.Debug("Found workflow catalog info", zap.String("path", infoYamlPath))
 				
-				// Check for workflow.yaml
-				workflowYAMLPath := filepath.Join(workflowDir, StandardWorkflowYAML)
-				if fs.Exists(workflowYAMLPath) {
-					// Load using LoadWorkflowFromDirectory for better prompt resolution
-					workflow, info, err := LoadWorkflowFromDirectory(fs, workflowDir)
-					if err != nil {
-						logger.Error("Error loading workflow from directory", 
-							zap.String("dir", workflowDir), zap.Error(err))
-						continue
-					}
-					
-					// Add to cache with proper source tracking
-					r.cache.workflows[workflow.Name] = workflow
-					r.cache.sources[workflow.Name] = workflowDir
-					r.cache.modified[workflow.Name] = time.Now()
-					discoveredWorkflows[workflow.Name] = workflow
-					
-					logger.Debug("Successfully loaded workflow from directory", 
-						zap.String("name", workflow.Name), 
-						zap.String("dir", workflowDir),
-						zap.String("source", info.Source))
+				// Load workflow catalog information
+				data, err := fs.ReadFile(infoYamlPath)
+				if err != nil {
+					logger.Error("Failed to read workflow catalog info", 
+						zap.String("file", infoYamlPath), zap.Error(err))
+					continue
 				}
+				
+				var info struct {
+					Name        string `yaml:"name"`
+					Description string `yaml:"description"`
+					Source      string `yaml:"source"`
+				}
+				
+				if err := yaml.Unmarshal(data, &info); err != nil {
+					logger.Error("Failed to parse workflow catalog info", 
+						zap.String("file", infoYamlPath), zap.Error(err))
+					continue
+				}
+				
+				// Load the workflow from this directory
+				workflow, err := r.LoadFromDirectory(fs, workflowDir)
+				if err != nil {
+					logger.Error("Failed to load workflow from catalog entry", 
+						zap.String("dir", workflowDir), zap.Error(err))
+					continue
+				}
+				
+				// Override name and description if provided
+				if info.Name != "" {
+					workflow.Name = info.Name
+				}
+				if info.Description != "" {
+					workflow.Description = info.Description
+				}
+				
+				// Add to cache with proper source tracking
+				r.cache.workflows[workflow.Name] = workflow
+				r.cache.sources[workflow.Name] = workflowDir
+				r.cache.modified[workflow.Name] = time.Now()
+				discoveredWorkflows[workflow.Name] = workflow
+				
+				logger.Debug("Successfully loaded workflow from directory", 
+					zap.String("name", workflow.Name), 
+					zap.String("dir", workflowDir),
+					zap.String("source", info.Source))
 			}
 			
 			// Regular flow - Check for workflow.yaml
@@ -603,8 +600,20 @@ func (r *WorkflowRegistry) DiscoverWorkflows(fs io.FileSystem) map[string]*Workf
 				// Load using LoadWorkflowFromDirectory for better prompt resolution
 				workflow, info, err := LoadWorkflowFromDirectory(fs, workflowDir)
 				if err != nil {
-					logger.Error("Error loading workflow from directory", 
-						zap.String("dir", workflowDir), zap.Error(err))
+					// During discovery, only log errors but don't fail if they appear to be 
+					// path mismatches (which can happen when scanning directories)
+					if strings.Contains(err.Error(), "prompt file for step") && 
+					   strings.Contains(err.Error(), "not found") {
+						// This is likely a prompt resolution issue during discovery
+						// Just log it at debug level
+						logger.Debug("Skipping workflow with prompt resolution issues during discovery", 
+							zap.String("dir", workflowDir), 
+							zap.Error(err))
+					} else {
+						// Other errors are still logged as errors
+						logger.Error("Error loading workflow from directory", 
+							zap.String("dir", workflowDir), zap.Error(err))
+					}
 					continue
 				}
 				
