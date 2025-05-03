@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"text/template/parse"
@@ -101,7 +102,7 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 	// Find the prompt file path
 	resolvedPath := r.resolvePromptPath(promptPath)
 	if resolvedPath == "" {
-		return "", fmt.Errorf("prompt file not found: %s", promptPath)
+		return "", fmt.Errorf("prompt file not found: %s (tried paths: %s)", promptPath, "")
 	}
 	
 	// Read the prompt file
@@ -109,6 +110,9 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 	if err != nil {
 		return "", fmt.Errorf("failed to read prompt file: %w", err)
 	}
+	
+	// Create a template name that's based on the path but cleaned up for use as template name
+	templateName := filepath.Base(promptPath)
 	
 	// Check if template is cached
 	tmpl, ok := r.cache[promptPath]
@@ -132,10 +136,48 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 			"trim": strings.TrimSpace,
 		}
 		
-		tmpl = template.New(filepath.Base(promptPath)).Funcs(funcMap)
+		// Create a root template with our functions
+		tmpl = template.New(templateName).Funcs(funcMap)
+		
+		// Parse the main template
 		tmpl, err = tmpl.Parse(string(promptData))
 		if err != nil {
-			return "", fmt.Errorf("invalid template syntax in %s: %w", promptPath, err)
+			return "", fmt.Errorf("invalid template syntax in %s: %w", resolvedPath, err)
+		}
+		
+		// Find and parse any referenced templates (e.g., "{{ template "shared/footer.md" . }}")
+		for _, t := range findTemplateReferences(string(promptData)) {
+			// Skip if this template is already defined
+			if tmpl.Lookup(t) != nil {
+				continue
+			}
+			
+			// Try to find the referenced template file
+			// For "shared/footer.md", we would look in prompts/shared/footer.md
+			refPath := ""
+			if strings.HasPrefix(t, "shared/") {
+				// For shared references, look in the shared directory
+				refPath = filepath.Join(filepath.Dir(resolvedPath), t)
+			} else {
+				// For other references, try to resolve directly
+				refPath = r.resolvePromptPath(t)
+			}
+			
+			if refPath == "" {
+				return "", fmt.Errorf("referenced template not found: %s", t)
+			}
+			
+			// Read the template file
+			refData, err := r.fs.ReadFile(refPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to read template %s: %w", t, err)
+			}
+			
+			// Parse the referenced template with the same name that's used in the include
+			_, err = tmpl.New(t).Parse(string(refData))
+			if err != nil {
+				return "", fmt.Errorf("invalid template syntax in %s: %w", refPath, err)
+			}
 		}
 		
 		// Cache the template
@@ -150,6 +192,25 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 	}
 	
 	return buf.String(), nil
+}
+
+// findTemplateReferences finds all template references in the given template content.
+// It looks for patterns like {{ template "name" . }}
+func findTemplateReferences(content string) []string {
+	// Use a simple regex to find template inclusions
+	templateRefRegex := `{{[\s]*template[\s]+"([^"]+)"[^}]*}}`
+	re := regexp.MustCompile(templateRefRegex)
+	matches := re.FindAllStringSubmatch(content, -1)
+	
+	// Extract the template names
+	templates := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) >= 2 {
+			templates = append(templates, match[1])
+		}
+	}
+	
+	return templates
 }
 
 // ValidateTemplate validates a prompt template.

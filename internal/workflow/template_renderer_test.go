@@ -7,6 +7,7 @@ package workflow
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"text/template"
@@ -392,4 +393,226 @@ steps:
 		assert.NoError(t, err)
 		assert.Equal(t, "Hello User! This is step 01-step-one.", result)
 	})
+}
+
+// TestRenderPromptWithTemplateInclusions tests that template inclusions using {{ template "..." . }} syntax work correctly
+func TestRenderPromptWithTemplateInclusions(t *testing.T) {
+	// Create a mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create test workflow directory structure
+	workflowDir := "/workflows/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	sharedDir := filepath.Join(promptsDir, "shared")
+	
+	// Create the directory structure
+	fs.AddDirectory(workflowDir)
+	fs.AddDirectory(promptsDir)
+	fs.AddDirectory(sharedDir)
+	
+	// Create a main template with inclusions
+	mainTemplate := `# {{ .phase }} Phase
+
+This step focuses on laying the foundation for the implementation:
+
+{{ template "shared/phase_header.md" . }}
+
+## Primary Tasks
+
+1. Set up the project structure
+2. Define key interfaces and data structures
+
+## Expected Outcome
+
+- Well-defined interfaces
+- Clear separation of concerns
+
+{{ template "shared/footer.md" . }}`
+	
+	// Create shared templates
+	headerTemplate := `## Focus Area: {{ .focus }}
+
+This phase we're focusing on {{ .focus }}.
+
+---`
+	
+	footerTemplate := `---
+
+## Notes and Considerations
+
+- Keep code modular and testable
+- Follow project coding standards`
+	
+	// Add files to the mock filesystem
+	mainTemplatePath := filepath.Join(promptsDir, "foundation.md")
+	headerTemplatePath := filepath.Join(sharedDir, "phase_header.md")
+	footerTemplatePath := filepath.Join(sharedDir, "footer.md")
+	
+	fs.AddFile(mainTemplatePath, []byte(mainTemplate))
+	fs.AddFile(headerTemplatePath, []byte(headerTemplate))
+	fs.AddFile(footerTemplatePath, []byte(footerTemplate))
+	
+	// Create variables for template rendering
+	variables := map[string]interface{}{
+		"phase": "foundation",
+		"focus": "architecture and interfaces",
+	}
+	
+	// Test 1: Render the template
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	result, err := renderer.RenderPrompt("prompts/foundation.md", variables)
+	assert.NoError(t, err, "Template should render without errors")
+	assert.NotEmpty(t, result, "Template rendering result should not be empty")
+	
+	// Test 2: Verify content includes both the main template and shared templates
+	assert.Contains(t, result, "# foundation Phase", "Result should contain content from the main template")
+	assert.Contains(t, result, "Focus Area: architecture and interfaces", "Result should contain content from the header template")
+	assert.Contains(t, result, "Keep code modular and testable", "Result should contain content from the footer template")
+	
+	// Test 3: Try rendering with missing shared template to verify error handling
+	// Create a new renderer to reset the cache
+	renderer2 := NewTemplateRenderer(fs, workflowDir)
+	
+	// Delete the header template
+	delete(fs.Files, headerTemplatePath)
+	// Remove from directory listing too
+	dirEntries := fs.DirItems[sharedDir]
+	newEntries := make([]os.DirEntry, 0)
+	for _, entry := range dirEntries {
+		if entry.Name() != "phase_header.md" {
+			newEntries = append(newEntries, entry)
+		}
+	}
+	fs.DirItems[sharedDir] = newEntries
+	
+	// Try to render the template with a missing include
+	_, err = renderer2.RenderPrompt("prompts/foundation.md", variables)
+	assert.Error(t, err, "Should error when a referenced template is missing")
+	assert.Contains(t, err.Error(), "failed to read template", "Error should indicate the referenced template is missing")
+}
+
+// TestExtractVariablesWithTemplateInclusions tests variable extraction from templates with inclusions
+func TestExtractVariablesWithTemplateInclusions(t *testing.T) {
+	// Create a mock filesystem
+	fs := io.NewMockFileSystem()
+	
+	// Create test workflow directory structure
+	workflowDir := "/workflows/test-workflow"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	sharedDir := filepath.Join(promptsDir, "shared")
+	
+	// Create the directory structure
+	fs.AddDirectory(workflowDir)
+	fs.AddDirectory(promptsDir)
+	fs.AddDirectory(sharedDir)
+	
+	// Create a main template with inclusions
+	mainTemplate := `# {{ .phase }} Phase
+
+This step focuses on laying the foundation for the implementation:
+
+{{ template "shared/phase_header.md" . }}
+
+## Primary Tasks
+
+1. Task: {{ .task_name }}
+2. Task: {{ .task_detail }}
+
+{{ template "shared/footer.md" . }}`
+	
+	// Create shared templates
+	headerTemplate := `## Focus Area: {{ .focus }}
+
+This phase we're focusing on {{ .focus }}.
+
+---`
+	
+	footerTemplate := `---
+
+## Assigned to: {{ .assignee }}
+
+- {{ .priority }} priority`
+	
+	// Add files to the mock filesystem
+	mainTemplatePath := filepath.Join(promptsDir, "foundation.md")
+	headerTemplatePath := filepath.Join(sharedDir, "phase_header.md")
+	footerTemplatePath := filepath.Join(sharedDir, "footer.md")
+	
+	fs.AddFile(mainTemplatePath, []byte(mainTemplate))
+	fs.AddFile(headerTemplatePath, []byte(headerTemplate))
+	fs.AddFile(footerTemplatePath, []byte(footerTemplate))
+	
+	// Create template renderer
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	
+	// Test: Extract variables from the template
+	variables, err := renderer.ExtractTemplateVariables("prompts/foundation.md")
+	assert.NoError(t, err, "Variable extraction should work without errors")
+	
+	// Convert slice to map for easier testing
+	varMap := make(map[string]bool)
+	for _, v := range variables {
+		varMap[v] = true
+	}
+	
+	// Verify variables from main template are extracted
+	assert.True(t, varMap["phase"], "Should extract 'phase' variable")
+	assert.True(t, varMap["task_name"], "Should extract 'task_name' variable")
+	assert.True(t, varMap["task_detail"], "Should extract 'task_detail' variable")
+	
+	// This test would ideally verify that variables from included templates are extracted too,
+	// but the current implementation only extracts variables from the main template file,
+	// not from included templates. This is noted as a potential enhancement.
+	
+	// Note: Current implementation limitation is that variables from included templates
+	// are not extracted, which leads to the warnings seen in the validate command:
+	// "Variable 'focus' not used in template" even though it is used in an included template.
+}
+
+// TestFindTemplateReferences tests the findTemplateReferences function
+func TestFindTemplateReferences(t *testing.T) {
+	// Test cases
+	testCases := []struct {
+		name     string
+		content  string
+		expected []string
+	}{
+		{
+			name: "Simple inclusion",
+			content: `# Test
+{{ template "shared/header.md" . }}
+Content
+{{ template "shared/footer.md" . }}`,
+			expected: []string{"shared/header.md", "shared/footer.md"},
+		},
+		{
+			name: "Inclusion with whitespace",
+			content: `# Test
+{{  template   "shared/header.md"  . }}
+Content
+{{template "shared/footer.md" .}}`,
+			expected: []string{"shared/header.md", "shared/footer.md"},
+		},
+		{
+			name: "Inclusion with different context",
+			content: `# Test
+{{ template "shared/header.md" .user }}
+Content
+{{ template "shared/footer.md" $ }}`,
+			expected: []string{"shared/header.md", "shared/footer.md"},
+		},
+		{
+			name:     "No inclusions",
+			content:  "# Test\nContent without inclusions {{ .variable }}",
+			expected: []string{},
+		},
+	}
+	
+	// Run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := findTemplateReferences(tc.content)
+			assert.ElementsMatch(t, tc.expected, result, "Template references should match expected")
+		})
+	}
 } 
