@@ -104,7 +104,44 @@ func LoadWorkflowFromDirectory(fs io.FileSystem, dirPath string) (*WorkflowDefin
 	}
 	
 	// Convert to internal format
-	return externalWorkflow.ToWorkflowDefinition(), info, nil
+	workflowDef := externalWorkflow.ToWorkflowDefinition()
+	
+	// Update the prompt file paths to be absolute paths
+	// This is important for correctly resolving prompt files, especially in custom workflows
+	for i, step := range workflowDef.Steps {
+		if step.source.sourceType == promptSourceFile {
+			// Get the original prompt path from the external workflow definition
+			promptPath := externalWorkflow.Steps[i].Prompt
+			
+			// If the path isn't absolute, make it absolute relative to the workflow directory
+			var absolutePath string
+			if filepath.IsAbs(promptPath) {
+				absolutePath = promptPath
+			} else {
+				// First check if the path already contains the "prompts/" directory
+				if strings.HasPrefix(promptPath, PromptsDir+"/") || strings.HasPrefix(promptPath, PromptsDir+"\\") {
+					// Path already includes prompts/ prefix, just join with dirPath
+					absolutePath = filepath.Join(dirPath, promptPath)
+				} else {
+					// First try joining with dirPath directly
+					absolutePath = filepath.Join(dirPath, promptPath)
+					
+					// If that file doesn't exist, try looking in the prompts directory
+					if !fs.Exists(absolutePath) {
+						// Try with the file in the prompts directory
+						absolutePromptPath := filepath.Join(dirPath, PromptsDir, filepath.Base(promptPath))
+						if fs.Exists(absolutePromptPath) {
+							absolutePath = absolutePromptPath
+						}
+					}
+				}
+			}
+			
+			workflowDef.Steps[i].source.filePath = absolutePath
+		}
+	}
+	
+	return workflowDef, info, nil
 }
 
 // ValidateDirectoryWorkflow validates a workflow directory structure.

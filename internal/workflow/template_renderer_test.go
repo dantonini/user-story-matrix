@@ -343,4 +343,53 @@ func TestTemplateValidationWithCustomFunctions(t *testing.T) {
 	result, err := renderer.RenderPrompt("test-function.md", testDefaults)
 	assert.NoError(t, err)
 	assert.Equal(t, "Default Name", result, "Default value should be used in validation")
+}
+
+func TestTemplateRenderer_RenderPrompt_WorkflowPathHandling(t *testing.T) {
+	// Create a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Set up a test workflow structure
+	workflowDir := "/workflows/myworkflow"
+	
+	// Add workflow.yaml
+	fs.AddFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(`
+name: "myworkflow"
+description: "Test workflow"
+steps:
+  - id: "01-step-one"
+    description: "Step One"
+    prompt: "prompts/step1.md"
+`))
+
+	// Add a prompt file directly in the prompts directory
+	promptContent := "Hello {{ .Name }}! This is step {{ .StepID }}."
+	fs.AddFile(filepath.Join(workflowDir, "prompts", "step1.md"), []byte(promptContent))
+	
+	// Create a renderer
+	renderer := NewTemplateRenderer(fs, workflowDir)
+	
+	// Test case 1: Relative path to prompt within workflow structure
+	t.Run("RelativePathWithinWorkflow", func(t *testing.T) {
+		result, err := renderer.RenderPrompt("prompts/step1.md", map[string]interface{}{
+			"Name":  "User",
+			"StepID": "01-step-one",
+		})
+		
+		// Check results
+		assert.NoError(t, err)
+		assert.Equal(t, "Hello User! This is step 01-step-one.", result)
+	})
+	
+	// Test case 2: Using the basename of the prompt file
+	t.Run("BasenameOnly", func(t *testing.T) {
+		result, err := renderer.RenderPrompt("step1.md", map[string]interface{}{
+			"Name":  "User",
+			"StepID": "01-step-one",
+		})
+		
+		// Check results - should now find the file in the prompts directory
+		assert.NoError(t, err)
+		assert.Equal(t, "Hello User! This is step 01-step-one.", result)
+	})
 } 

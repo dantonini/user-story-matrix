@@ -10,10 +10,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/user-story-matrix/usm/internal/io"
 )
 
@@ -170,6 +172,52 @@ func (t *testUserOutput) PrintTable(headers []string, rows [][]string) {
 
 func (t *testUserOutput) IsDebugEnabled() bool {
 	return t.debugEnabled
+}
+
+// MockUserOutput is a mock implementation of UserOutput interface for testing
+type MockUserOutput struct {
+	mock.Mock
+}
+
+// Print implements UserOutput.Print
+func (m *MockUserOutput) Print(message string) {
+	m.Called(message)
+}
+
+// PrintSuccess implements UserOutput.PrintSuccess
+func (m *MockUserOutput) PrintSuccess(message string) {
+	m.Called(message)
+}
+
+// PrintError implements UserOutput.PrintError
+func (m *MockUserOutput) PrintError(message string) {
+	m.Called(message)
+}
+
+// PrintWarning implements UserOutput.PrintWarning
+func (m *MockUserOutput) PrintWarning(message string) {
+	m.Called(message)
+}
+
+// PrintProgress implements UserOutput.PrintProgress
+func (m *MockUserOutput) PrintProgress(message string) {
+	m.Called(message)
+}
+
+// PrintStep implements UserOutput.PrintStep
+func (m *MockUserOutput) PrintStep(stepNumber int, totalSteps int, description string) {
+	m.Called(stepNumber, totalSteps, description)
+}
+
+// IsDebugEnabled implements UserOutput.IsDebugEnabled
+func (m *MockUserOutput) IsDebugEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+// NewMockUserOutput creates a new mock UserOutput for testing
+func NewMockUserOutput(t *testing.T) *MockUserOutput {
+	return &MockUserOutput{}
 }
 
 func TestStepExecutor_ExecuteStep(t *testing.T) {
@@ -652,4 +700,106 @@ And also standard variables:
 	// but the test's success indicates that variable substitution worked
 	// We can confirm this manually by inspecting the console output that
 	// MockIO.Print() generates when the test is run
+}
+
+func TestStepExecutor_ExecuteStep_CustomWorkflowLocation(t *testing.T) {
+	// Set up mock filesystem
+	fs := io.NewMockFileSystem()
+	mockIO := NewMockUserOutput(t)
+	
+	// Create a change request file
+	changeRequestPath := "docs/changes-request/2025-05-02-asd.md"
+	fs.AddFile(changeRequestPath, []byte("Test change request"))
+	
+	// Create a custom workflow directory structure mimicking .usm/workflows/asd2
+	workflowDir := ".usm/workflows/asd2"
+	
+	// Add workflow.yaml
+	fs.AddFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(`
+name: "asd2"
+description: "Custom workflow created with usm workflow init"
+steps:
+  - id: "01-step-one"
+    description: "First step"
+    prompt: "prompts/step1.md"
+    variables:
+      key1: "value1"
+      key2: "value2"
+
+  - id: "02-step-two"
+    description: "Second step"
+    prompt: "prompts/step2.md"
+    variables:
+      key1: "value1"
+      key2: "value2"
+`))
+	
+	// Add prompt files
+	promptContent := "This is step {{ .StepID }} with variables {{ .key1 }} and {{ .key2 }}."
+	fs.AddFile(filepath.Join(workflowDir, "prompts", "step1.md"), []byte(promptContent))
+	fs.AddFile(filepath.Join(workflowDir, "prompts", "step2.md"), []byte(promptContent))
+	
+	// Create an executor
+	executor := NewStepExecutor(fs, mockIO)
+	
+	// Define a workflow step using the same path format as in the workflow.yaml
+	step := WorkflowStep{
+		ID:          "01-step-one",
+		Description: "First step",
+		Variables: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+		source: promptSource{
+			sourceType: promptSourceFile,
+			filePath:   filepath.Join(workflowDir, "prompts", "step1.md"),
+		},
+	}
+	
+	// Set up expected IO operations
+	mockIO.On("IsDebugEnabled").Return(true)
+	mockIO.On("PrintProgress", fmt.Sprintf(ProgressExecutingStep, step.ID, step.Description))
+	mockIO.On("Print", mock.AnythingOfType("string")).Return()
+	
+	// Execute the step
+	success, err := executor.ExecuteStep(changeRequestPath, step)
+	
+	// Verify results
+	assert.NoError(t, err)
+	assert.True(t, success)
+	mockIO.AssertExpectations(t)
+	
+	// Test with missing prompt file
+	stepWithMissingPrompt := WorkflowStep{
+		ID:          "03-missing-step",
+		Description: "Missing step",
+		Variables: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+		source: promptSource{
+			sourceType: promptSourceFile,
+			filePath:   filepath.Join(workflowDir, "prompts", "missing.md"),
+		},
+	}
+	
+	// Create a new mock for the error case to avoid expectations from the previous test
+	errorMockIO := NewMockUserOutput(t)
+	errorMockIO.On("IsDebugEnabled").Return(true)
+	errorMockIO.On("PrintProgress", fmt.Sprintf(ProgressExecutingStep, stepWithMissingPrompt.ID, stepWithMissingPrompt.Description))
+	errorMockIO.On("PrintError", mock.MatchedBy(func(s string) bool {
+		return strings.Contains(s, "Error rendering prompt")
+	})).Return()
+	
+	// Create a new executor with the error mock
+	errorExecutor := NewStepExecutor(fs, errorMockIO)
+	
+	// Execute the step with missing prompt
+	success, err = errorExecutor.ExecuteStep(changeRequestPath, stepWithMissingPrompt)
+	
+	// Verify error results
+	assert.Error(t, err)
+	assert.False(t, success)
+	assert.Contains(t, err.Error(), "prompt file not found")
+	errorMockIO.AssertExpectations(t)
 }

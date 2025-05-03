@@ -7,6 +7,7 @@ package workflow
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -186,4 +187,76 @@ steps:
 			assert.Contains(t, errs[0].Error(), tt.expectedError)
 		})
 	}
+}
+
+func TestLoadWorkflowFromDirectory_WithCustomWorkflow(t *testing.T) {
+	// Create a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Create a custom workflow directory structure mimicking .usm/workflows/asd2
+	workflowDir := ".usm/workflows/asd2"
+	
+	// Add workflow.yaml
+	fs.AddFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(`
+name: "asd2"
+description: "Custom workflow created with usm workflow init"
+steps:
+  - id: "01-step-one"
+    description: "First step"
+    prompt: "prompts/step1.md"
+    variables:
+      key1: "value1"
+      key2: "value2"
+
+  - id: "02-step-two"
+    description: "Second step"
+    prompt: "prompts/step2.md"
+    variables:
+      key1: "value1"
+      key2: "value2"
+`))
+	
+	// Add prompt files
+	promptContent := "This is a test prompt with variables {{ .key1 }} and {{ .key2 }}."
+	fs.AddFile(filepath.Join(workflowDir, "prompts", "step1.md"), []byte(promptContent))
+	fs.AddFile(filepath.Join(workflowDir, "prompts", "step2.md"), []byte(promptContent))
+	
+	// Load the workflow from the directory
+	workflowDef, info, err := LoadWorkflowFromDirectory(fs, workflowDir)
+	
+	// Verify results
+	assert.NoError(t, err)
+	assert.NotNil(t, workflowDef)
+	assert.NotNil(t, info)
+	assert.Equal(t, "asd2", workflowDef.Name)
+	assert.Equal(t, "Custom workflow created with usm workflow init", workflowDef.Description)
+	assert.Len(t, workflowDef.Steps, 2)
+	
+	// Verify that the steps have the correct prompt file paths
+	assert.Equal(t, "01-step-one", workflowDef.Steps[0].ID)
+	assert.Equal(t, "First step", workflowDef.Steps[0].Description)
+	assert.Equal(t, promptSourceFile, workflowDef.Steps[0].source.sourceType)
+	assert.Equal(t, filepath.Join(workflowDir, "prompts", "step1.md"), workflowDef.Steps[0].source.filePath)
+	
+	assert.Equal(t, "02-step-two", workflowDef.Steps[1].ID)
+	assert.Equal(t, "Second step", workflowDef.Steps[1].Description)
+	assert.Equal(t, promptSourceFile, workflowDef.Steps[1].source.sourceType)
+	assert.Equal(t, filepath.Join(workflowDir, "prompts", "step2.md"), workflowDef.Steps[1].source.filePath)
+	
+	// Now test the executor with this workflow step
+	term := &testUserOutput{
+		debugEnabled: true,
+	}
+	executor := NewStepExecutor(fs, term)
+	
+	// Create the change request file that the executor will check
+	changeRequestPath := "docs/changes-request/test.md"
+	fs.AddFile(changeRequestPath, []byte("Test change request"))
+	
+	// Execute the first step
+	success, err := executor.ExecuteStep(changeRequestPath, workflowDef.Steps[0])
+	
+	// Verify results
+	assert.NoError(t, err)
+	assert.True(t, success)
 } 

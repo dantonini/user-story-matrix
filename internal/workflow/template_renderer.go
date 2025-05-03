@@ -41,6 +41,54 @@ func NewTemplateRenderer(fs io.FileSystem, workflowDir string) *TemplateRenderer
 	}
 }
 
+// resolvePromptPath attempts to find a prompt file by checking multiple possible locations.
+// It returns the full path to the file if found, or an empty string if not found.
+func (r *TemplateRenderer) resolvePromptPath(promptPath string) string {
+	// Check if the path is already absolute
+	if filepath.IsAbs(promptPath) {
+		if r.fs.Exists(promptPath) {
+			return promptPath
+		}
+	}
+	
+	// Build a list of possible paths to check
+	possiblePaths := []string{}
+	
+	// First check if the path is relative to the workflow directory
+	fullPath := filepath.Join(r.workflowDir, promptPath)
+	possiblePaths = append(possiblePaths, fullPath)
+	
+	// If the path doesn't already include "prompts/" directory, try adding it
+	if !strings.HasPrefix(promptPath, "prompts/") && !strings.HasPrefix(promptPath, "prompts\\") {
+		possiblePaths = append(possiblePaths, filepath.Join(r.workflowDir, "prompts", promptPath))
+	}
+	
+	// Check if filename contains path separators
+	if filepath.Base(promptPath) == promptPath {
+		// If it's just a filename without directories, look in the prompts directory
+		possiblePaths = append(possiblePaths, filepath.Join(r.workflowDir, "prompts", promptPath))
+	}
+	
+	// Add some more fallback paths
+	pwd, _ := os.Getwd()
+	possiblePaths = append(possiblePaths, 
+		filepath.Join(pwd, promptPath), // Relative to current directory
+		promptPath, // As is (might be in current directory)
+		filepath.Join(r.workflowDir, "..", promptPath), // One level up
+		filepath.Join(r.workflowDir, "..", "..", promptPath), // Two levels up
+	)
+	
+	// Check each possible path
+	for _, path := range possiblePaths {
+		if r.fs.Exists(path) {
+			return path
+		}
+	}
+	
+	// No path found
+	return ""
+}
+
 // RenderPrompt renders a prompt template with the given variables.
 //
 // Parameters:
@@ -50,41 +98,14 @@ func NewTemplateRenderer(fs io.FileSystem, workflowDir string) *TemplateRenderer
 // Returns:
 //   - The rendered prompt text, or an error if rendering failed
 func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]interface{}) (string, error) {
-	// Get full path to prompt file
-	fullPath := promptPath
-	if !filepath.IsAbs(promptPath) {
-		fullPath = filepath.Join(r.workflowDir, promptPath)
-	}
-	
-	// First try with the provided path
-	if !r.fs.Exists(fullPath) {
-		// If file doesn't exist at the direct path, try to find it in standard locations
-		pwd, _ := os.Getwd()
-		possiblePaths := []string{
-			fullPath,
-			filepath.Join(pwd, promptPath),                // Try relative to current directory
-			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
-			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
-			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
-		}
-		
-		foundPath := ""
-		for _, path := range possiblePaths {
-			if r.fs.Exists(path) {
-				foundPath = path
-				break
-			}
-		}
-		
-		if foundPath == "" {
-			return "", fmt.Errorf("prompt file not found: %s", promptPath)
-		}
-		
-		fullPath = foundPath
+	// Find the prompt file path
+	resolvedPath := r.resolvePromptPath(promptPath)
+	if resolvedPath == "" {
+		return "", fmt.Errorf("prompt file not found: %s", promptPath)
 	}
 	
 	// Read the prompt file
-	promptData, err := r.fs.ReadFile(fullPath)
+	promptData, err := r.fs.ReadFile(resolvedPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read prompt file: %w", err)
 	}
@@ -139,42 +160,14 @@ func (r *TemplateRenderer) RenderPrompt(promptPath string, variables map[string]
 // Returns:
 //   - An error if validation failed, nil if the template is valid
 func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
-	// Get full path to prompt file
-	fullPath := promptPath
-	if !filepath.IsAbs(promptPath) {
-		fullPath = filepath.Join(r.workflowDir, promptPath)
-	}
-	
-	// First try with the provided path
-	if !r.fs.Exists(fullPath) {
-		// If file doesn't exist at the direct path, try to find it in standard locations
-		// Read the current directory structure to help debug
-		pwd, _ := os.Getwd()
-		possiblePaths := []string{
-			fullPath,
-			filepath.Join(pwd, promptPath),                // Try relative to current directory
-			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
-			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
-			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
-		}
-		
-		foundPath := ""
-		for _, path := range possiblePaths {
-			if r.fs.Exists(path) {
-				foundPath = path
-				break
-			}
-		}
-		
-		if foundPath == "" {
-			return fmt.Errorf("prompt file not found: %s", promptPath)
-		}
-		
-		fullPath = foundPath
+	// Find the prompt file path
+	resolvedPath := r.resolvePromptPath(promptPath)
+	if resolvedPath == "" {
+		return fmt.Errorf("prompt file not found: %s", promptPath)
 	}
 	
 	// Read the prompt file
-	promptData, err := r.fs.ReadFile(fullPath)
+	promptData, err := r.fs.ReadFile(resolvedPath)
 	if err != nil {
 		return fmt.Errorf("failed to read prompt file: %w", err)
 	}
@@ -214,42 +207,14 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 // Returns:
 //   - A slice of variable names, or an error if extraction failed
 func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string, error) {
-	// Get full path to prompt file
-	fullPath := promptPath
-	if !filepath.IsAbs(promptPath) {
-		fullPath = filepath.Join(r.workflowDir, promptPath)
-	}
-	
-	// First try with the provided path
-	if !r.fs.Exists(fullPath) {
-		// If file doesn't exist at the direct path, try to find it in standard locations
-		// Read the current directory structure to help debug
-		pwd, _ := os.Getwd()
-		possiblePaths := []string{
-			fullPath,
-			filepath.Join(pwd, promptPath),                // Try relative to current directory
-			filepath.Join(r.workflowDir, "..", promptPath), // Try one level up
-			filepath.Join(r.workflowDir, "..", "..", promptPath), // Try two levels up
-			filepath.Join(r.workflowDir, "prompts", filepath.Base(promptPath)), // Try in prompts subdirectory
-		}
-		
-		foundPath := ""
-		for _, path := range possiblePaths {
-			if r.fs.Exists(path) {
-				foundPath = path
-				break
-			}
-		}
-		
-		if foundPath == "" {
-			return nil, fmt.Errorf("prompt file not found: %s", promptPath)
-		}
-		
-		fullPath = foundPath
+	// Find the prompt file path
+	resolvedPath := r.resolvePromptPath(promptPath)
+	if resolvedPath == "" {
+		return nil, fmt.Errorf("prompt file not found: %s", promptPath)
 	}
 	
 	// Read the prompt file
-	promptData, err := r.fs.ReadFile(fullPath)
+	promptData, err := r.fs.ReadFile(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read prompt file: %w", err)
 	}

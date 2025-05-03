@@ -86,14 +86,58 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 			}
 		}
 		
-		// Get the workflow directory from the prompt path
-		workflowDir := filepath.Dir(filepath.Dir(step.source.filePath))
+		// Get the workflow directory from the step source filePath
+		workflowDir := ""
+		
+		// Determine the workflow directory based on the structure of step.source.filePath
+		if step.source.filePath != "" {
+			// For custom workflows in a standard location like .usm/workflows/<workflow-name>
+			// The prompts are typically in .usm/workflows/<workflow-name>/prompts/
+			if strings.Contains(step.source.filePath, "/workflows/") || strings.Contains(step.source.filePath, "\\workflows\\") {
+				// Extract the workflow directory from the path
+				parts := strings.Split(step.source.filePath, string(filepath.Separator))
+				for i, part := range parts {
+					if part == "workflows" && i+1 < len(parts) {
+						// Find the workflow directory, which is the parent of "prompts"
+						workflowDir = filepath.Join(parts[:i+2]...)
+						break
+					}
+				}
+			}
+			
+			// If we couldn't determine the workflow directory from the path structure,
+			// use the parent directory of the prompts directory
+			if workflowDir == "" {
+				// Get parent directory of the file
+				fileDir := filepath.Dir(step.source.filePath)
+				
+				// Check if the file is in a "prompts" directory
+				if filepath.Base(fileDir) == "prompts" {
+					workflowDir = filepath.Dir(fileDir)
+				} else {
+					// Use the file's directory as a fallback
+					workflowDir = fileDir
+				}
+			}
+		}
 		
 		// Create a template renderer
 		renderer := NewTemplateRenderer(e.fs, workflowDir)
 		
-		// Render the prompt with variables
-		promptPath := filepath.Join(filepath.Base(filepath.Dir(step.source.filePath)), filepath.Base(step.source.filePath))
+		// Determine the prompt path to use
+		promptPath := step.source.filePath
+		
+		// If the path is absolute, we need to convert it to a path that the renderer can use
+		// The renderer expects either an absolute path or a path relative to the workflow directory
+		if filepath.IsAbs(promptPath) && workflowDir != "" {
+			// Try to make it relative to the workflow directory first
+			relPath, err := filepath.Rel(workflowDir, promptPath)
+			if err == nil {
+				promptPath = relPath
+			}
+		}
+		
+		// Try to render the prompt
 		processedPrompt, err = renderer.RenderPrompt(promptPath, variables)
 		if err != nil {
 			e.io.PrintError(fmt.Sprintf("Error rendering prompt: %v", err))

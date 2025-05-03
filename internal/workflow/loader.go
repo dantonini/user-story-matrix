@@ -328,19 +328,40 @@ func ValidateWorkflowPromptReferences(fs io.FileSystem, baseDir string, workflow
 	
 	for _, step := range workflow.Steps {
 		// Skip steps with embedded prompts (no file extension or path separator)
-		if !strings.Contains(step.Prompt, "/") && filepath.Ext(step.Prompt) == "" {
+		if !strings.Contains(step.Prompt, "/") && !strings.Contains(step.Prompt, "\\") && filepath.Ext(step.Prompt) == "" {
 			continue
 		}
 		
-		// Resolve prompt path
+		// Resolve prompt path using improved path resolution
 		promptPath := step.Prompt
-		if !filepath.IsAbs(promptPath) {
-			promptPath = filepath.Join(baseDir, promptPath)
+		
+		// Try multiple possible locations for the prompt file
+		possiblePaths := []string{
+			// Original path as specified
+			promptPath,
+			// Absolute path relative to baseDir
+			filepath.Join(baseDir, promptPath),
 		}
 		
-		// Check if prompt file exists
-		if !fs.Exists(promptPath) {
-			errors = append(errors, fmt.Errorf("prompt file for step %s not found: %s", step.ID, promptPath))
+		// If the path doesn't include prompts/ prefix, add it as another possibility
+		if !strings.HasPrefix(promptPath, "prompts/") && !strings.HasPrefix(promptPath, "prompts\\") {
+			possiblePaths = append(possiblePaths, 
+				filepath.Join(baseDir, "prompts", filepath.Base(promptPath)))
+		}
+		
+		// Check each possible path
+		found := false
+		for _, possPath := range possiblePaths {
+			if fs.Exists(possPath) {
+				found = true
+				break
+			}
+		}
+		
+		// If no path was found, report an error
+		if !found {
+			errors = append(errors, fmt.Errorf("prompt file for step %s not found: %s (tried paths: %v)", 
+				step.ID, promptPath, possiblePaths))
 		}
 	}
 	
