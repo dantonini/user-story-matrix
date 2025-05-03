@@ -17,10 +17,10 @@ import (
 
 // Templates for workflow initialization
 const (
-	defaultTemplate = "default"
-	fullTemplate    = "full"
-	blankTemplate   = "blank"
-	fixedTemplate   = "fixed"
+	basicTemplate     = "basic"     // Replaces defaultTemplate
+	advancedTemplate = "advanced"  // Replaces fullTemplate
+	skeletonTemplate = "skeleton"  // Replaces blankTemplate
+	structuredTemplate = "structured" // Replaces fixedTemplate
 )
 
 // WorkflowTemplate contains all the files and content for a template
@@ -42,20 +42,20 @@ This command creates a directory structure for a new workflow:
 - shared/ (optional): Directory for reusable prompt templates
 
 Available templates:
-- default: A minimal sample workflow with basic functionality
-- full: A comprehensive workflow with more extensive examples
-- blank: A skeleton structure with minimal content
-- fixed: A comprehensive workflow with proper template structure
+- skeleton: A bare structure to build upon - minimal starting point
+- basic: Standard functionality with essential features - good starting point for most users
+- advanced: Extended functionality with comprehensive examples and features
+- structured: Well-organized template system with professional setup and clear patterns
 
 By default, the workflow is created in the .usm/workflows/ directory in the
 current project. Use the --global flag to create it in ~/.usm/workflows/ instead.
 
 Examples:
-  # Create a new workflow with the default template
+  # Create a new workflow with the basic template
   usm workflow init my-workflow
 
-  # Create a new workflow with the full template
-  usm workflow init my-workflow --template=full
+  # Create a new workflow with the advanced template
+  usm workflow init my-workflow --template=advanced
 
   # Create a new workflow in the global directory
   usm workflow init my-workflow --global
@@ -73,7 +73,7 @@ Examples:
 		
 		templateName, err := cmd.Flags().GetString("template")
 		if err != nil {
-			templateName = defaultTemplate // Default to default template if error
+			templateName = basicTemplate // Default to basic template if error
 		}
 		
 		output := io.NewTerminalIO()
@@ -102,7 +102,7 @@ Examples:
 		// Get template
 		template, ok := getTemplate(templateName, workflowName)
 		if !ok {
-			output.PrintError(fmt.Sprintf("Unknown template '%s'. Available templates: default, full, blank, fixed", templateName))
+			output.PrintError(fmt.Sprintf("Unknown template '%s'. Available templates: skeleton, basic, advanced, structured", templateName))
 			os.Exit(1)
 		}
 		
@@ -159,23 +159,23 @@ Examples:
 		
 		// Print next steps based on template
 		switch templateName {
-		case blankTemplate:
+		case skeletonTemplate:
 			output.Print("Next steps:")
 			output.Print("1. Edit workflow.yaml to define your workflow steps")
 			output.Print("2. Create prompts in the prompts/ directory")
 			output.Print("3. Validate your workflow with 'usm workflow validate'")
-		case defaultTemplate:
+		case basicTemplate:
 			output.Print("Next steps:")
 			output.Print("1. Customize the workflow steps in workflow.yaml")
 			output.Print("2. Edit the prompt content in prompts/ directory")
 			output.Print("3. Validate your workflow with 'usm workflow validate'")
-		case fullTemplate:
+		case advancedTemplate:
 			output.Print("Next steps:")
 			output.Print("1. Review the example workflow in workflow.yaml")
 			output.Print("2. Customize the prompts in prompts/ directory")
 			output.Print("3. Try reusing templates from the shared/ directory")
 			output.Print("4. Validate your workflow with 'usm workflow validate'")
-		case fixedTemplate:
+		case structuredTemplate:
 			output.Print("Next steps:")
 			output.Print("1. Review the example workflow in workflow.yaml")
 			output.Print("2. Customize the prompts in prompts/ directory")
@@ -188,23 +188,23 @@ Examples:
 // getTemplate returns the template configuration for the given template name
 func getTemplate(templateName string, workflowName string) (WorkflowTemplate, bool) {
 	switch templateName {
-	case blankTemplate:
-		return getBlankTemplate(workflowName), true
-	case fullTemplate:
-		return getFullTemplate(workflowName), true
-	case defaultTemplate:
-		return getDefaultTemplate(workflowName), true
-	case fixedTemplate:
-		return getFixedTemplate(workflowName), true
+	case skeletonTemplate:
+		return getSkeletonTemplate(workflowName), true
+	case advancedTemplate:
+		return getAdvancedTemplate(workflowName), true
+	case basicTemplate:
+		return getBasicTemplate(workflowName), true
+	case structuredTemplate:
+		return getStructuredTemplate(workflowName), true
 	default:
 		return WorkflowTemplate{}, false
 	}
 }
 
-// getBlankTemplate returns a minimal template with just the basic structure
-func getBlankTemplate(workflowName string) WorkflowTemplate {
+// getSkeletonTemplate returns a minimal template with just the basic structure
+func getSkeletonTemplate(workflowName string) WorkflowTemplate {
 	template := WorkflowTemplate{
-		Name:        "blank",
+		Name:        "skeleton",
 		Description: "A minimal workflow structure",
 		Files:       make(map[string]string),
 	}
@@ -240,10 +240,10 @@ A minimal workflow structure that you can customize.
 	return template
 }
 
-// getDefaultTemplate returns the default template with basic functionality
-func getDefaultTemplate(workflowName string) WorkflowTemplate {
+// getBasicTemplate returns the basic template with standard functionality
+func getBasicTemplate(workflowName string) WorkflowTemplate {
 	template := WorkflowTemplate{
-		Name:        "default",
+		Name:        "basic",
 		Description: "A standard workflow with basic functionality",
 		Files:       make(map[string]string),
 	}
@@ -346,10 +346,10 @@ You can customize this workflow by:
 	return template
 }
 
-// getFullTemplate returns a comprehensive template with more examples
-func getFullTemplate(workflowName string) WorkflowTemplate {
+// getAdvancedTemplate returns a comprehensive template with more examples
+func getAdvancedTemplate(workflowName string) WorkflowTemplate {
 	template := WorkflowTemplate{
-		Name:        "full",
+		Name:        "advanced",
 		Description: "A comprehensive workflow with extended functionality",
 		Files:       make(map[string]string),
 	}
@@ -635,10 +635,10 @@ You can customize this workflow by:
 	return template
 }
 
-// getFixedTemplate returns a comprehensive template with proper template structure
-func getFixedTemplate(workflowName string) WorkflowTemplate {
+// getStructuredTemplate returns a comprehensive template with proper template structure
+func getStructuredTemplate(workflowName string) WorkflowTemplate {
 	template := WorkflowTemplate{
-		Name:        "fixed",
+		Name:        "structured",
 		Description: "A comprehensive workflow with proper template structure",
 		Files:       make(map[string]string),
 	}
@@ -874,7 +874,7 @@ This phase we're focusing on {{ .focus }}.
 	// Add README.md for the prompts directory
 	template.Files[filepath.Join(workflow.PromptsDir, "README.md")] = `# Prompt Templates
 
-This directory contains the prompt templates for the fixed workflow template. Each file is a Go template that supports variable substitution and includes.
+This directory contains the prompt templates for the structured workflow template. Each file is a Go template that supports variable substitution and includes.
 
 ## Available Templates
 
@@ -956,5 +956,5 @@ You can customize this workflow by:
 func init() {
 	// Add flags
 	InitCmd.Flags().BoolP("global", "g", false, "Create workflow in global directory (~/.usm/workflows)")
-	InitCmd.Flags().StringP("template", "t", defaultTemplate, "Template to use (default, full, blank, fixed)")
+	InitCmd.Flags().StringP("template", "t", basicTemplate, "Template to use (skeleton, basic, advanced, structured)")
 } 
