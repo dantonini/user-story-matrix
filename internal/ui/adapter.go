@@ -80,15 +80,11 @@ func CreateUserStoryFormWithLLM(us models.UserStory) tea.Model {
 	// Create the configuration manager
 	configManager := llm.NewConfigManager(fs)
 	
-	// Load the configuration
-	err := configManager.LoadConfig()
-	if err != nil || !configManager.IsOpenAIKeyConfigured() {
-		// If there's an error loading the config or no API key is configured,
-		// fall back to the form without LLM capabilities
-		return userstoryform.New(us, nil, configManager)
-	}
+	// Load the configuration - ignore errors as we'll handle missing configuration gracefully
+	_ = configManager.LoadConfig()
 	
-	// Create the LLM processor
+	// Create the LLM processor regardless of whether an API key exists
+	// This ensures the processor is always properly initialized
 	processor := llm.NewOpenAIProcessor(
 		llm.WithAPIKey(configManager.GetOpenAIKey()),
 		llm.WithModel("gpt-4o-mini"),
@@ -96,7 +92,8 @@ func CreateUserStoryFormWithLLM(us models.UserStory) tea.Model {
 		llm.WithTemperature(0.2),
 	)
 	
-	// Create the enhanced form
+	// No need to check API key configuration here - the form handling code will
+	// check processor.IsConfigured() when needed
 	return userstoryform.New(us, processor, configManager)
 }
 
