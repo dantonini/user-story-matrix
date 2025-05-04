@@ -179,7 +179,7 @@ func validateWorkflow(nameOrPath string, fs io.FileSystem, output io.UserOutput)
 	// Discover available workflows
 	// This is required to find workflows that were created by the user
 	// but might not have been loaded into the registry yet
-	registry.DiscoverWorkflows(fs)
+	discoveredWorkflows := registry.DiscoverWorkflows(fs)
 	
 	// Determine if input is a path or a name
 	var workflowPath string
@@ -200,22 +200,48 @@ func validateWorkflow(nameOrPath string, fs io.FileSystem, output io.UserOutput)
 			}
 		}
 	} else {
-		// Assume input is a name, try to find it in registry
-		var err error
-		workflowDef, err = registry.GetWorkflow(nameOrPath)
-		if err != nil {
-			return ValidationResult{
-				Success:      false,
-				ErrorMessage: fmt.Sprintf("Workflow '%s' not found. Use 'usm workflow list' to see available workflows.", nameOrPath),
+		// Assume input is a name
+		// First, check if the workflow was just discovered
+		if discoveredWf, exists := discoveredWorkflows[nameOrPath]; exists {
+			workflowDef = discoveredWf
+		} else {
+			// If not found in discoveries, try to get it from the registry
+			var err error
+			workflowDef, err = registry.GetWorkflow(nameOrPath)
+			if err != nil {
+				return ValidationResult{
+					Success:      false,
+					ErrorMessage: fmt.Sprintf("Workflow '%s' not found. Use 'usm workflow list' to see available workflows.", nameOrPath),
+				}
 			}
 		}
 		
+		// Now that we have the workflow definition, find its path
 		// First check for source path in the registry's cache
-		source, path := registry.GetWorkflowSourceInfo(nameOrPath)
-		if path != "-" && path != "" {
-			workflowPath = path
-		} else {
-			// If no source path available, try to find it by name
+		source, registryPath := registry.GetWorkflowSourceInfo(nameOrPath)
+		
+		if registryPath != "-" && registryPath != "" {
+			// Important: If the registryPath doesn't include the full workflow path,
+			// we need to construct it correctly to prevent path resolution issues
+			
+			// If path already refers to the specific workflow directory
+			if fs.Exists(filepath.Join(registryPath, workflow.WorkflowConfigFile)) {
+				workflowPath = registryPath
+			} else if fs.Exists(filepath.Join(registryPath, nameOrPath, workflow.WorkflowConfigFile)) {
+				// If path is a parent directory containing the workflow
+				workflowPath = filepath.Join(registryPath, nameOrPath)
+			} else if fs.Exists(filepath.Join(registryPath, "workflows", nameOrPath, workflow.WorkflowConfigFile)) {
+				// Handle case where registryPath is something like ".usm" 
+				// and the full path should be ".usm/workflows/workflow-name"
+				workflowPath = filepath.Join(registryPath, "workflows", nameOrPath)
+			} else {
+				// Just use the path as provided
+				workflowPath = registryPath
+			}
+		}
+		
+		// If still no path, try to find it by name
+		if workflowPath == "" {
 			workflowPath = findWorkflowByName(fs, nameOrPath)
 			if workflowPath == "" {
 				// For built-in workflows, we don't need a path for validation
@@ -236,6 +262,18 @@ func validateWorkflow(nameOrPath string, fs io.FileSystem, output io.UserOutput)
 			}
 		}
 	}
+	
+	// If workflowPath is not a complete workflow directory path, ensure it includes the workflow name
+	if !isValidWorkflowDir(fs, workflowPath) && workflowDef != nil {
+		// Check if it's a parent directory that needs the workflow name appended
+		possiblePath := filepath.Join(workflowPath, workflowDef.Name)
+		if isValidWorkflowDir(fs, possiblePath) {
+			workflowPath = possiblePath
+		}
+	}
+	
+	// Debug: Log the path being used for validation
+	output.PrintProgress(fmt.Sprintf("Using workflow path: %s", workflowPath))
 	
 	// Create validator with the workflow path
 	validator := workflow.NewWorkflowValidator(fs, workflowPath)
@@ -286,9 +324,28 @@ func findWorkflowByName(fs io.FileSystem, name string) string {
 			continue
 		}
 		
+		// Check for a direct match in the workflow directory
 		workflowPath := filepath.Join(dir, name)
 		if isValidWorkflowDir(fs, workflowPath) {
 			return workflowPath
+		}
+		
+		// If direct match not found, check subdirectories
+		// This helps with discovered workflows in directories like .usm/workflows
+		entries, err := fs.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		
+		for _, entry := range entries {
+			if entry.IsDir() {
+				subDirPath := filepath.Join(dir, entry.Name())
+				
+				// Check if this is the workflow we're looking for
+				if entry.Name() == name && isValidWorkflowDir(fs, subDirPath) {
+					return subDirPath
+				}
+			}
 		}
 	}
 	

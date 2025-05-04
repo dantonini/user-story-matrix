@@ -55,13 +55,24 @@ func (r *TemplateRenderer) resolvePromptPath(promptPath string) string {
 	// Build a list of possible paths to check
 	possiblePaths := []string{}
 	
-	// First check if the path is relative to the workflow directory
-	fullPath := filepath.Join(r.workflowDir, promptPath)
-	possiblePaths = append(possiblePaths, fullPath)
+	// First check if the path is relative to the workflow directory,
+	// but avoid duplicating workflow directory path
 	
-	// If the path doesn't already include "prompts/" directory, try adding it
-	if !strings.HasPrefix(promptPath, "prompts/") && !strings.HasPrefix(promptPath, "prompts\\") {
-		possiblePaths = append(possiblePaths, filepath.Join(r.workflowDir, "prompts", promptPath))
+	// Check if path already contains r.workflowDir to avoid duplication
+	containsWorkflowDir := strings.Contains(promptPath, r.workflowDir)
+	
+	// If not, create the full path normally
+	if !containsWorkflowDir {
+		fullPath := filepath.Join(r.workflowDir, promptPath)
+		possiblePaths = append(possiblePaths, fullPath)
+		
+		// If the path doesn't already include "prompts/" directory, try adding it
+		if !strings.HasPrefix(promptPath, "prompts/") && !strings.HasPrefix(promptPath, "prompts\\") {
+			possiblePaths = append(possiblePaths, filepath.Join(r.workflowDir, "prompts", promptPath))
+		}
+	} else {
+		// If it already contains the workflow dir, use it as is
+		possiblePaths = append(possiblePaths, promptPath)
 	}
 	
 	// Check if filename contains path separators
@@ -75,9 +86,15 @@ func (r *TemplateRenderer) resolvePromptPath(promptPath string) string {
 	possiblePaths = append(possiblePaths, 
 		filepath.Join(pwd, promptPath), // Relative to current directory
 		promptPath, // As is (might be in current directory)
-		filepath.Join(r.workflowDir, "..", promptPath), // One level up
-		filepath.Join(r.workflowDir, "..", "..", promptPath), // Two levels up
 	)
+	
+	// Only add these paths if not already containing the workflow dir
+	if !containsWorkflowDir {
+		possiblePaths = append(possiblePaths,
+			filepath.Join(r.workflowDir, "..", promptPath), // One level up
+			filepath.Join(r.workflowDir, "..", "..", promptPath), // Two levels up
+		)
+	}
 	
 	// Check each possible path
 	for _, path := range possiblePaths {
