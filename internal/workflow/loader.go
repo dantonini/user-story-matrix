@@ -113,19 +113,53 @@ func LoadWorkflowsFromDirectory(fs io.FileSystem, directory string, registry *Wo
 	// Load workflows from files
 	workflows := make([]*WorkflowDefinition, 0)
 	for _, file := range files {
-		// Skip directories and non-workflow files
+		fileName := file.Name()
+		filePath := filepath.Join(directory, fileName)
+		
 		if file.IsDir() {
+			// Check for workflow.yaml in subdirectory
+			workflowPath := filepath.Join(filePath, "workflow.yaml")
+			if fs.Exists(workflowPath) {
+				workflow, err := LoadWorkflowFromFile(fs, workflowPath)
+				if err != nil {
+					// Log error but continue with other files
+					fmt.Printf("Error loading workflow from %s: %v\n", workflowPath, err)
+					continue
+				}
+				
+				// For each step, check if the prompt is a file reference
+				for i, step := range workflow.Steps {
+					if strings.HasPrefix(step.Prompt, "prompts/") {
+						// It's a file reference, try to load the prompt content
+						promptPath := filepath.Join(filePath, step.Prompt)
+						if fs.Exists(promptPath) {
+							promptContent, err := fs.ReadFile(promptPath)
+							if err != nil {
+								fmt.Printf("Warning: Failed to read prompt file %s: %v\n", promptPath, err)
+								continue
+							}
+							workflow.Steps[i].Prompt = string(promptContent)
+						}
+					}
+				}
+				
+				// Register workflow with registry
+				if registry != nil {
+					registry.RegisterBuiltInWorkflow(workflow)
+				}
+				
+				workflows = append(workflows, workflow)
+			}
 			continue
 		}
 		
-		fileName := file.Name()
+		// Skip non-workflow files
 		ext := strings.ToLower(filepath.Ext(fileName))
 		if ext != ".json" && ext != ".yaml" && ext != ".yml" {
 			continue
 		}
 		
 		// Load workflow from file
-		filePath := filepath.Join(directory, fileName)
 		workflow, err := LoadWorkflowFromFile(fs, filePath)
 		if err != nil {
 			// Log error but continue with other files

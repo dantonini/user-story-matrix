@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/user-story-matrix/usm/internal/io"
 	"github.com/user-story-matrix/usm/internal/workflow"
+	"gopkg.in/yaml.v3"
 )
 
 // Templates for workflow initialization
@@ -28,6 +29,21 @@ type WorkflowTemplate struct {
 	Name        string
 	Description string
 	Files       map[string]string
+}
+
+// ExternalWorkflowStep represents a step in the workflow YAML
+type ExternalWorkflowStep struct {
+	ID          string            `yaml:"id"`
+	Description string            `yaml:"description"`
+	Prompt      string            `yaml:"prompt"`
+	Variables   map[string]string `yaml:"variables,omitempty"`
+}
+
+// ExternalWorkflow represents the workflow YAML structure
+type ExternalWorkflow struct {
+	Name        string               `yaml:"name"`
+	Description string               `yaml:"description"`
+	Steps       []ExternalWorkflowStep `yaml:"steps"`
 }
 
 // InitCmd represents the workflow init command
@@ -53,6 +69,9 @@ Available templates:
 - advanced: Extended functionality with comprehensive examples and features
 - structured: Well-organized template system with professional setup and clear patterns
 
+You can also initialize from a built-in workflow using the --from-builtin flag:
+usm workflow init my-workflow --from-builtin=standard
+
 By default, the workflow is created in the .usm/workflows/ directory in the
 current project. Use the --global flag to create it in ~/.usm/workflows/ instead.
 
@@ -65,6 +84,9 @@ Examples:
 
   # Create a new workflow in the global directory
   usm workflow init my-workflow --global
+
+  # Create a new workflow from a built-in workflow
+  usm workflow init my-workflow --from-builtin=standard
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -81,9 +103,13 @@ Examples:
 		if err != nil {
 			templateName = basicTemplate // Default to basic template if error
 		}
+
+		fromBuiltin, err := cmd.Flags().GetString("from-builtin")
+		if err != nil {
+			fromBuiltin = "" // Default to empty if error
+		}
 		
 		output := io.NewTerminalIO()
-		
 		fs := io.NewOSFileSystem()
 		
 		var targetDir string
@@ -103,6 +129,128 @@ Examples:
 		if fs.Exists(targetDir) {
 			output.PrintError(fmt.Sprintf("Workflow '%s' already exists at %s", workflowName, targetDir))
 			os.Exit(1)
+		}
+
+		// Handle initialization from built-in workflow
+		if fromBuiltin != "" {
+			// Get the global registry
+			registry := workflow.GetGlobalRegistry()
+
+			// Try to get the built-in workflow
+			builtinWorkflow, err := registry.GetWorkflow(fromBuiltin)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Built-in workflow '%s' not found. Use 'usm workflow list' to see available workflows.", fromBuiltin))
+				os.Exit(1)
+			}
+
+			// Create base directories
+			err = fs.MkdirAll(targetDir, 0755)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to create workflow directory: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Create prompts directory
+			promptsDir := filepath.Join(targetDir, workflow.PromptsDir)
+			err = fs.MkdirAll(promptsDir, 0755)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to create prompts directory: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Create shared directory
+			sharedDir := filepath.Join(promptsDir, workflow.SharedDir)
+			err = fs.MkdirAll(sharedDir, 0755)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to create shared directory: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Create workflow YAML structure
+			externalWorkflow := ExternalWorkflow{
+				Name:        workflowName,
+				Description: fmt.Sprintf("Custom workflow based on %s", fromBuiltin),
+				Steps:       make([]ExternalWorkflowStep, len(builtinWorkflow.Steps)),
+			}
+
+			// Convert each step
+			for i, step := range builtinWorkflow.Steps {
+				// Create prompt file name and path
+				promptFileName := fmt.Sprintf("%s.md", step.ID)
+				promptPath := filepath.Join(promptsDir, promptFileName)
+
+				// Write the prompt content to a file
+				err = fs.WriteFile(promptPath, []byte(step.Prompt), 0644)
+				if err != nil {
+					output.PrintError(fmt.Sprintf("Failed to create prompt file %s: %s", promptPath, err.Error()))
+					os.Exit(1)
+				}
+
+				// Create the step with all fields including the prompt file path
+				externalWorkflow.Steps[i] = ExternalWorkflowStep{
+					ID:          step.ID,
+					Description: step.Description,
+					Variables:   step.Variables,
+					Prompt:      fmt.Sprintf("prompts/%s", promptFileName),
+				}
+			}
+
+			// Convert the workflow to YAML
+			yamlData, err := yaml.Marshal(externalWorkflow)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to marshal workflow to YAML: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Write the workflow file
+			err = fs.WriteFile(filepath.Join(targetDir, workflow.WorkflowConfigFile), yamlData, 0644)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to write workflow file: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Create README.md
+			readmeContent := fmt.Sprintf(`# %s Workflow
+
+A custom workflow based on the %s built-in workflow.
+
+## Directory Structure
+
+- workflow.yaml: Workflow configuration
+- prompts/: Prompt files
+  - shared/: Shared template fragments
+
+## Usage
+
+To use this workflow:
+
+` + "```bash" + `
+usm code --workflow=%s path/to/change-request.blueprint.md
+` + "```" + `
+
+## Customization
+
+You can customize this workflow by:
+
+1. Editing workflow.yaml to change steps or add new ones
+2. Modifying prompt files in the prompts/ directory
+3. Adding or modifying shared templates in the prompts/shared/ directory
+4. Customizing variables for each step
+`, workflowName, fromBuiltin, workflowName)
+
+			err = fs.WriteFile(filepath.Join(targetDir, "README.md"), []byte(readmeContent), 0644)
+			if err != nil {
+				output.PrintError(fmt.Sprintf("Failed to create README.md: %s", err.Error()))
+				os.Exit(1)
+			}
+
+			// Print success message
+			output.PrintSuccess(fmt.Sprintf("Workflow '%s' created successfully at %s", workflowName, targetDir))
+			output.Print("Next steps:")
+			output.Print("1. Review the workflow steps in workflow.yaml")
+			output.Print("2. Add your prompt files in prompts/ directory")
+			output.Print("3. Validate your workflow with 'usm workflow validate'")
+			return
 		}
 		
 		// Get template
@@ -189,6 +337,13 @@ Examples:
 			output.Print("4. Validate your workflow with 'usm workflow validate'")
 		}
 	},
+}
+
+func init() {
+	// Add flags
+	InitCmd.Flags().BoolP("global", "g", false, "Create workflow in global directory (~/.usm/workflows)")
+	InitCmd.Flags().StringP("template", "t", basicTemplate, "Template to use (skeleton, basic, advanced, structured)")
+	InitCmd.Flags().String("from-builtin", "", "Initialize from a built-in workflow (e.g., 'standard')")
 }
 
 // getTemplate returns the template configuration for the given template name
@@ -645,7 +800,7 @@ You can customize this workflow by:
 func getStructuredTemplate(workflowName string) WorkflowTemplate {
 	template := WorkflowTemplate{
 		Name:        "structured",
-		Description: "A comprehensive workflow with proper template structure",
+		Description: "A comprehensive workflow with extended functionality",
 		Files:       make(map[string]string),
 	}
 	
@@ -957,10 +1112,4 @@ You can customize this workflow by:
 `, workflowName, workflowName)
 	
 	return template
-}
-
-func init() {
-	// Add flags
-	InitCmd.Flags().BoolP("global", "g", false, "Create workflow in global directory (~/.usm/workflows)")
-	InitCmd.Flags().StringP("template", "t", basicTemplate, "Template to use (skeleton, basic, advanced, structured)")
 } 
