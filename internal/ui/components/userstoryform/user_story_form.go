@@ -760,12 +760,8 @@ func (f *UserStoryForm) View() string {
 		
 		b.WriteString("\n" + helpStyle.Render(helpText))
 		
-		// Add LLM paste help text if available
-		if f.processor != nil && f.processor.IsConfigured() {
-			pasteHelpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Italic(true)
-			// F2 key works the same on all platforms
-			b.WriteString("\n" + pasteHelpStyle.Render("Tip: Press F2 to process clipboard text with LLM"))
-		}
+		// F2 key works the same on all platforms
+		b.WriteString(helpStyle.Render(" • F2: Process clipboard"))
 	}
 
 	return b.String()
