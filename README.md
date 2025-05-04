@@ -24,20 +24,20 @@ The name User Story Matrix reflects the idea of organizing and navigating multip
 
 ## Binary Releases
 
-Download the latest binary for your platform from the [Releases](https://github.com/dantonini/usm/releases) page.
+Download the latest binary for your platform from the [Releases](https://github.com/dantonini/user-story-matrix/releases) page.
 
 ### Linux/macOS
 
 ```bash
 # Download the latest release (replace X.Y.Z with the version)
-curl -L https://github.com/dantonini/usm/releases/download/vX.Y.Z/usm-linux-amd64-X.Y.Z -o usm
+curl -L https://github.com/dantonini/user-story-matrix/releases/download/vX.Y.Z/usm-linux-amd64-X.Y.Z -o usm
 chmod +x usm
 ./usm
 ```
 
 ### Windows
 
-Download the executable from the [Releases](https://github.com/dantonini/usm/releases) page and run it from the command prompt.
+Download the executable from the [Releases](https://github.com/dantonini/user-story-matrix/releases) page and run it from the command prompt.
 
 
 ## From Source
