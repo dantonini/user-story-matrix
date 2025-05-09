@@ -109,6 +109,55 @@ usm --help
 usm code docs/changes-request/my-change-request.blueprint.md
 ```
 
+## Development Tools
+
+USM includes several tools to help maintain code quality and consistency.
+
+### Code Clone Detection with dupl
+
+USM integrates [dupl](https://github.com/mibk/dupl), a tool for finding code clones. This helps identify potential refactoring opportunities and maintain a DRY codebase.
+
+```bash
+# Run dupl to find code clones with a threshold of 100 tokens
+make dupl
+
+# Generate an HTML report of code clones
+make dupl-html
+
+# Check only git-modified files for code clones (both modified and new files)
+make dupl-modified
+
+# Generate HTML report only for git-modified files
+make dupl-modified-html
+
+# Adjust the token threshold (higher = fewer, more significant clones)
+dupl -t 200 -plumbing .
+```
+
+The HTML reports will be saved to:
+- Full project: `output/reports/dupl-report.html`
+- Modified files only: `output/reports/dupl-modified-report.html`
+
+### Dead Code Detection
+
+```bash
+# Run dead code detection (dry run)
+make deadcode
+
+# Remove detected dead code
+make deadcode-remove
+```
+
+### Code Linting
+
+```bash
+# Run all linters
+make lint
+
+# Run linters only on test files
+make lint-tests
+```
+
 ## Managing User Stories
 
 ### Adding a User Story

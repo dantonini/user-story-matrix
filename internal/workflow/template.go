@@ -32,6 +32,42 @@ func NewTemplateProcessor() *TemplateProcessor {
 	}
 }
 
+// ensureMapValue converts a non-map value to a map while preserving the original value
+// If the value is already a map, it returns it unchanged along with a true flag
+// Otherwise, it creates a new map with the original value stored under an empty string key
+func ensureMapValue(value interface{}) (map[string]interface{}, bool) {
+	// If it's already a map, return it
+	if mapValue, isMap := value.(map[string]interface{}); isMap {
+		return mapValue, true
+	}
+	
+	// Convert to map while preserving original value
+	newMap := make(map[string]interface{})
+	if value != nil {
+		newMap[""] = value
+	}
+	return newMap, false
+}
+
+// processArrayValue converts a comma-separated string into a slice of trimmed strings
+// Returns the slice and the base key (without the [] suffix if present)
+func processArrayValue(key, value string) (string, []string) {
+	baseKey := key
+	if IsArrayContext(key) {
+		baseKey = strings.TrimSuffix(key, "[]")
+	}
+	
+	if value == "" {
+		return baseKey, []string{}
+	}
+	
+	items := strings.Split(value, ",")
+	for i := range items {
+		items[i] = strings.TrimSpace(items[i])
+	}
+	return baseKey, items
+}
+
 // ApplyTemplateVariables processes a template string with the provided variables
 // It replaces variables according to Go's text/template syntax
 //
@@ -75,16 +111,8 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 		for key, value := range topLevelVars {
 			if IsArrayContext(key) {
 				// Handle top-level arrays
-				baseKey := strings.TrimSuffix(key, "[]")
-				if value != "" {
-					items := strings.Split(value, ",")
-					for i := range items {
-						items[i] = strings.TrimSpace(items[i])
-					}
-					processedVars[baseKey] = items
-				} else {
-					processedVars[baseKey] = []string{}
-				}
+				baseKey, items := processArrayValue(key, value)
+				processedVars[baseKey] = items
 			} else {
 				// Regular variable
 				processedVars[key] = value
@@ -101,14 +129,11 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 		// Create the top-level object if it doesn't exist
 		if _, exists := processedVars[prefix]; !exists {
 			processedVars[prefix] = make(map[string]interface{})
-		} else if _, isMap := processedVars[prefix].(map[string]interface{}); !isMap {
-			// Convert non-map value to map while preserving original value
-			originalValue := processedVars[prefix]
-			newMap := make(map[string]interface{})
-			if originalValue != nil {
-				newMap[""] = originalValue
+		} else {
+			// Convert non-map value to map if needed
+			if mapValue, isMap := ensureMapValue(processedVars[prefix]); !isMap {
+				processedVars[prefix] = mapValue
 			}
-			processedVars[prefix] = newMap
 		}
 		
 		// Process each nested variable in this prefix group
@@ -132,14 +157,11 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 					// If this level doesn't exist yet, create it
 					if _, exists := currentValue[part]; !exists {
 						currentValue[part] = make(map[string]interface{})
-					} else if _, isMap := currentValue[part].(map[string]interface{}); !isMap {
-						// Convert non-map value to map while preserving original value
-						originalValue := currentValue[part]
-						newMap := make(map[string]interface{})
-						if originalValue != nil {
-							newMap[""] = originalValue
+					} else {
+						// Convert non-map value to map if needed
+						if mapValue, isMap := ensureMapValue(currentValue[part]); !isMap {
+							currentValue[part] = mapValue
 						}
-						currentValue[part] = newMap
 					}
 					
 					// Move to the next level
@@ -156,16 +178,9 @@ func ApplyTemplateVariables(templateContent string, variables map[string]string)
 				
 				// Handle array context for the leaf node
 				if IsArrayContext(lastPart) {
-					baseKey := strings.TrimSuffix(lastPart, "[]")
-					if value != "" {
-						items := strings.Split(value, ",")
-						for i := range items {
-							items[i] = strings.TrimSpace(items[i])
-						}
-						currentValue[baseKey] = items
-					} else {
-						currentValue[baseKey] = []string{}
-					}
+					// Handle array context for the leaf node
+					baseKey, items := processArrayValue(lastPart, value)
+					currentValue[baseKey] = items
 				} else {
 					currentValue[lastPart] = value
 				}

@@ -1,4 +1,4 @@
-.PHONY: build test clean run demo-tui lint lint-tests lint-ci build-full install-hooks lint-report deadcode deadcode-ast deadcode-remove
+.PHONY: build test clean run demo-tui lint lint-tests lint-ci build-full install-hooks lint-report deadcode deadcode-ast deadcode-remove dupl dupl-html dupl-modified dupl-modified-html
 
 # Binary name
 BINARY_NAME=usm
@@ -165,6 +165,67 @@ deadcode-ast:
 	@echo "Running AST-based dead code remover (dry run)..."
 	@go run ./cmd/deadcode --dry-run
 	@echo "For actual code removal, run: go run ./cmd/deadcode"
+
+# Run dupl for code clone detection
+dupl:
+	@echo "Running dupl for code clone detection..."
+	@if ! command -v dupl &> /dev/null; then \
+		echo "dupl not found. Installing..."; \
+		go install github.com/mibk/dupl@latest; \
+	fi
+	@mkdir -p output/reports
+	@echo "Scanning for code clones with threshold of 100 tokens..."
+	@dupl -t 100 -plumbing .
+	@echo "For HTML output, run: make dupl-html"
+	@echo "For more detailed analysis, adjust the token threshold: dupl -t 200 -plumbing ."
+	@echo "To check only git-modified files, run: make dupl-modified"
+
+# Generate HTML report for code clones
+dupl-html:
+	@echo "Generating HTML report for code clones..."
+	@if ! command -v dupl &> /dev/null; then \
+		echo "dupl not found. Installing..."; \
+		go install github.com/mibk/dupl@latest; \
+	fi
+	@mkdir -p output/reports
+	@dupl -t 100 -html > output/reports/dupl-report.html
+	@echo "Report generated at output/reports/dupl-report.html"
+
+# Run dupl only on git-modified files
+dupl-modified:
+	@echo "Running dupl for code clone detection on git-modified files only..."
+	@if ! command -v dupl &> /dev/null; then \
+		echo "dupl not found. Installing..."; \
+		go install github.com/mibk/dupl@latest; \
+	fi
+	@mkdir -p output/reports
+	@echo "Creating list of modified files..."
+	@git ls-files --modified --others --exclude-standard | grep '\.go$$' > output/reports/modified-files.txt
+	@if [ -s output/reports/modified-files.txt ]; then \
+		echo "Scanning for code clones in modified files with threshold of 50 tokens..."; \
+		cat output/reports/modified-files.txt | dupl -files -t 50 -plumbing; \
+		echo "For HTML report of modified files, run: make dupl-modified-html"; \
+	else \
+		echo "No modified Go files found."; \
+	fi
+
+# Generate HTML report for code clones in modified files
+dupl-modified-html:
+	@echo "Generating HTML report for code clones in modified files only..."
+	@if ! command -v dupl &> /dev/null; then \
+		echo "dupl not found. Installing..."; \
+		go install github.com/mibk/dupl@latest; \
+	fi
+	@mkdir -p output/reports
+	@echo "Creating list of modified files..."
+	@git ls-files --modified --others --exclude-standard | grep '\.go$$' > output/reports/modified-files.txt
+	@if [ -s output/reports/modified-files.txt ]; then \
+		echo "Generating HTML report for modified files..."; \
+		cat output/reports/modified-files.txt | dupl -files -t 100 -html > output/reports/dupl-modified-report.html; \
+		echo "Report generated at output/reports/dupl-modified-report.html"; \
+	else \
+		echo "No modified Go files found."; \
+	fi
 
 # Default target
 all: clean build 

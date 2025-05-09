@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 //go:build tools
 // +build tools
 
@@ -13,8 +12,12 @@ import (
 	// Import golangci-lint for dependency management
 	// This ensures go.mod tracks the version but doesn't include it in the binary
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	// Import dupl for code clone detection
+	_ "github.com/mibk/dupl"
 )
 
 // This file is used to track tool dependencies.
 // It's not included in the build but helps maintain consistent tooling versions.
-// To install tools: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+// To install tools:
+// go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+// go install github.com/mibk/dupl@latest
