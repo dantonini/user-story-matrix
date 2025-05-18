@@ -115,7 +115,7 @@ Examples:
 					output.PrintWarning(fmt.Sprintf("   • Step '%s': Variable '%s' in '%s'", 
 						stepID, varName, templatePath))
 					output.Print(fmt.Sprintf("     ↳ Fix: Add to workflow.yaml in step '%s':", stepID))
-					output.Print(fmt.Sprintf("         variables:"))
+					output.Print("         variables:")
 					output.Print(fmt.Sprintf("           %s: \"your_value_here\"", varName))
 				}
 				
@@ -135,9 +135,9 @@ Examples:
 					// Create more user-friendly message with fix suggestion
 					output.PrintWarning(fmt.Sprintf("   • Step '%s': Variable '%s' in '%s'", 
 						stepID, varName, templatePath))
-					output.Print(fmt.Sprintf("     ↳ Fix options:"))
-					output.Print(fmt.Sprintf("       1. Use the variable in template: {{.%s}}", varName))
-					output.Print(fmt.Sprintf("       2. Remove from workflow.yaml if not needed"))
+					output.Print("     ↳ Fix options:")
+					output.Print("       1. Use the variable in template: {{." + varName + "}}")
+					output.Print("       2. Remove from workflow.yaml if not needed")
 				}
 			}
 			

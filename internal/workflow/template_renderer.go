@@ -82,11 +82,21 @@ func (r *TemplateRenderer) resolvePromptPath(promptPath string) string {
 	}
 	
 	// Add some more fallback paths
-	pwd, _ := os.Getwd()
-	possiblePaths = append(possiblePaths, 
-		filepath.Join(pwd, promptPath), // Relative to current directory
-		promptPath, // As is (might be in current directory)
-	)
+	pwd, err := os.Getwd()
+	if err != nil {
+		// If we can't get the working directory, just skip these paths
+		pwd = ""
+	}
+	
+	if pwd != "" {
+		possiblePaths = append(possiblePaths, 
+			filepath.Join(pwd, promptPath), // Relative to current directory
+			promptPath, // As is (might be in current directory)
+		)
+	} else {
+		// If pwd is not available, still try the raw path
+		possiblePaths = append(possiblePaths, promptPath)
+	}
 	
 	// Only add these paths if not already containing the workflow dir
 	if !containsWorkflowDir {
@@ -381,10 +391,13 @@ func (r *TemplateRenderer) ExtractTemplateVariables(promptPath string) ([]string
 				
 				if nestedRefPath != "" {
 					// Extract variables from further nested templates
-					nestedVars, _ := r.ExtractTemplateVariables(nestedRefPath)
-					for _, v := range nestedVars {
-						variableMap[v] = true
+					nestedVars, err := r.ExtractTemplateVariables(nestedRefPath)
+					if err == nil && len(nestedVars) > 0 {
+						for _, v := range nestedVars {
+							variableMap[v] = true
+						}
 					}
+					// Ignore errors in nested templates, as they'll be caught during validation
 				}
 			}
 		}

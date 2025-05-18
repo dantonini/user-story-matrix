@@ -878,14 +878,3 @@ func (r *WorkflowRegistry) ClearBuiltInWorkflows() {
 	// Clear all built-in workflows
 	r.builtInWorkflows = make(map[string]*WorkflowDefinition)
 }
-
-// containsDirectoryEntry checks if a directory name is found in a list of directory entries
-// This is used to handle mock filesystem inconsistencies in tests
-func containsDirectoryEntry(entries []os.DirEntry, name string) bool {
-	for _, entry := range entries {
-		if entry.Name() == name && entry.IsDir() {
-			return true
-		}
-	}
-	return false
-}

@@ -48,7 +48,7 @@ func TestValidateCmd(t *testing.T) {
 	}
 	workflowYAMLBytes, _ := yaml.Marshal(workflowDef)
 	workflowFile := filepath.Join(workflowDir, "workflow.yaml")
-	assert.NoError(t, os.WriteFile(workflowFile, workflowYAMLBytes, 0644))
+	assert.NoError(t, os.WriteFile(workflowFile, workflowYAMLBytes, 0600))
 	
 	// Change to the temp directory for testing
 	cwd, err := os.Getwd()
@@ -145,7 +145,7 @@ func TestValidateWorkflow(t *testing.T) {
 				}
 				workflowYAMLBytes, _ := yaml.Marshal(workflowDef)
 				workflowFile := filepath.Join(workflowDir, "workflow.yaml")
-				os.WriteFile(workflowFile, workflowYAMLBytes, 0644)
+				os.WriteFile(workflowFile, workflowYAMLBytes, 0600)
 				
 				// Change to the temp directory for testing
 				os.Chdir(tempDir)
@@ -179,7 +179,7 @@ func TestValidateWorkflow(t *testing.T) {
 				}
 				workflowYAMLBytes, _ := yaml.Marshal(workflowDef)
 				workflowFile := filepath.Join(workflowDir, "workflow.yaml")
-				os.WriteFile(workflowFile, workflowYAMLBytes, 0644)
+				os.WriteFile(workflowFile, workflowYAMLBytes, 0600)
 				
 				// Change to the temp directory for testing
 				os.Chdir(tempDir)
@@ -282,7 +282,7 @@ steps:
       # key2 is missing intentionally to test validation
 `
 	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
-	mockFS.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0644)
+	mockFS.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0600)
 
 	// Debug the yaml content
 	yamlData, err := mockFS.ReadFile(workflowYAMLPath)
@@ -582,15 +582,6 @@ steps:
 		assert.True(t, result.Success, "Validation by name should succeed")
 		assert.Equal(t, workflowName, result.WorkflowName, "Workflow name should match")
 	})
-}
-
-// Helper function to get names from workflow map for logging
-func getWorkflowNames(workflows map[string]*workflow.WorkflowDefinition) []string {
-	names := make([]string, 0, len(workflows))
-	for name := range workflows {
-		names = append(names, name)
-	}
-	return names
 }
 
 // TestValidateWorkflowDuplicatePaths tests the issue with duplicate path prefixes
