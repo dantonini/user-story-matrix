@@ -1045,4 +1045,162 @@ This phase we're focusing on {{ .focus }}.
 	}
 	
 	assert.True(t, foundFocusWarning, "Validator should warn about missing 'focus' variable used in nested template")
+}
+
+// TestElaborateWorkflowVariableValidation reproduces the issue with the 'elaborate' workflow
+// where the validator incorrectly reports variables as missing even though they have default values
+func TestElaborateWorkflowVariableValidation(t *testing.T) {
+	// Setup mock filesystem
+	fs := io.NewMockFileSystem()
+	workflowDir := "/.usm/workflows/elaborate"
+	promptsDir := filepath.Join(workflowDir, "prompts")
+	fs.MkdirAll(promptsDir, 0755)
+
+	// Create a template file that resembles the one in the elaborate workflow
+	// This is based on the actual 01-analyze-description.md content
+	step1PromptPath := filepath.Join(promptsDir, "01-analyze-description.md")
+	step1Content := `# Step 1: Analyze the Vague Description
+
+## Input
+You are being provided with a vague feature description in the file ` + "`{{.ChangeRequestFilePath}}`" + `. 
+
+## Task
+Your task is to analyze this description and identify:
+
+1. The main problem or need that this feature aims to address
+2. The core functionality required
+3. Potential user types (personas) who would use this feature
+4. Potential acceptance criteria or constraints
+5. Dependencies or integration points with existing features
+6. Any potential edge cases or special scenarios
+
+## Guidelines
+- Be thorough but concise in your analysis
+- Identify any ambiguities or missing information in the description
+- Think about both functional and non-functional requirements
+- Consider different user perspectives and use cases
+
+## Expected Output
+Provide a structured analysis with clear sections for each of the areas identified above. This analysis will be used as input for the next steps in generating well-defined user stories.
+
+Begin by reading the content of the file and then provide your analysis.`
+	fs.WriteFile(step1PromptPath, []byte(step1Content), 0644)
+
+	// Create workflow.yaml
+	workflowYAML := `name: "elaborate"
+description: "Workflow for refining vague feature descriptions into well-defined INVEST user stories"
+
+steps:
+  - id: "01-analyze-description"
+    description: "Analyze the vague description and identify potential user stories"
+    prompt: "prompts/01-analyze-description.md"
+    # Note: ChangeRequestFilePath is not defined here, but should be detected as having a default value
+`
+	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+	fs.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0600)
+
+	// Load the workflow definition
+	workflowDef, err := LoadWorkflowFromFile(fs, workflowYAMLPath)
+	assert.NoError(t, err, "Should load workflow definition")
+
+	// Direct test of checkForDefaultValue function
+	hasDefault := checkForDefaultValue(fs, step1PromptPath, "ChangeRequestFilePath")
+	t.Logf("Direct test - ChangeRequestFilePath has default: %v", hasDefault)
+
+	// Create validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+
+	// Validate workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err, "Validation should not error")
+
+	// Log the validation results for debugging
+	t.Logf("Validation result - Errors: %d, Warnings: %d", len(result.Errors), len(result.Warnings))
+	for i, warning := range result.Warnings {
+		t.Logf("Warning %d: %s", i+1, warning)
+	}
+
+	// Check if there's a warning about ChangeRequestFilePath
+	foundWarning := false
+	for _, warning := range result.Warnings {
+		if strings.Contains(warning, "ChangeRequestFilePath") {
+			foundWarning = true
+			break
+		}
+	}
+
+	// This assertion will fail with the current implementation, but should pass after the fix
+	assert.False(t, foundWarning, "Should not warn about ChangeRequestFilePath since it uses backticks")
+}
+
+// TestElaborateWorkflowValidation tests the validation of the elaborate workflow
+// which uses the ChangeRequestFilePath variable in backticks.
+func TestElaborateWorkflowValidation(t *testing.T) {
+	// Setup a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Create a test workflow directory
+	workflowDir := filepath.Join(".usm", "workflows", "elaborate")
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(filepath.Join(workflowDir, "prompts"), 0755)
+	
+	// Create workflow.yaml
+	workflowYAML := `name: "elaborate"
+description: "Workflow for refining vague feature descriptions into well-defined INVEST user stories"
+
+steps:
+  - id: "01-analyze-description"
+    description: "Analyze the vague description and identify potential user stories"
+    prompt: "prompts/01-analyze-description.md"
+    
+  - id: "02-extract-personas"
+    description: "Extract user personas from the description"
+    prompt: "prompts/02-extract-personas.md"
+`
+	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+	fs.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0600)
+	
+	// Create prompt files with backtick variable usage
+	prompt1 := "# Step 1: Analyze the vague description\n\n" +
+		"You are being provided with a vague feature description in the file `{{.ChangeRequestFilePath}}`.\n\n" +
+		"## Task\n" +
+		"Begin by reading the content of the vague feature description, then create a new file named `{{.ChangeRequestFilePath}}.processed.md`."
+	
+	prompt2 := "# Step 2: Extract User Personas\n\n" +
+		"## Input\n" +
+		"You've analyzed the vague feature description in the previous step:\n" +
+		"- `{{.ChangeRequestFilePath}}.processed.md` : The incremental processing of the vague feature description\n\n" +
+		"## Task\n" +
+		"Your task is to extract and define clear user personas based on the initial feature description.\n\n" +
+		"Append your output in the file `{{.ChangeRequestFilePath}}.processed.md` in the section `# Personas`."
+	
+	prompts := map[string]string{
+		"01-analyze-description.md": prompt1,
+		"02-extract-personas.md":    prompt2,
+	}
+	
+	for filename, content := range prompts {
+		promptPath := filepath.Join(workflowDir, "prompts", filename)
+		fs.WriteFile(promptPath, []byte(content), 0600)
+	}
+	
+	// Load the workflow definition
+	workflowDef, err := LoadWorkflowFromFile(fs, workflowYAMLPath)
+	assert.NoError(t, err, "Should load workflow definition")
+	
+	// Test if checkForDefaultValue correctly detects backtick variables
+	backtickVarPath := filepath.Join(workflowDir, "prompts", "01-analyze-description.md")
+	hasDefault := checkForDefaultValue(fs, backtickVarPath, "ChangeRequestFilePath")
+	assert.True(t, hasDefault, "ChangeRequestFilePath in backticks should be detected as having a default value")
+	
+	// Create validator and validate workflow
+	validator := NewWorkflowValidator(fs, workflowDir)
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err, "Validation should not error")
+	
+	// The test passes if no warnings about ChangeRequestFilePath are found
+	for _, warning := range result.Warnings {
+		assert.NotContains(t, warning, "ChangeRequestFilePath", 
+			"Should not warn about ChangeRequestFilePath since it's wrapped in backticks")
+	}
 } 

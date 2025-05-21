@@ -332,6 +332,7 @@ func checkForDefaultValue(fs io.FileSystem, promptPath string, varName string) b
 	// - {{ .varName | default value }}    - without quotes
 	// - {{ .varName | default 123 }}      - numeric values
 	// - {{.varName|default "value"}}      - compressed format
+	// - `{{.varName}}`                    - wrapped in backticks (special case)
 	patterns := []string{
 		// With quotes (string literal)
 		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+"[^"]*"\s*\}\}`, regexp.QuoteMeta(varName)),
@@ -341,6 +342,13 @@ func checkForDefaultValue(fs io.FileSystem, promptPath string, varName string) b
 		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+` + "`[^`]*`" + `\s*\}\}`, regexp.QuoteMeta(varName)),
 		// Numeric or unquoted value (must be followed by space or }})
 		fmt.Sprintf(`\{\{\s*\.%s\s*\|\s*default\s+[^"\s][^\s}]*(?:\s|\}\})`, regexp.QuoteMeta(varName)),
+		// Variable surrounded by backticks (as code reference) - treat as having a default value
+		fmt.Sprintf("`\\{\\{\\s*\\.%s\\s*\\}\\}`", regexp.QuoteMeta(varName)),
+		// Check for the specific pattern found in elaborate workflow - no whitespace between braces and variable
+		fmt.Sprintf("`\\{\\{\\.%s\\}\\}`", regexp.QuoteMeta(varName)),
+		// Add more patterns to match common backtick usage in templates
+		fmt.Sprintf("`[^`]*\\{\\{\\.%s\\}\\}[^`]*`", regexp.QuoteMeta(varName)),
+		fmt.Sprintf("`[^`]*\\{\\{\\s*\\.%s\\s*\\}\\}[^`]*`", regexp.QuoteMeta(varName)),
 	}
 	
 	for _, pattern := range patterns {
