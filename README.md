@@ -229,6 +229,31 @@ usm code --reset docs/changes-request/my-change-request.blueprint.md
     - extend functionalities
     - final iteration
 
+### Elaborating User Stories from Vague Descriptions
+
+```bash
+# Start with interactive input
+usm elaborate
+
+# Use an existing vague description file
+usm elaborate docs/vague/my-feature.md
+
+# Reset the workflow and start from the beginning
+usm elaborate --reset docs/vague/my-feature.md
+```
+
+The `elaborate` command transforms vague feature descriptions into well-defined user stories following a structured 7-step workflow:
+
+1. Analyze the description
+2. Extract user personas
+3. Draft initial user stories
+4. Refine stories to meet INVEST criteria
+5. Prioritize user stories
+6. Add acceptance criteria
+7. Final review and packaging
+
+For more details, see the [Elaborate Command Documentation](docs/elaborate-command.md).
+
 ### Prompt interpolated variables
 
 USM supports flexible prompt interpolation:
