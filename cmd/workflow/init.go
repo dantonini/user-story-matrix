@@ -315,26 +315,26 @@ You can customize this workflow by:
 		switch templateName {
 		case skeletonTemplate:
 			output.Print("Next steps:")
-			output.Print("1. Edit workflow.yaml to define your workflow steps")
-			output.Print("2. Create prompts in the prompts/ directory")
-			output.Print("3. Validate your workflow with 'usm workflow validate'")
+			output.Print(fmt.Sprintf("1. Edit %s/workflow.yaml to define your workflow steps", targetDir))
+			output.Print(fmt.Sprintf("2. Create prompts in the %s/prompts/ directory", targetDir))
+			output.Print(fmt.Sprintf("3. Validate your workflow with 'usm workflow validate %s'", workflowName))
 		case basicTemplate:
 			output.Print("Next steps:")
-			output.Print("1. Customize the workflow steps in workflow.yaml")
-			output.Print("2. Edit the prompt content in prompts/ directory")
-			output.Print("3. Validate your workflow with 'usm workflow validate'")
+			output.Print(fmt.Sprintf("1. Customize the workflow steps in %s/workflow.yaml", targetDir))
+			output.Print(fmt.Sprintf("2. Edit the prompt content in %s/prompts/ directory", targetDir))
+			output.Print(fmt.Sprintf("3. Validate your workflow with 'usm workflow validate %s'", workflowName))
 		case advancedTemplate:
 			output.Print("Next steps:")
-			output.Print("1. Review the example workflow in workflow.yaml")
-			output.Print("2. Customize the prompts in prompts/ directory")
-			output.Print("3. Try reusing templates from the shared/ directory")
-			output.Print("4. Validate your workflow with 'usm workflow validate'")
+			output.Print(fmt.Sprintf("1. Review the example workflow in %s/workflow.yaml", targetDir))
+			output.Print(fmt.Sprintf("2. Customize the prompts in %s/prompts/ directory", targetDir))
+			output.Print(fmt.Sprintf("3. Try reusing templates from the %s/prompts/shared/ directory", targetDir))
+			output.Print(fmt.Sprintf("4. Validate your workflow with 'usm workflow validate %s'", workflowName))
 		case structuredTemplate:
 			output.Print("Next steps:")
-			output.Print("1. Review the example workflow in workflow.yaml")
-			output.Print("2. Customize the prompts in prompts/ directory")
-			output.Print("3. Try reusing templates from the shared/ directory")
-			output.Print("4. Validate your workflow with 'usm workflow validate'")
+			output.Print(fmt.Sprintf("1. Review the example workflow in %s/workflow.yaml", targetDir))
+			output.Print(fmt.Sprintf("2. Customize the prompts in %s/prompts/ directory", targetDir))
+			output.Print(fmt.Sprintf("3. Try reusing templates from the %s/prompts/shared/ directory", targetDir))
+			output.Print(fmt.Sprintf("4. Validate your workflow with 'usm workflow validate %s'", workflowName))
 		}
 	},
 }
