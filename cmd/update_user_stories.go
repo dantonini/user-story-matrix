@@ -21,7 +21,7 @@ import (
 
 // updateUserStoriesCmd represents the update user-stories metadata command
 var updateUserStoriesCmd = &cobra.Command{
-	Use:   "update user-stories metadata",
+	Use:   "update-metadata",
 	Short: "Update metadata in user story markdown files",
 	Long: `Update metadata in user story markdown files.
 	
