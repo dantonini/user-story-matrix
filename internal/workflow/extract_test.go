@@ -393,28 +393,28 @@ func TestIntegrationSmoke_ExtractAndLoad(t *testing.T) {
 	}
 	
 	// Check that we have the same number of steps
-	if len(loadedWorkflow.Steps) != len(StandardWorkflowSteps) {
-		t.Errorf("Expected %d steps, got %d", len(StandardWorkflowSteps), len(loadedWorkflow.Steps))
+	if len(loadedWorkflow.Steps) != len(UsmCodeStandardWorkflowSteps) {
+		t.Errorf("Expected %d steps, got %d", len(UsmCodeStandardWorkflowSteps), len(loadedWorkflow.Steps))
 	}
 	
 	// Check that step IDs match
 	for i, step := range loadedWorkflow.Steps {
-		if i < len(StandardWorkflowSteps) && step.ID != StandardWorkflowSteps[i].ID {
-			t.Errorf("Step %d: expected ID '%s', got '%s'", i, StandardWorkflowSteps[i].ID, step.ID)
+		if i < len(UsmCodeStandardWorkflowSteps) && step.ID != UsmCodeStandardWorkflowSteps[i].ID {
+			t.Errorf("Step %d: expected ID '%s', got '%s'", i, UsmCodeStandardWorkflowSteps[i].ID, step.ID)
 		}
 	}
 	
 	// Check that step descriptions match
 	for i, step := range loadedWorkflow.Steps {
-		if i < len(StandardWorkflowSteps) && step.Description != StandardWorkflowSteps[i].Description {
+		if i < len(UsmCodeStandardWorkflowSteps) && step.Description != UsmCodeStandardWorkflowSteps[i].Description {
 			t.Errorf("Step %d: expected description '%s', got '%s'", 
-				i, StandardWorkflowSteps[i].Description, step.Description)
+				i, UsmCodeStandardWorkflowSteps[i].Description, step.Description)
 		}
 	}
 	
 	// Check that step prompts match
 	for i, step := range loadedWorkflow.Steps {
-		if i < len(StandardWorkflowSteps) && step.Prompt != StandardWorkflowSteps[i].Prompt {
+		if i < len(UsmCodeStandardWorkflowSteps) && step.Prompt != UsmCodeStandardWorkflowSteps[i].Prompt {
 			t.Errorf("Step %d: prompt content doesn't match", i)
 		}
 	}

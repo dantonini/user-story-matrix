@@ -5,12 +5,12 @@
 
 package workflow
 
-// StandardWorkflowSteps defines the predefined sequence of steps in the implementation workflow
+// UsmCodeStandardWorkflowSteps defines the predefined sequence of steps in the implementation workflow
 // Deprecated: Use WorkflowRegistry.GetWorkflow("standard") instead.
 // This global variable is maintained for backward compatibility with existing code.
 // It will be synchronized with the registry's standard workflow to ensure consistency.
 // Direct usage will be removed in a future version.
-var StandardWorkflowSteps = []WorkflowStep{
+var UsmCodeStandardWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation - Setting up the architecture and structure",

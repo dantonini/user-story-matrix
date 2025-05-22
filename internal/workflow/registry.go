@@ -23,9 +23,9 @@ import (
 
 // Standard workflow constants
 const (
-	// StandardWorkflowName is the identifier for the default workflow
+	// UsmCodeStandardWorkflowName is the identifier for the default workflow
 	// This constant is used to retrieve the standard workflow from the registry
-	StandardWorkflowName = "standard"
+	UsmCodeStandardWorkflowName = "standard"
 )
 
 // Global registry instance with thread-safe access
@@ -142,7 +142,7 @@ func newWorkflowRegistry() *WorkflowRegistry {
 	}
 
 	// Register the standard workflow
-	registry.RegisterBuiltInWorkflow(createStandardWorkflow())
+	registry.RegisterBuiltInWorkflow(createUsmCodeStandardWorkflow())
 
 	return registry
 }
@@ -259,16 +259,16 @@ func (r *WorkflowRegistry) GetWorkflowWithFS(name string, fs io.FileSystem) (*Wo
 	return nil, fmt.Errorf("workflow '%s' not found", name)
 }
 
-// GetStandardWorkflow returns the standard workflow.
+// GetUsmCodeStandardWorkflow returns the standard workflow.
 // This is a convenience method that always returns the standard workflow,
 // which is guaranteed to exist in the registry.
 //
 // Returns:
 //   - The standard WorkflowDefinition
-func (r *WorkflowRegistry) GetStandardWorkflow() *WorkflowDefinition {
+func (r *WorkflowRegistry) GetUsmCodeStandardWorkflow() *WorkflowDefinition {
 	// The standard workflow is always registered during registry initialization,
 	// so if it's not found, it's a programming error, not a runtime error
-	workflow, err := r.GetWorkflow(StandardWorkflowName)
+	workflow, err := r.GetWorkflow(UsmCodeStandardWorkflowName)
 	if err != nil {
 		// This should never happen as the standard workflow is registered in the constructor
 		panic(fmt.Sprintf("Standard workflow not found in registry: %v", err))
@@ -783,17 +783,17 @@ func getUserHomeDir() string {
 	return home
 }
 
-// createStandardWorkflow converts the existing StandardWorkflowSteps to a WorkflowDefinition.
+// createUsmCodeStandardWorkflow converts the existing StandardWorkflowSteps to a WorkflowDefinition.
 // This function provides backward compatibility by wrapping the existing global
 // StandardWorkflowSteps variable in the new WorkflowDefinition structure.
 //
 // Returns:
 //   - A WorkflowDefinition that encapsulates the existing StandardWorkflowSteps
-func createStandardWorkflow() *WorkflowDefinition {
+func createUsmCodeStandardWorkflow() *WorkflowDefinition {
 	return &WorkflowDefinition{
-		Name:        StandardWorkflowName,
+		Name:        UsmCodeStandardWorkflowName,
 		Description: "The default USM workflow for implementation",
-		Steps:       StandardWorkflowSteps,
+		Steps:       UsmCodeStandardWorkflowSteps,
 	}
 }
 

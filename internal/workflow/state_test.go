@@ -31,7 +31,7 @@ func TestWorkflowManager_LoadState_WithInvalidStateFile_ErrorSimulation(t *testi
 	registry := NewWorkflowRegistry()
 
 	// Add the standard workflow to the registry
-	registry.RegisterBuiltInWorkflow(createStandardWorkflow())
+	registry.RegisterBuiltInWorkflow(createUsmCodeStandardWorkflow())
 
 	wm := NewWorkflowManager(fs, mockIO, "", registry)
 
@@ -77,7 +77,7 @@ func TestWorkflowManager_SaveState_WithErrors_ErrorSimulation(t *testing.T) {
 		ChangeRequestPath: "/path/to/change-request.blueprint.md",
 		CurrentStepIndex:  1,
 		LastModified:      time.Now(),
-		WorkflowName:      StandardWorkflowName,
+		WorkflowName:      UsmCodeStandardWorkflowName,
 	}
 
 	// Set up a write error using MockFileSystemWithErrors
@@ -573,7 +573,7 @@ func TestWorkflowState_BackwardCompatibility(t *testing.T) {
 	registry := NewWorkflowRegistry()
 	
 	// Register test workflows
-	_ = registry.GetStandardWorkflow()
+	_ = registry.GetUsmCodeStandardWorkflow()
 	
 	// Create a state file in the old format (without workflow name fields)
 	oldStateFormat := `{
@@ -620,11 +620,11 @@ func TestWorkflowState_BackwardCompatibility(t *testing.T) {
 			CurrentStepIndex:  state.CurrentStepIndex,
 			LastModified:      state.LastModified,
 			CompletedSteps:    state.CompletedSteps,
-			WorkflowName:      StandardWorkflowName, // Set default workflow name
+			WorkflowName:      UsmCodeStandardWorkflowName, // Set default workflow name
 			WorkflowPath:      "",
 		}
 		
-		assert.Equal(t, StandardWorkflowName, workflowState.WorkflowName)
+		assert.Equal(t, UsmCodeStandardWorkflowName, workflowState.WorkflowName)
 	})
 	
 	// Test loading a new format state file
@@ -691,11 +691,11 @@ func TestWorkflowState_BackwardCompatibility(t *testing.T) {
 			CurrentStepIndex:  legacyState.CurrentStep,
 			LastModified:      legacyState.LastModified,
 			CompletedSteps:    legacyState.CompletedSteps,
-			WorkflowName:      StandardWorkflowName,
+			WorkflowName:      UsmCodeStandardWorkflowName,
 			WorkflowPath:      "",
 		}
 		
-		assert.Equal(t, StandardWorkflowName, state.WorkflowName)
+		assert.Equal(t, UsmCodeStandardWorkflowName, state.WorkflowName)
 		assert.Equal(t, 3, state.CurrentStepIndex)
 		assert.Equal(t, 3, len(state.CompletedSteps))
 	})
@@ -910,8 +910,8 @@ func TestWorkflowManager_LoadState_WithInvalidStateFile_NewMockFS(t *testing.T) 
 	if state.CurrentStepIndex != 0 {
 		t.Errorf("Expected CurrentStepIndex to be 0, got %d", state.CurrentStepIndex)
 	}
-	if state.WorkflowName != StandardWorkflowName {
-		t.Errorf("Expected WorkflowName to be %s, got %s", StandardWorkflowName, state.WorkflowName)
+	if state.WorkflowName != UsmCodeStandardWorkflowName {
+		t.Errorf("Expected WorkflowName to be %s, got %s", UsmCodeStandardWorkflowName, state.WorkflowName)
 	}
 	if state.ChangeRequestPath != "/path/to/change-request.blueprint.md" {
 		t.Errorf("Expected ChangeRequestPath to be /path/to/change-request.blueprint.md, got %s", state.ChangeRequestPath)
@@ -977,7 +977,7 @@ func TestWorkflowManager_SaveState_WithErrors_NewMockFS(t *testing.T) {
 	state := WorkflowState{
 		ChangeRequestPath: "/path/to/change-request.blueprint.md",
 		CurrentStepIndex:  1,
-		WorkflowName:      StandardWorkflowName,
+		WorkflowName:      UsmCodeStandardWorkflowName,
 		LastModified:      time.Now(),
 	}
 

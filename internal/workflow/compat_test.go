@@ -37,7 +37,7 @@ func TestGetWorkflowStepFromLegacy(t *testing.T) {
 	assert.Empty(t, step.ID)
 	
 	// Test 4: Invalid index - too large
-	step, err = GetWorkflowStepFromLegacy(len(StandardWorkflowSteps) + 10)
+	step, err = GetWorkflowStepFromLegacy(len(UsmCodeStandardWorkflowSteps) + 10)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid step index")
 	assert.Empty(t, step.ID)
@@ -52,7 +52,7 @@ func TestInitCompatibilityLayer(t *testing.T) {
 	initCompatibilityLayer()
 	
 	// Verify standard workflow was registered
-	standardWorkflow := registry.GetStandardWorkflow()
+	standardWorkflow := registry.GetUsmCodeStandardWorkflow()
 	assert.NotNil(t, standardWorkflow)
 	assert.Equal(t, "standard", standardWorkflow.Name)
 	
@@ -105,17 +105,17 @@ func TestStandardWorkflowStepsConsistency(t *testing.T) {
 	
 	// Get standard workflow from registry
 	registry := GetGlobalRegistry()
-	standardWorkflow := registry.GetStandardWorkflow()
+	standardWorkflow := registry.GetUsmCodeStandardWorkflow()
 	
 	// Ensure we have a standard workflow
 	assert.NotNil(t, standardWorkflow)
 	
 	// Check if lengths match
-	assert.Equal(t, len(StandardWorkflowSteps), len(standardWorkflow.Steps),
+	assert.Equal(t, len(UsmCodeStandardWorkflowSteps), len(standardWorkflow.Steps),
 		"StandardWorkflowSteps has different number of steps than standard workflow in registry")
 	
 	// Check each step for consistency
-	for i, step := range StandardWorkflowSteps {
+	for i, step := range UsmCodeStandardWorkflowSteps {
 		registryStep := standardWorkflow.Steps[i]
 		
 		// Compare key fields
@@ -238,12 +238,12 @@ func TestStandardWorkflowSynchronization(t *testing.T) {
 	registry := ResetGlobalRegistry()
 	
 	// Store original workflow steps
-	originalSteps := make([]WorkflowStep, len(StandardWorkflowSteps))
-	copy(originalSteps, StandardWorkflowSteps)
+	originalSteps := make([]WorkflowStep, len(UsmCodeStandardWorkflowSteps))
+	copy(originalSteps, UsmCodeStandardWorkflowSteps)
 	
 	// Modify registry's standard workflow
 	modifiedWorkflow := &WorkflowDefinition{
-		Name:        StandardWorkflowName,
+		Name:        UsmCodeStandardWorkflowName,
 		Description: "Modified standard workflow",
 		Steps: []WorkflowStep{
 			{
@@ -258,9 +258,9 @@ func TestStandardWorkflowSynchronization(t *testing.T) {
 	registry.RegisterBuiltInWorkflow(modifiedWorkflow)
 	
 	// Verify StandardWorkflowSteps was updated
-	assert.Equal(t, 1, len(StandardWorkflowSteps))
-	assert.Equal(t, "modified-step", StandardWorkflowSteps[0].ID)
+	assert.Equal(t, 1, len(UsmCodeStandardWorkflowSteps))
+	assert.Equal(t, "modified-step", UsmCodeStandardWorkflowSteps[0].ID)
 	
 	// Restore original steps
-	StandardWorkflowSteps = originalSteps
+	UsmCodeStandardWorkflowSteps = originalSteps
 } 

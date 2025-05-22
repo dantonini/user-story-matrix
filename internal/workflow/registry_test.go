@@ -48,22 +48,22 @@ func TestNewWorkflowRegistry(t *testing.T) {
 	}
 
 	// Check that the standard workflow is registered
-	workflow, err := registry.GetWorkflow(StandardWorkflowName)
+	workflow, err := registry.GetWorkflow(UsmCodeStandardWorkflowName)
 	if err != nil {
 		t.Fatalf("Expected standard workflow to be registered, got error: %v", err)
 	}
 
 	// Check that the workflow has the correct properties
-	if workflow.Name != StandardWorkflowName {
-		t.Errorf("Expected workflow name to be %q, got %q", StandardWorkflowName, workflow.Name)
+	if workflow.Name != UsmCodeStandardWorkflowName {
+		t.Errorf("Expected workflow name to be %q, got %q", UsmCodeStandardWorkflowName, workflow.Name)
 	}
 
 	if workflow.Description != "The default USM workflow for implementation" {
 		t.Errorf("Expected workflow description to be %q, got %q", "The default USM workflow for implementation", workflow.Description)
 	}
 
-	if len(workflow.Steps) != len(StandardWorkflowSteps) {
-		t.Errorf("Expected workflow to have %d steps, got %d", len(StandardWorkflowSteps), len(workflow.Steps))
+	if len(workflow.Steps) != len(UsmCodeStandardWorkflowSteps) {
+		t.Errorf("Expected workflow to have %d steps, got %d", len(UsmCodeStandardWorkflowSteps), len(workflow.Steps))
 	}
 }
 
@@ -103,13 +103,13 @@ func TestWorkflowRegistry_GetWorkflow(t *testing.T) {
 	registry := NewWorkflowRegistry()
 
 	// Test retrieving the standard workflow
-	workflow, err := registry.GetWorkflow(StandardWorkflowName)
+	workflow, err := registry.GetWorkflow(UsmCodeStandardWorkflowName)
 	if err != nil {
 		t.Fatalf("Expected to find standard workflow, got error: %v", err)
 	}
 
-	if workflow.Name != StandardWorkflowName {
-		t.Errorf("Expected workflow name to be %q, got %q", StandardWorkflowName, workflow.Name)
+	if workflow.Name != UsmCodeStandardWorkflowName {
+		t.Errorf("Expected workflow name to be %q, got %q", UsmCodeStandardWorkflowName, workflow.Name)
 	}
 
 	// Test retrieving a non-existent workflow
@@ -127,7 +127,7 @@ func TestWorkflowRegistry_GetStandardWorkflow(t *testing.T) {
 	registry := NewWorkflowRegistry()
 
 	// Get the standard workflow
-	workflow := registry.GetStandardWorkflow()
+	workflow := registry.GetUsmCodeStandardWorkflow()
 
 	// Check that it's not nil
 	if workflow == nil {
@@ -135,8 +135,8 @@ func TestWorkflowRegistry_GetStandardWorkflow(t *testing.T) {
 	}
 
 	// Check that it has the correct name
-	if workflow.Name != StandardWorkflowName {
-		t.Errorf("Expected workflow name to be %q, got %q", StandardWorkflowName, workflow.Name)
+	if workflow.Name != UsmCodeStandardWorkflowName {
+		t.Errorf("Expected workflow name to be %q, got %q", UsmCodeStandardWorkflowName, workflow.Name)
 	}
 }
 
@@ -146,19 +146,19 @@ func TestBackwardCompatibility(t *testing.T) {
 	
 	// Test that StandardWorkflowSteps are the same as those in the standard workflow
 	registry := NewWorkflowRegistry()
-	standardWorkflow := registry.GetStandardWorkflow()
+	standardWorkflow := registry.GetUsmCodeStandardWorkflow()
 
 	// Check if lengths match
-	if len(StandardWorkflowSteps) != len(standardWorkflow.Steps) {
+	if len(UsmCodeStandardWorkflowSteps) != len(standardWorkflow.Steps) {
 		t.Errorf("StandardWorkflowSteps has %d steps, but standard workflow has %d steps",
-			len(StandardWorkflowSteps), len(standardWorkflow.Steps))
+			len(UsmCodeStandardWorkflowSteps), len(standardWorkflow.Steps))
 	}
 
 	// Check each step's ID matches
-	for i := 0; i < len(StandardWorkflowSteps) && i < len(standardWorkflow.Steps); i++ {
-		if StandardWorkflowSteps[i].ID != standardWorkflow.Steps[i].ID {
+	for i := 0; i < len(UsmCodeStandardWorkflowSteps) && i < len(standardWorkflow.Steps); i++ {
+		if UsmCodeStandardWorkflowSteps[i].ID != standardWorkflow.Steps[i].ID {
 			t.Errorf("Step %d: StandardWorkflowSteps ID %q doesn't match workflow step ID %q",
-				i, StandardWorkflowSteps[i].ID, standardWorkflow.Steps[i].ID)
+				i, UsmCodeStandardWorkflowSteps[i].ID, standardWorkflow.Steps[i].ID)
 		}
 	}
 
@@ -170,7 +170,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	defaultWm := NewDefaultWorkflowManager(fs, io)
 
 	// Create with explicit standard workflow
-	explicitWm := NewWorkflowManager(fs, io, StandardWorkflowName, nil)
+	explicitWm := NewWorkflowManager(fs, io, UsmCodeStandardWorkflowName, nil)
 
 	// Check that they have the same number of steps
 	if len(defaultWm.workflow.Steps) != len(explicitWm.workflow.Steps) {
@@ -350,8 +350,8 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	if len(workflows) != 1 {
 		t.Errorf("Expected 1 workflow, got %d", len(workflows))
 	}
-	if len(workflows) > 0 && workflows[0] != StandardWorkflowName {
-		t.Errorf("Expected standard workflow name to be %q, got %q", StandardWorkflowName, workflows[0])
+	if len(workflows) > 0 && workflows[0] != UsmCodeStandardWorkflowName {
+		t.Errorf("Expected standard workflow name to be %q, got %q", UsmCodeStandardWorkflowName, workflows[0])
 	}
 	
 	// Register two more workflows
@@ -378,7 +378,7 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	sort.Strings(workflows)
 	
 	// Check the workflow names
-	expectedNames := []string{StandardWorkflowName, "test-workflow-1", "test-workflow-2"}
+	expectedNames := []string{UsmCodeStandardWorkflowName, "test-workflow-1", "test-workflow-2"}
 	sort.Strings(expectedNames)
 	
 	for i, name := range workflows {
@@ -413,7 +413,7 @@ func TestWorkflowRegistry_GetStandardWorkflowPanic(t *testing.T) {
 	}()
 
 	// This should panic
-	_ = corruptedRegistry.GetStandardWorkflow()
+	_ = corruptedRegistry.GetUsmCodeStandardWorkflow()
 }
 
 func TestWorkflowRegistry_LoadFromDirectory(t *testing.T) {
@@ -746,10 +746,10 @@ steps:
 	
 	// Test case 4: Retrieve standard workflow
 	t.Run("Retrieve standard workflow", func(t *testing.T) {
-		workflow, err := registry.GetWorkflow(StandardWorkflowName)
+		workflow, err := registry.GetWorkflow(UsmCodeStandardWorkflowName)
 		assert.NoError(t, err)
 		assert.NotNil(t, workflow)
-		assert.Equal(t, StandardWorkflowName, workflow.Name)
+		assert.Equal(t, UsmCodeStandardWorkflowName, workflow.Name)
 		assert.Equal(t, "The default USM workflow for implementation", workflow.Description)
 	})
 	

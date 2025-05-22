@@ -126,20 +126,20 @@ func initCompatibilityLayer() {
 	
 	// Register the standard workflow using the current StandardWorkflowSteps
 	workflow := &WorkflowDefinition{
-		Name:        StandardWorkflowName,
+		Name:        UsmCodeStandardWorkflowName,
 		Description: "Standard workflow for implementing user stories",
-		Steps:       StandardWorkflowSteps,
+		Steps:       UsmCodeStandardWorkflowSteps,
 	}
 	
 	registry.RegisterBuiltInWorkflow(workflow)
 	
 	// Set up a hook for when the registry's standard workflow changes
-	registry.AddWorkflowChangeCallback(StandardWorkflowName, func(workflow *WorkflowDefinition) {
+	registry.AddWorkflowChangeCallback(UsmCodeStandardWorkflowName, func(workflow *WorkflowDefinition) {
 		// Update StandardWorkflowSteps with the registry's standard workflow
 		if workflow != nil && len(workflow.Steps) > 0 {
 			// This is a synchronization point to avoid repeatedly logging warnings
 			legacyAccessWarning.mutex.Lock()
-			StandardWorkflowSteps = workflow.Steps
+			UsmCodeStandardWorkflowSteps = workflow.Steps
 			legacyAccessWarning.mutex.Unlock()
 		}
 	})
@@ -160,7 +160,7 @@ func GetWorkflowStepFromLegacy(index int) (WorkflowStep, error) {
 	logLegacyAccessWarning()
 	
 	// Validate index
-	if index < 0 || index >= len(StandardWorkflowSteps) {
+	if index < 0 || index >= len(UsmCodeStandardWorkflowSteps) {
 		return WorkflowStep{}, fmt.Errorf("invalid step index: %d", index)
 	}
 	
@@ -168,13 +168,13 @@ func GetWorkflowStepFromLegacy(index int) (WorkflowStep, error) {
 	registry := GetGlobalRegistry()
 	if registry == nil {
 		// If registry isn't available, fall back to StandardWorkflowSteps
-		return StandardWorkflowSteps[index], nil
+		return UsmCodeStandardWorkflowSteps[index], nil
 	}
 	
-	workflow := registry.GetStandardWorkflow()
+	workflow := registry.GetUsmCodeStandardWorkflow()
 	if workflow == nil || index >= len(workflow.Steps) {
 		// Fallback to legacy array if registry access fails
-		return StandardWorkflowSteps[index], nil
+		return UsmCodeStandardWorkflowSteps[index], nil
 	}
 	
 	return workflow.Steps[index], nil

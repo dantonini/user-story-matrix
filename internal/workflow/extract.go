@@ -67,7 +67,7 @@ func ExtractStandardWorkflow(fs io.FileSystem, outputDir string) error {
 	
 	// Extract each prompt to a file and collect relative paths
 	promptPaths := make(map[string]string)
-	for _, step := range StandardWorkflowSteps {
+	for _, step := range UsmCodeStandardWorkflowSteps {
 		promptPath, err := extractPromptToFile(fs, promptsDir, step)
 		if err != nil {
 			return fmt.Errorf("failed to extract prompt for step %s: %w", step.ID, err)
@@ -77,7 +77,7 @@ func ExtractStandardWorkflow(fs io.FileSystem, outputDir string) error {
 	
 	// Generate workflow.yaml file
 	workflowYAMLPath := filepath.Join(outputDir, StandardWorkflowYAML)
-	if err := generateWorkflowYAML(fs, StandardWorkflowSteps, workflowYAMLPath, promptPaths); err != nil {
+	if err := generateWorkflowYAML(fs, UsmCodeStandardWorkflowSteps, workflowYAMLPath, promptPaths); err != nil {
 		return fmt.Errorf("failed to generate workflow.yaml: %w", err)
 	}
 	

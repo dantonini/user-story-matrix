@@ -115,7 +115,7 @@ func NewWorkflowManager(fs io.FileSystem, io UserOutput, workflowName string, re
 	}
 
 	var workflow *WorkflowDefinition
-	if workflowName != "" && workflowName != StandardWorkflowName {
+	if workflowName != "" && workflowName != UsmCodeStandardWorkflowName {
 		// Try to get the specified workflow
 		wf, err := registry.GetWorkflow(workflowName)
 		if err == nil {
@@ -126,11 +126,11 @@ func NewWorkflowManager(fs io.FileSystem, io UserOutput, workflowName string, re
 		} else {
 			// Log warning and fall back to standard workflow
 			io.PrintWarning(fmt.Sprintf(ErrWorkflowNotFound, workflowName))
-			workflow = registry.GetStandardWorkflow()
+			workflow = registry.GetUsmCodeStandardWorkflow()
 		}
 	} else {
 		// Use standard workflow by default
-		workflow = registry.GetStandardWorkflow()
+		workflow = registry.GetUsmCodeStandardWorkflow()
 		if io.IsDebugEnabled() && workflowName == "" {
 			io.PrintProgress("Using default standard workflow")
 		}

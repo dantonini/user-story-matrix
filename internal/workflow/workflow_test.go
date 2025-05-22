@@ -154,7 +154,7 @@ func TestWorkflowManager_LoadState_WithValidStateFile(t *testing.T) {
 		CurrentStepIndex:  2,
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test"},
-		WorkflowName:      StandardWorkflowName,
+		WorkflowName:      UsmCodeStandardWorkflowName,
 		WorkflowPath:      "",
 	}
 
@@ -220,8 +220,8 @@ func TestWorkflowManager_LoadState_WithInvalidStateFile(t *testing.T) {
 	if state.CurrentStepIndex != 0 {
 		t.Errorf("LoadState() CurrentStepIndex = %v, want 0", state.CurrentStepIndex)
 	}
-	if state.WorkflowName != StandardWorkflowName {
-		t.Errorf("LoadState() WorkflowName = %v, want %s", state.WorkflowName, StandardWorkflowName)
+	if state.WorkflowName != UsmCodeStandardWorkflowName {
+		t.Errorf("LoadState() WorkflowName = %v, want %s", state.WorkflowName, UsmCodeStandardWorkflowName)
 	}
 	if state.ChangeRequestPath != changeRequestPath {
 		t.Errorf("LoadState() ChangeRequestPath = %v, want %v", state.ChangeRequestPath, changeRequestPath)
@@ -263,7 +263,7 @@ func TestWorkflowManager_LoadState_WithInvalidStepIndex(t *testing.T) {
 	// Create a standard workflow with fewer steps than the index
 	registry := NewWorkflowRegistry()
 	standardWorkflow := &WorkflowDefinition{
-		Name: StandardWorkflowName,
+		Name: UsmCodeStandardWorkflowName,
 		Steps: []WorkflowStep{
 			{ID: "01-prep", Description: "Preparation"},
 			{ID: "02-code", Description: "Coding"},
@@ -273,7 +273,7 @@ func TestWorkflowManager_LoadState_WithInvalidStepIndex(t *testing.T) {
 	registry.RegisterBuiltInWorkflow(standardWorkflow)
 
 	// Create workflow manager
-	wm := NewWorkflowManager(fs, mockIO, StandardWorkflowName, registry)
+	wm := NewWorkflowManager(fs, mockIO, UsmCodeStandardWorkflowName, registry)
 	
 	// The test expectation has changed - new behavior resets the step index during load
 	// This is because our current implementation validates step index as part of LoadState
@@ -375,7 +375,7 @@ func TestWorkflowManager_DetermineNextStep_WorkflowComplete(t *testing.T) {
 		CurrentStepIndex:  len(wm.workflow.Steps), // Workflow is completed
 		LastModified:      time.Now(),
 		CompletedSteps:    []string{"01-laying-the-foundation", "01-laying-the-foundation-test", "02-mvi", "03-extend", "04-refine"},
-		WorkflowName:      StandardWorkflowName, // Add workflow name
+		WorkflowName:      UsmCodeStandardWorkflowName, // Add workflow name
 		WorkflowPath:      "",                   // Empty for built-in workflows
 	}
 
@@ -606,7 +606,7 @@ func TestWorkflowManager_IsWorkflowComplete(t *testing.T) {
 				CurrentStepIndex:  tt.stepIndex,
 				LastModified:      time.Now(),
 				CompletedSteps:    []string{},
-				WorkflowName:      StandardWorkflowName, // Add workflow name
+				WorkflowName:      UsmCodeStandardWorkflowName, // Add workflow name
 				WorkflowPath:      "",                   // Empty for built-in workflows
 			}
 
@@ -903,9 +903,9 @@ func TestWorkflowManager_WithNonExistentWorkflow(t *testing.T) {
 	wm := NewWorkflowManager(fs, mockIO, nonExistentWorkflowName, nil)
 
 	// Test that the workflow manager falls back to standard workflow
-	if wm.workflow.Name != StandardWorkflowName {
+	if wm.workflow.Name != UsmCodeStandardWorkflowName {
 		t.Errorf("WorkflowManager not falling back to standard workflow, got %s, want %s",
-			wm.workflow.Name, StandardWorkflowName)
+			wm.workflow.Name, UsmCodeStandardWorkflowName)
 	}
 
 	// Verify warning was printed
@@ -1025,7 +1025,7 @@ func TestWorkflowManager_ListAvailableWorkflows(t *testing.T) {
 	}
 
 	// Create workflow manager with the registry
-	wm := NewWorkflowManager(fs, mockIO, StandardWorkflowName, registry)
+	wm := NewWorkflowManager(fs, mockIO, UsmCodeStandardWorkflowName, registry)
 
 	// Get the list of workflows
 	availableWorkflows := wm.ListAvailableWorkflows()
