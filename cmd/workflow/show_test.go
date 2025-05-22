@@ -216,9 +216,9 @@ func TestShowCmd(t *testing.T) {
 		done <- true
 	}()
 	
-	// Execute the command with the standard workflow
+	// Execute the command with the built-in usm-code workflow
 	showCmdRun := ShowCmd.Run
-	showCmdRun(cmd, []string{"standard"})
+	showCmdRun(cmd, []string{"usm-code"})
 	
 	// Close writer and wait for copy to complete
 	_ = w.Close()
@@ -229,8 +229,8 @@ func TestShowCmd(t *testing.T) {
 	
 	// Verify output contains expected elements
 	outputStr := output.String()
-	assert.Contains(t, outputStr, "Looking for workflow 'standard'")
-	assert.Contains(t, outputStr, "Workflow: standard")
+	assert.Contains(t, outputStr, "Looking for workflow 'usm-code'")
+	assert.Contains(t, outputStr, "Workflow: usm-code")
 	assert.Contains(t, outputStr, "Steps:")
 }
 

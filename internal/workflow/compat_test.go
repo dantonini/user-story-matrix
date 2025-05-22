@@ -54,7 +54,7 @@ func TestInitCompatibilityLayer(t *testing.T) {
 	// Verify standard workflow was registered
 	standardWorkflow := registry.GetUsmCodeStandardWorkflow()
 	assert.NotNil(t, standardWorkflow)
-	assert.Equal(t, "standard", standardWorkflow.Name)
+	assert.Equal(t, "usm-code", standardWorkflow.Name)
 	
 	// Verify steps were registered
 	assert.NotEmpty(t, standardWorkflow.Steps)

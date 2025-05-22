@@ -25,7 +25,7 @@ import (
 const (
 	// UsmCodeStandardWorkflowName is the identifier for the default workflow
 	// This constant is used to retrieve the standard workflow from the registry
-	UsmCodeStandardWorkflowName = "standard"
+	UsmCodeStandardWorkflowName = "usm-code"
 )
 
 // Global registry instance with thread-safe access
