@@ -345,13 +345,21 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	// Create a new registry
 	registry := NewWorkflowRegistry()
 	
-	// Initially, only the standard workflow should be present
+	// Initially, both the standard and elaborate workflows should be present
 	workflows := registry.ListWorkflows()
-	if len(workflows) != 1 {
-		t.Errorf("Expected 1 workflow, got %d", len(workflows))
+	if len(workflows) != 2 {
+		t.Errorf("Expected 2 workflows, got %d", len(workflows))
 	}
-	if len(workflows) > 0 && workflows[0] != UsmCodeStandardWorkflowName {
-		t.Errorf("Expected standard workflow name to be %q, got %q", UsmCodeStandardWorkflowName, workflows[0])
+	
+	// Sort workflows for consistent testing
+	sort.Strings(workflows)
+	expectedInitial := []string{ElaborateWorkflowName, UsmCodeStandardWorkflowName}
+	sort.Strings(expectedInitial)
+	
+	for i, name := range workflows {
+		if i < len(expectedInitial) && name != expectedInitial[i] {
+			t.Errorf("Expected initial workflow at index %d to be %q, got %q", i, expectedInitial[i], name)
+		}
 	}
 	
 	// Register two more workflows
@@ -369,16 +377,16 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	// Get the list of workflows
 	workflows = registry.ListWorkflows()
 	
-	// There should be 3 workflows now
-	if len(workflows) != 3 {
-		t.Errorf("Expected 3 workflows, got %d", len(workflows))
+	// There should be 4 workflows now
+	if len(workflows) != 4 {
+		t.Errorf("Expected 4 workflows, got %d", len(workflows))
 	}
 	
 	// Sort the workflows for consistent testing
 	sort.Strings(workflows)
 	
 	// Check the workflow names
-	expectedNames := []string{UsmCodeStandardWorkflowName, "test-workflow-1", "test-workflow-2"}
+	expectedNames := []string{ElaborateWorkflowName, UsmCodeStandardWorkflowName, "test-workflow-1", "test-workflow-2"}
 	sort.Strings(expectedNames)
 	
 	for i, name := range workflows {

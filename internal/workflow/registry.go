@@ -143,6 +143,9 @@ func newWorkflowRegistry() *WorkflowRegistry {
 
 	// Register the standard workflow
 	registry.RegisterBuiltInWorkflow(createUsmCodeStandardWorkflow())
+	
+	// Register the elaborate workflow
+	registry.RegisterBuiltInWorkflow(createElaborateWorkflow())
 
 	return registry
 }
@@ -874,3 +877,4 @@ func (r *WorkflowRegistry) ClearBuiltInWorkflows() {
 	// Clear all built-in workflows
 	r.builtInWorkflows = make(map[string]*WorkflowDefinition)
 }
+
