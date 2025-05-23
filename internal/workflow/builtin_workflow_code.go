@@ -5,6 +5,9 @@
 
 package workflow
 
+// UsmCodeWorkflowName is the name of the code workflow
+const UsmCodeStandardWorkflowName = "usm-code"
+
 // UsmCodeStandardWorkflowSteps defines the predefined sequence of steps in the implementation workflow
 // Deprecated: Use WorkflowRegistry.GetWorkflow("standard") instead.
 // This global variable is maintained for backward compatibility with existing code.

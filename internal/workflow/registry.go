@@ -21,13 +21,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Standard workflow constants
-const (
-	// UsmCodeStandardWorkflowName is the identifier for the default workflow
-	// This constant is used to retrieve the standard workflow from the registry
-	UsmCodeStandardWorkflowName = "usm-code"
-)
-
 // Global registry instance with thread-safe access
 var (
 	globalRegistry     *WorkflowRegistry
@@ -145,7 +138,7 @@ func newWorkflowRegistry() *WorkflowRegistry {
 	registry.RegisterBuiltInWorkflow(createUsmCodeStandardWorkflow())
 	
 	// Register the elaborate workflow
-	registry.RegisterBuiltInWorkflow(createElaborateWorkflow())
+	registry.RegisterBuiltInWorkflow(createUsmElaborateStandardWorkflow())
 
 	return registry
 }

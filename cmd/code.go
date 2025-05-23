@@ -26,7 +26,7 @@ var codeCmd = &cobra.Command{
 	Long: `The 'code' command provides a structured approach to implementing change requests.
 
 It breaks down the implementation process into predefined steps, guides you through each step,
-and keeps track of your progress. By default, it uses the standard workflow, but you can
+and keeps track of your progress. By default, it uses the built-in usm-code workflow, but you can
 specify a custom workflow with --workflow or --workflow-path flags.
 
 The standard workflow consists of 8 numbered steps:

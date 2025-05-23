@@ -283,8 +283,8 @@ Write the user story in the file, using the following format:
 	},
 }
 
-// createElaborateWorkflow creates the elaborate workflow definition
-func createElaborateWorkflow() *WorkflowDefinition {
+// createUsmElaborateStandardWorkflow creates the elaborate workflow definition
+func createUsmElaborateStandardWorkflow() *WorkflowDefinition {
 	return &WorkflowDefinition{
 		Name:        UsmElaborateWorkflowName,
 		Description: "Workflow for refining vague feature descriptions into well-defined INVEST user stories",
