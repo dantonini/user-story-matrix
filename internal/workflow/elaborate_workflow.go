@@ -5,11 +5,11 @@
 
 package workflow
 
-// ElaborateWorkflowName is the name of the elaborate workflow
-const ElaborateWorkflowName = "usm-elaborate"
+// UsmElaborateWorkflowName is the name of the elaborate workflow
+const UsmElaborateWorkflowName = "usm-elaborate"
 
-// ElaborateWorkflowSteps defines the predefined sequence of steps in the elaborate workflow
-var ElaborateWorkflowSteps = []WorkflowStep{
+// UsmElaborateWorkflowSteps defines the predefined sequence of steps in the elaborate workflow
+var UsmElaborateWorkflowSteps = []WorkflowStep{
 	{
 		ID:          "01-analyze-description",
 		Description: "Analyze the vague description and identify potential user stories",
@@ -286,8 +286,8 @@ Write the user story in the file, using the following format:
 // createElaborateWorkflow creates the elaborate workflow definition
 func createElaborateWorkflow() *WorkflowDefinition {
 	return &WorkflowDefinition{
-		Name:        ElaborateWorkflowName,
+		Name:        UsmElaborateWorkflowName,
 		Description: "Workflow for refining vague feature descriptions into well-defined INVEST user stories",
-		Steps:       ElaborateWorkflowSteps,
+		Steps:       UsmElaborateWorkflowSteps,
 	}
 } 

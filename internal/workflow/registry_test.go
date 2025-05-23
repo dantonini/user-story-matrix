@@ -353,7 +353,7 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	
 	// Sort workflows for consistent testing
 	sort.Strings(workflows)
-	expectedInitial := []string{ElaborateWorkflowName, UsmCodeStandardWorkflowName}
+	expectedInitial := []string{UsmElaborateWorkflowName, UsmCodeStandardWorkflowName}
 	sort.Strings(expectedInitial)
 	
 	for i, name := range workflows {
@@ -386,7 +386,7 @@ func TestWorkflowRegistry_ListWorkflows(t *testing.T) {
 	sort.Strings(workflows)
 	
 	// Check the workflow names
-	expectedNames := []string{ElaborateWorkflowName, UsmCodeStandardWorkflowName, "test-workflow-1", "test-workflow-2"}
+	expectedNames := []string{UsmElaborateWorkflowName, UsmCodeStandardWorkflowName, "test-workflow-1", "test-workflow-2"}
 	sort.Strings(expectedNames)
 	
 	for i, name := range workflows {

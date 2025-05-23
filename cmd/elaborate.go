@@ -81,7 +81,7 @@ Examples:
 			}
 		} else {
 			// Try to use the elaborate workflow, fallback to default if not found
-			wm, err = workflow.NewWorkflowManagerWithName(fs, term, "elaborate")
+			wm, err = workflow.NewWorkflowManagerWithName(fs, term, workflow.UsmElaborateWorkflowName)
 			if err != nil {
 				// Elaborate workflow not found, use default
 				term.PrintWarning("Elaborate workflow not found, using default workflow")
