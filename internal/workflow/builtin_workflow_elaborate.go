@@ -37,7 +37,8 @@ Your task is to analyze this description and identify:
 ## Expected Output
 Provide a structured analysis with clear sections for each of the areas identified above. This analysis will be used as input for the next steps in generating well-defined user stories.
 
-Begin by reading the content of the vague feature description, then create a new file named ` + "`{{.ChangeRequestFilePath}}.processed.md`" + `:
+Begin by reading the content of the vague feature description:
+- create a new file named ` + "`{{.ChangeRequestFilePath}}.processed.md`" + `:
 - write the vague feature description in the section ` + "`# Initial vague description`" + `
 - write your analysis in the section ` + "`# Analysis`" + `.`,
 	},
