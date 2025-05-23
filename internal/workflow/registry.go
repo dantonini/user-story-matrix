@@ -751,10 +751,6 @@ func (r *WorkflowRegistry) isWorkflowModified(fs io.FileSystem, name string) (bo
 func GetStandardWorkflowDirectories() []string {
 	// Standard locations to look for workflows
 	dirs := []string{
-		// Local development paths
-		StandardTemplateDir,
-		"internal/workflow/templates",
-		"templates",
 		
 		// User directories
 		filepath.Join(getUserHomeDir(), ".usm", "workflows"),

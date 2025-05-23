@@ -758,12 +758,12 @@ steps:
 		// Create a fresh registry for isolation
 		newRegistry := NewWorkflowRegistry()
 		
-		// Add file-based workflow directly in workflows directory (standard location)
-		// This is more likely to be discovered than nested under workflows/file-based
-		fs.AddDirectory("workflows")
-		fs.AddFile("workflows/workflow.yaml", []byte(fileBasedWorkflowYAML))
+		// Add file-based workflow directly in .usm/workflows directory (standard location)
+		fs.AddDirectory(".usm")
+		fs.AddDirectory(".usm/workflows")
+		fs.AddFile(".usm/workflows/file-based-workflow.yaml", []byte(fileBasedWorkflowYAML))
 		
-		// Create another workflow file in a standard location that will be searched
+		// Create another workflow file as a direct file in .usm/workflows
 		discoveryWorkflowYAML := `
 name: discovery-workflow
 description: Workflow for discovery testing
@@ -772,19 +772,18 @@ steps:
     description: Discovery step 1
     prompt: Discovery prompt 1
 `
-		// Add to a standard location that will be searched
-		fs.AddDirectory("templates")
-		fs.AddFile("templates/workflow.yaml", []byte(discoveryWorkflowYAML))
+		// Add as a direct file in .usm/workflows (standard location that will be searched)
+		fs.AddFile(".usm/workflows/discovery-workflow.yaml", []byte(discoveryWorkflowYAML))
 		
 		// Verify the test files exist in the filesystem
-		assert.True(t, fs.Exists("workflows/workflow.yaml"), "File-based workflow file should exist in workflows dir")
-		assert.True(t, fs.Exists("templates/workflow.yaml"), "Discovery workflow file should exist")
+		assert.True(t, fs.Exists(".usm/workflows/file-based-workflow.yaml"), "File-based workflow file should exist in .usm/workflows dir")
+		assert.True(t, fs.Exists(".usm/workflows/discovery-workflow.yaml"), "Discovery workflow file should exist")
 		
 		// Verify the file contents for debugging
-		workflowData, _ := fs.ReadFile("workflows/workflow.yaml")
+		workflowData, _ := fs.ReadFile(".usm/workflows/file-based-workflow.yaml")
 		t.Logf("File-based workflow file content: %s", string(workflowData))
 		
-		discoveryData, _ := fs.ReadFile("templates/workflow.yaml")
+		discoveryData, _ := fs.ReadFile(".usm/workflows/discovery-workflow.yaml")
 		t.Logf("Discovery workflow file content: %s", string(discoveryData))
 		
 		// Inspect the directories that will be searched
@@ -825,9 +824,9 @@ func TestGetStandardWorkflowDirectories(t *testing.T) {
 	// Verify that the result is not empty
 	assert.NotEmpty(t, dirs, "GetStandardWorkflowDirectories should not return an empty slice")
 	
-	// Verify the returned directories include StandardTemplateDir
-	assert.Contains(t, dirs, StandardTemplateDir, 
-		"GetStandardWorkflowDirectories should include StandardTemplateDir")
+	// should contains ~/.usm/workflows and .usm/workflows
+	assert.Contains(t, dirs, filepath.Join(getUserHomeDir(), ".usm", "workflows"))
+	assert.Contains(t, dirs, ".usm/workflows")
 }
 
 func TestWorkflowRegistry_DiscoverWorkflows(t *testing.T) {
@@ -838,10 +837,9 @@ func TestWorkflowRegistry_DiscoverWorkflows(t *testing.T) {
 	fs := io.NewMockFileSystem()
 	
 	// Create standard directory structure that will be searched by DiscoverWorkflows
-	fs.AddDirectory(StandardTemplateDir)
-	fs.AddDirectory("templates")
-	fs.AddDirectory("workflows")
-	fs.AddDirectory("workflows/custom")
+	fs.AddDirectory(".usm")
+	fs.AddDirectory(".usm/workflows")
+	fs.AddDirectory(".usm/workflows/custom")
 	
 	// Create test workflow files
 	workflowContent := `
@@ -887,10 +885,9 @@ invalid-yaml:::::
 `
 	
 	// Add workflow files to standard locations that the DiscoverWorkflows function checks
-	fs.AddFile(filepath.Join(StandardTemplateDir, "workflow.yaml"), []byte(workflowContent))
-	fs.AddFile("templates/workflow.yaml", []byte(customWorkflowContent))
-	fs.AddFile("workflows/workflow.yaml", []byte(projectWorkflowContent))
-	fs.AddFile("workflows/custom/workflow.yaml", []byte(customWorkflowContent))
+	fs.AddFile(".usm/workflows/workflow.yaml", []byte(workflowContent))
+	fs.AddFile(".usm/workflows/project-workflow.yaml", []byte(projectWorkflowContent))
+	fs.AddFile(".usm/workflows/custom/workflow.yaml", []byte(customWorkflowContent))
 	
 	// Also add files to non-standard locations (should not be discovered automatically)
 	fs.AddFile("/tmp/specific-workflow.yaml", []byte(specificWorkflowContent))
@@ -902,10 +899,9 @@ invalid-yaml:::::
 		
 		// Check each file exists before discovering
 		for _, path := range []string{
-			filepath.Join(StandardTemplateDir, "workflow.yaml"),
-			"templates/workflow.yaml",
-			"workflows/workflow.yaml",
-			"workflows/custom/workflow.yaml",
+			".usm/workflows/workflow.yaml",
+			".usm/workflows/project-workflow.yaml",
+			".usm/workflows/custom/workflow.yaml",
 		} {
 			if !fs.Exists(path) {
 				t.Errorf("Test file not properly set up: %s does not exist", path)
