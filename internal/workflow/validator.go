@@ -197,6 +197,11 @@ func (v *WorkflowValidator) validatePromptTemplates(workflow *WorkflowDefinition
 			// Check if all extracted variables are provided
 			for _, varName := range variables {
 				if _, exists := step.Variables[varName]; !exists {
+					// Skip predefined runtime variables - they are automatically available
+					if IsPredefinedRuntimeVariable(varName) {
+						continue
+					}
+					
 					// Check if variable has a default value before warning
 					if !checkForDefaultValue(v.fs, fullPromptPath, varName) {
 						result.AddWarning(fmt.Sprintf("step '%s' uses variable '%s' in template '%s' but it is not provided in step definition",
@@ -252,6 +257,11 @@ func ValidateVariableReferences(fs io.FileSystem, workflowDir string, workflow *
 			missingVars := make([]string, 0)
 			for _, varName := range variables {
 				if _, exists := step.Variables[varName]; !exists {
+					// Skip predefined runtime variables - they are automatically available
+					if IsPredefinedRuntimeVariable(varName) {
+						continue
+					}
+					
 					if !checkForDefaultValue(fs, fullPromptPath, varName) {
 						missingVars = append(missingVars, varName)
 					}

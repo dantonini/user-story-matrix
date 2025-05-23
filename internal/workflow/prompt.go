@@ -7,7 +7,6 @@ package workflow
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -64,29 +63,8 @@ func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 		return generateDefaultPrompt(step)
 	}
 
-	// Extract path components for variables
-	dir := filepath.Dir(changeRequestPath)
-	base := filepath.Base(changeRequestPath)
-	base = strings.TrimSuffix(base, ".blueprint.md")
-	fullpath := filepath.Join(dir, base)
-
-	// Extract step name from ID
-	stepName := step.ID
-	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {
-		stepName = parts[1]
-	}
-
-	// Create variables map for the template system
-	variables := map[string]interface{}{
-		"ChangeRequestFilePath": changeRequestPath,
-		"ChangeRequestBasename": base,
-		"BlueprintBasename":     base,
-		"ChangeRequestDirname":  dir,
-		"StepID":                step.ID,
-		"StepName":              stepName,
-		"ChangeRequestFullpath": fullpath,
-		"Basename":              base, // Deprecated but maintained for compatibility
-	}
+	// Create variables map for the template system using predefined runtime variables
+	variables := BuildPredefinedRuntimeVariables(changeRequestPath, step)
 	
 	// Add custom variables from step definition
 	if step.Variables != nil {

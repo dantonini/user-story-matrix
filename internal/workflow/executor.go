@@ -47,32 +47,11 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 		return false, fmt.Errorf(ErrFileNotFound, changeRequestPath)
 	}
 
-	// Extract path components for standard variables
-	dir := filepath.Dir(changeRequestPath)
-	base := filepath.Base(changeRequestPath)
-	base = strings.TrimSuffix(base, ".blueprint.md")
-	fullpath := filepath.Join(dir, base)
-
-	// Extract step name from ID
-	stepName := step.ID
-	if parts := strings.SplitN(step.ID, "-", 2); len(parts) > 1 {
-		stepName = parts[1]
-	}
-
 	var processedPrompt string
 	var err error
 
-	// Create base variables map with standard variables
-	variables := map[string]interface{}{
-		"ChangeRequestFilePath": changeRequestPath,
-		"ChangeRequestBasename": base,
-		"BlueprintBasename":     base,
-		"ChangeRequestDirname":  dir,
-		"StepID":                step.ID,
-		"StepName":              stepName,
-		"ChangeRequestFullpath": fullpath,
-		"Basename":              base, // Deprecated
-	}
+	// Create base variables map with predefined runtime variables
+	variables := BuildPredefinedRuntimeVariables(changeRequestPath, step)
 	
 	// Add custom variables from step definition
 	if step.Variables != nil {

@@ -186,11 +186,18 @@ Examples:
 					os.Exit(1)
 				}
 
-				// Create the step with all fields including the prompt file path
+				// Extract variables from the builtin step prompt and create appropriate variables map
+				extractedVariables, err := workflow.ExtractVariablesFromBuiltinStep(step)
+				if err != nil {
+					output.PrintWarning(fmt.Sprintf("Failed to extract variables from step %s: %s", step.ID, err.Error()))
+					extractedVariables = make(map[string]string) // Use empty map on error
+				}
+
+				// Create the step with all fields including the prompt file path and extracted variables
 				externalWorkflow.Steps[i] = ExternalWorkflowStep{
 					ID:          step.ID,
 					Description: step.Description,
-					Variables:   step.Variables,
+					Variables:   extractedVariables,
 					Prompt:      fmt.Sprintf("prompts/%s", promptFileName),
 				}
 			}
