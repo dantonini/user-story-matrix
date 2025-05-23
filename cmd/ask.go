@@ -3,7 +3,6 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 package cmd
 
 import (
@@ -19,7 +18,7 @@ import (
 	"github.com/user-story-matrix/usm/internal/models"
 )
 
-const slackWebhookURL = "https://hooks.slack.com/services/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"
+const slackWebhookURL = "https://hooks.slack.com/services/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"
 
 // askCmd represents the ask command
 var askCmd = &cobra.Command{
