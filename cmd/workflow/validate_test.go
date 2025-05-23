@@ -765,4 +765,150 @@ steps:
 		assert.True(t, result.Success, "Validation should succeed with .usm registry path")
 		assert.Empty(t, result.Errors, "There should be no errors")
 	})
+}
+
+func TestExtractStepIDFromWarning(t *testing.T) {
+	tests := []struct {
+		name     string
+		warning  string
+		expected string
+	}{
+		{
+			name:     "warning with step ID",
+			warning:  "Variable 'missing_var' not found in step 'test-step'",
+			expected: "test-step",
+		},
+		{
+			name:     "warning with quoted step ID",
+			warning:  "Invalid template in step 'my-step-name'",
+			expected: "my-step-name",
+		},
+		{
+			name:     "warning without step ID",
+			warning:  "General validation error",
+			expected: "unknown",
+		},
+		{
+			name:     "empty warning",
+			warning:  "",
+			expected: "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractStepIDFromWarning(tt.warning)
+			if result != tt.expected {
+				t.Errorf("extractStepIDFromWarning() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractInfoFromMissingVarWarning(t *testing.T) {
+	tests := []struct {
+		name             string
+		warning          string
+		expectedStepID   string
+		expectedVarName  string
+		expectedTemplate string
+	}{
+		{
+			name:             "complete missing var warning",
+			warning:          "step 'test-step' uses variable 'missing_var' in template 'prompt.md' but it is not provided in step definition",
+			expectedStepID:   "test-step",
+			expectedVarName:  "missing_var",
+			expectedTemplate: "prompt.md",
+		},
+		{
+			name:             "partial missing var warning",
+			warning:          "step 'another-step' uses variable 'another_var' in template 'step.md' but it is not provided in step definition",
+			expectedStepID:   "another-step",
+			expectedVarName:  "another_var",
+			expectedTemplate: "step.md",
+		},
+		{
+			name:             "warning without identifiable parts",
+			warning:          "General error message",
+			expectedStepID:   "unknown",
+			expectedVarName:  "unknown",
+			expectedTemplate: "unknown",
+		},
+		{
+			name:             "empty warning",
+			warning:          "",
+			expectedStepID:   "unknown",
+			expectedVarName:  "unknown",
+			expectedTemplate: "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stepID, varName, templatePath := extractInfoFromMissingVarWarning(tt.warning)
+			if stepID != tt.expectedStepID {
+				t.Errorf("extractInfoFromMissingVarWarning() stepID = %q, want %q", stepID, tt.expectedStepID)
+			}
+			if varName != tt.expectedVarName {
+				t.Errorf("extractInfoFromMissingVarWarning() varName = %q, want %q", varName, tt.expectedVarName)
+			}
+			if templatePath != tt.expectedTemplate {
+				t.Errorf("extractInfoFromMissingVarWarning() templatePath = %q, want %q", templatePath, tt.expectedTemplate)
+			}
+		})
+	}
+}
+
+func TestExtractInfoFromUnusedVarWarning(t *testing.T) {
+	tests := []struct {
+		name             string
+		warning          string
+		expectedVarName  string
+		expectedStepID   string
+		expectedTemplate string
+	}{
+		{
+			name:             "complete unused var warning",
+			warning:          "step 'test-step' defines variable 'unused_var' but it is not used in template 'prompt.md'",
+			expectedVarName:  "unused_var",
+			expectedStepID:   "test-step",
+			expectedTemplate: "prompt.md",
+		},
+		{
+			name:             "partial unused var warning",
+			warning:          "step 'another-step' defines variable 'another_unused' but it is not used in template 'step.md'",
+			expectedVarName:  "another_unused",
+			expectedStepID:   "another-step",
+			expectedTemplate: "step.md",
+		},
+		{
+			name:             "warning without identifiable parts",
+			warning:          "General warning message",
+			expectedVarName:  "unknown",
+			expectedStepID:   "unknown",
+			expectedTemplate: "unknown",
+		},
+		{
+			name:             "empty warning",
+			warning:          "",
+			expectedVarName:  "unknown",
+			expectedStepID:   "unknown",
+			expectedTemplate: "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			varName, stepID, templatePath := extractInfoFromUnusedVarWarning(tt.warning)
+			if varName != tt.expectedVarName {
+				t.Errorf("extractInfoFromUnusedVarWarning() varName = %q, want %q", varName, tt.expectedVarName)
+			}
+			if stepID != tt.expectedStepID {
+				t.Errorf("extractInfoFromUnusedVarWarning() stepID = %q, want %q", stepID, tt.expectedStepID)
+			}
+			if templatePath != tt.expectedTemplate {
+				t.Errorf("extractInfoFromUnusedVarWarning() templatePath = %q, want %q", templatePath, tt.expectedTemplate)
+			}
+		})
+	}
 } 

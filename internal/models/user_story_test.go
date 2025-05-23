@@ -499,4 +499,53 @@ func substring(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+func TestGenerateUserStoryFilename(t *testing.T) {
+	tests := []struct {
+		name             string
+		sequentialNumber string
+		title           string
+		expected        string
+	}{
+		{
+			name:             "Simple title",
+			sequentialNumber: "01",
+			title:           "Simple Title",
+			expected:        "01-simple-title.md",
+		},
+		{
+			name:             "Title with special characters",
+			sequentialNumber: "02",
+			title:           "Title with $pecial & characters!",
+			expected:        "02-title-with-pecial-characters.md",
+		},
+		{
+			name:             "Title with multiple spaces",
+			sequentialNumber: "123",
+			title:           "Title   with   multiple   spaces",
+			expected:        "123-title-with-multiple-spaces.md",
+		},
+		{
+			name:             "Empty title",
+			sequentialNumber: "01",
+			title:           "",
+			expected:        "01-.md",
+		},
+		{
+			name:             "Single word title",
+			sequentialNumber: "99",
+			title:           "UPPERCASE",
+			expected:        "99-uppercase.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GenerateUserStoryFilename(tt.sequentialNumber, tt.title)
+			if result != tt.expected {
+				t.Errorf("GenerateUserStoryFilename() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
 } 
