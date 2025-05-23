@@ -16,7 +16,7 @@ var UsmElaborateWorkflowSteps = []WorkflowStep{
 		Prompt: `# Step 1: Analyze the Vague Description
 
 ## Input
-You are being provided with a vague feature description in the file ` + "`{{.ChangeRequestFilePath}}`" + `. 
+You are being provided with a vague feature description in the file ` + "`${change_request_file_path}`" + `. 
 
 ## Task
 Your task is to analyze this description and identify:
@@ -37,7 +37,7 @@ Your task is to analyze this description and identify:
 ## Expected Output
 Provide a structured analysis with clear sections for each of the areas identified above. This analysis will be used as input for the next steps in generating well-defined user stories.
 
-Begin by reading the content of the vague feature description, then create a new file named ` + "`{{.ChangeRequestFilePath}}.processed.md`" + `:
+Begin by reading the content of the vague feature description, then create a new file named ` + "`${change_request_file_path}.processed.md`" + `:
 - write the vague feature description in the section ` + "`# Initial vague description`" + `
 - write your analysis in the section ` + "`# Analysis`" + `.`,
 	},
@@ -66,7 +66,7 @@ Based on your analysis from the previous step, identify and define the key user 
 - Ensure personas are distinct from each other with clear differences
 
 ## Expected Output
-Update the file ` + "`{{.ChangeRequestFilePath}}.processed.md`" + ` by adding a new section ` + "`# User Personas`" + ` that includes:
+Update the file ` + "`${change_request_file_path}.processed.md`" + ` by adding a new section ` + "`# User Personas`" + ` that includes:
 
 1. A brief introduction explaining the identified personas
 2. For each persona, provide:
@@ -105,7 +105,7 @@ Based on your analysis and the identified personas, create initial user stories 
 - Consider both happy path and important alternative scenarios
 
 ## Expected Output
-Update the file ` + "`{{.ChangeRequestFilePath}}.processed.md`" + ` by adding a new section ` + "`# Initial User Stories`" + ` that includes:
+Update the file ` + "`${change_request_file_path}.processed.md`" + ` by adding a new section ` + "`# Initial User Stories`" + ` that includes:
 
 1. A list of user stories in the standard format
 2. For each story, include:
@@ -143,7 +143,7 @@ Review and refine each user story to ensure it meets the INVEST criteria:
 - Make sure the value proposition is clear for each story
 
 ## Expected Output
-Update the file ` + "`{{.ChangeRequestFilePath}}.processed.md`" + ` by adding a new section ` + "`# Refined User Stories`" + ` that includes:
+Update the file ` + "`${change_request_file_path}.processed.md`" + ` by adding a new section ` + "`# Refined User Stories`" + ` that includes:
 
 1. The refined list of user stories that meet INVEST criteria
 2. For each story, include:
@@ -180,7 +180,7 @@ Prioritize the user stories based on:
 - Involve stakeholder perspectives in prioritization decisions
 
 ## Expected Output
-Update the file ` + "`{{.ChangeRequestFilePath}}.processed.md`" + ` by adding a new section ` + "`# Prioritized User Stories`" + ` that includes:
+Update the file ` + "`${change_request_file_path}.processed.md`" + ` by adding a new section ` + "`# Prioritized User Stories`" + ` that includes:
 
 1. User stories organized by priority level
 2. For each priority level, explain the rationale
@@ -217,7 +217,7 @@ For each user story, define clear acceptance criteria that:
 - Consider accessibility, performance, and security where relevant
 
 ## Expected Output
-Update the file ` + "`{{.ChangeRequestFilePath}}.processed.md`" + ` by adding a new section ` + "`# User Stories with Acceptance Criteria`" + ` that includes:
+Update the file ` + "`${change_request_file_path}.processed.md`" + ` by adding a new section ` + "`# User Stories with Acceptance Criteria`" + ` that includes:
 
 1. Each user story with its complete set of acceptance criteria
 2. For each story, organize acceptance criteria by:
