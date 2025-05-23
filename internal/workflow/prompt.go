@@ -8,25 +8,8 @@ package workflow
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
-
-// PromptVariables contains variables that can be interpolated into a prompt
-//
-// Deprecated: Use map[string]interface{} with Go template syntax {{.VariableName}} instead.
-// This struct is kept for backward compatibility with existing custom workflows
-// that might still use the ${variable_name} syntax.
-type PromptVariables struct {
-	ChangeRequestFilePath string
-	ChangeRequestBasename string
-	BlueprintBasename     string
-	ChangeRequestDirname  string
-	StepID                string
-	StepName              string
-	ChangeRequestFullpath string
-	Basename              string // Deprecated, use ChangeRequestBasename instead
-}
 
 // InterpolationError represents an error during prompt interpolation
 // It provides detailed information about malformed and missing variables
@@ -59,168 +42,22 @@ func NewInterpolationError(message string, malformedVars []string, missingVars [
 	}
 }
 
-// InterpolatePrompt replaces variables in the format ${variable_name} with their values
-// This is a simple implementation that supports both path and prompt variables
-//
-// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
-// This function is kept for backward compatibility with existing custom workflows
-// that might still use the ${variable_name} syntax.
-func InterpolatePrompt(prompt string, variables PromptVariables) string {
-	result := prompt
-
-	// Replace path and prompt variables
-	result = strings.ReplaceAll(result, "${change_request_file_path}", variables.ChangeRequestFilePath)
-	result = strings.ReplaceAll(result, "${change_request_basename}", variables.ChangeRequestBasename)
-	result = strings.ReplaceAll(result, "${blueprint_basename}", variables.BlueprintBasename)
-
-	// Support both old and new variable names for dirname
-	result = strings.ReplaceAll(result, "${change_request_dirname}", variables.ChangeRequestDirname)
-	result = strings.ReplaceAll(result, "${dirname}", variables.ChangeRequestDirname) // For backward compatibility
-
-	result = strings.ReplaceAll(result, "${stepid}", variables.StepID)
-	result = strings.ReplaceAll(result, "${stepname}", variables.StepName)
-
-	// Support both old and new variable names for fullpath
-	result = strings.ReplaceAll(result, "${change_request_fullpath}", variables.ChangeRequestFullpath)
-	result = strings.ReplaceAll(result, "${fullpath}", variables.ChangeRequestFullpath) // For backward compatibility
-
-	// Support deprecated variable
-	result = strings.ReplaceAll(result, "${basename}", variables.Basename)
-
-	return result
-}
-
-// InterpolatePromptWithError replaces variables and returns an error if any problems are encountered
-// It identifies both missing variables (not available in the variables struct) and
-// malformed variables (syntax issues like spaces in variable names or unclosed braces)
-//
-// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
-// This function is kept for backward compatibility with existing custom workflows
-// that might still use the ${variable_name} syntax.
-func InterpolatePromptWithError(prompt string, variables PromptVariables) (string, error) {
-	result, missingVars, malformedVars := interpolateWithDetails(prompt, variables)
-
-	if len(missingVars) > 0 || len(malformedVars) > 0 {
-		return result, NewInterpolationError(
-			"prompt interpolation encountered issues",
-			malformedVars,
-			missingVars,
-		)
-	}
-
-	return result, nil
-}
-
-// interpolateWithDetails performs variable interpolation and returns details about issues
-// It is the core function used by the other interpolation functions
-// Returns:
-// - The interpolated string with available variables replaced
-// - A list of variables that weren't available for interpolation
-// - A list of variables with syntax issues
-func interpolateWithDetails(prompt string, variables PromptVariables) (string, []string, []string) {
-	result := prompt
-	missingVars := []string{}
-	malformedVars := []string{}
-
-	// Regular expression to find all variables in format ${variable_name}
-	// This regex matches valid variable names consisting of letters, numbers, underscores, and hyphens
-	reValid := regexp.MustCompile(`\${([a-zA-Z0-9_-]+)}`)
-
-	// This regex captures malformed variables like ${var with spaces} or ${missing-closing-brace
-	reMalformed := regexp.MustCompile(`\${([^}]*[\s]+[^}]*)}|\${([^}]*)$`)
-
-	// First, find malformed variables to avoid treating them as valid ones
-	malformedMatches := reMalformed.FindAllStringSubmatch(prompt, -1)
-	for _, match := range malformedMatches {
-		if len(match) > 1 {
-			malformedVar := strings.TrimSpace(match[1])
-			if malformedVar != "" {
-				malformedVars = append(malformedVars, malformedVar)
-			} else if len(match) > 2 && match[2] != "" {
-				malformedVars = append(malformedVars, match[2])
-			}
-		}
-	}
-
-	// Create a map of variable names to values
-	varMap := map[string]string{
-		"change_request_file_path": variables.ChangeRequestFilePath,
-		"change_request_basename":  variables.ChangeRequestBasename,
-		"blueprint_basename":       variables.BlueprintBasename,
-		"change_request_dirname":   variables.ChangeRequestDirname,
-		"dirname":                  variables.ChangeRequestDirname, // For backward compatibility
-		"stepid":                   variables.StepID,
-		"stepname":                 variables.StepName,
-		"change_request_fullpath":  variables.ChangeRequestFullpath,
-		"fullpath":                 variables.ChangeRequestFullpath, // For backward compatibility
-		"basename":                 variables.Basename,              // Deprecated
-	}
-
-	// Next, find and replace valid variables
-	validMatches := reValid.FindAllStringSubmatch(prompt, -1)
-	for _, match := range validMatches {
-		if len(match) > 1 {
-			varName := match[1]
-			value, exists := varMap[varName]
-			if exists && value != "" {
-				result = strings.ReplaceAll(result, "${"+varName+"}", value)
-			} else {
-				// Mark as missing
-				missingVars = append(missingVars, varName)
-			}
-		}
-	}
-
-	return result, missingVars, malformedVars
-}
-
-// InterpolatePromptWithMissingVars replaces variables and returns a list of missing variables
-//
-// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
-// This function is kept for backward compatibility with existing custom workflows
-// that might still use the ${variable_name} syntax.
-func InterpolatePromptWithMissingVars(prompt string, variables PromptVariables) (string, []string) {
-	result, missingVars, _ := interpolateWithDetails(prompt, variables)
-	return result, missingVars
-}
-
-// interpolatePromptWithMap replaces variables using a map of variable names to values
-func interpolatePromptWithMap(prompt string, variables map[string]string) string {
-	result := prompt
-
-	// Regular expression to find all variables in format ${variable_name}
-	re := regexp.MustCompile(`\${([^}]+)}`)
-	matches := re.FindAllStringSubmatch(prompt, -1)
-
-	// Replace each variable with its value if available
-	for _, match := range matches {
-		if len(match) > 1 {
-			varName := match[1]
-			if value, exists := variables[varName]; exists {
-				result = strings.ReplaceAll(result, "${"+varName+"}", value)
-			}
-		}
-	}
-
-	return result
-}
-
-// ValidatePrompt checks if a prompt has valid variable syntax and returns any errors
+// ValidatePrompt checks if a prompt has valid Go template syntax and returns any errors
 func ValidatePrompt(prompt string) error {
-	_, _, malformedVars := interpolateWithDetails(prompt, PromptVariables{})
+	if prompt == "" {
+		return nil // Empty prompts are valid
+	}
 
-	if len(malformedVars) > 0 {
-		return NewInterpolationError(
-			"prompt contains malformed variables",
-			malformedVars,
-			nil,
-		)
+	// Validate Go template syntax
+	err := ValidateTemplate(prompt)
+	if err != nil {
+		return fmt.Errorf("template syntax error: %w", err)
 	}
 
 	return nil
 }
 
-// generateStepPrompt generates a prompt for a workflow step
+// generateStepPrompt generates a prompt for a workflow step using the Go template system
 func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 	if step.Prompt == "" {
 		// Generate a default prompt based on the step description
@@ -239,19 +76,43 @@ func generateStepPrompt(step WorkflowStep, changeRequestPath string) string {
 		stepName = parts[1]
 	}
 
-	// Create variables for interpolation
-	vars := PromptVariables{
-		ChangeRequestFilePath: changeRequestPath,
-		ChangeRequestBasename: base,
-		BlueprintBasename:     base,
-		ChangeRequestDirname:  dir,
-		StepID:                step.ID,
-		StepName:              stepName,
-		ChangeRequestFullpath: fullpath,
-		Basename:              base, // Deprecated
+	// Create variables map for the template system
+	variables := map[string]interface{}{
+		"ChangeRequestFilePath": changeRequestPath,
+		"ChangeRequestBasename": base,
+		"BlueprintBasename":     base,
+		"ChangeRequestDirname":  dir,
+		"StepID":                step.ID,
+		"StepName":              stepName,
+		"ChangeRequestFullpath": fullpath,
+		"Basename":              base, // Deprecated but maintained for compatibility
+	}
+	
+	// Add custom variables from step definition
+	if step.Variables != nil {
+		for k, v := range step.Variables {
+			variables[k] = v
+		}
 	}
 
-	return InterpolatePrompt(step.Prompt, vars)
+	// Use the Go template system
+	stringVars := make(map[string]string)
+	for k, v := range variables {
+		if str, ok := v.(string); ok {
+			stringVars[k] = str
+		} else {
+			stringVars[k] = fmt.Sprintf("%v", v)
+		}
+	}
+
+	result, err := ApplyTemplateVariables(step.Prompt, stringVars)
+	if err != nil {
+		// If template processing fails, return the original prompt
+		// This provides graceful degradation
+		return step.Prompt
+	}
+
+	return result
 }
 
 // generateDefaultPrompt creates a default prompt based on the step description

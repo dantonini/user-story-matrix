@@ -6,8 +6,6 @@
 package workflow
 
 import (
-	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -26,199 +24,6 @@ func TestWorkflowStepStructure(t *testing.T) {
 	}
 }
 
-func TestInterpolatePrompt(t *testing.T) {
-	// Setup test data
-	changeRequestPath := "/path/to/my-change-request.blueprint.md"
-	dir := filepath.Dir(changeRequestPath)
-	base := strings.TrimSuffix(filepath.Base(changeRequestPath), ".blueprint.md")
-	fullpath := filepath.Join(dir, base)
-	stepID := "01-test-step"
-	stepName := "test-step"
-
-	// Create variables for testing
-	vars := PromptVariables{
-		ChangeRequestFilePath: changeRequestPath,
-		ChangeRequestBasename: base,
-		BlueprintBasename:     base,
-		ChangeRequestDirname:  dir,
-		StepID:                stepID,
-		StepName:              stepName,
-		ChangeRequestFullpath: fullpath,
-		Basename:              base, // Deprecated
-	}
-
-	tests := []struct {
-		name     string
-		prompt   string
-		expected string
-	}{
-		{
-			name:     "Simple variable substitution",
-			prompt:   "The change request is ${change_request_file_path}",
-			expected: "The change request is " + changeRequestPath,
-		},
-		{
-			name:     "Multiple variables",
-			prompt:   "Processing step ${stepid} (${stepname}) for ${change_request_basename}",
-			expected: "Processing step " + stepID + " (" + stepName + ") for " + base,
-		},
-		{
-			name:     "Basename variable (deprecated)",
-			prompt:   "Working on ${basename}",
-			expected: "Working on " + base,
-		},
-		{
-			name:     "Mix of path and prompt variables",
-			prompt:   "Output will be saved to ${dirname}/results/${stepname}.md",
-			expected: "Output will be saved to " + dir + "/results/" + stepName + ".md",
-		},
-		{
-			name:     "All variables in one prompt",
-			prompt:   "${change_request_file_path} ${change_request_basename} ${blueprint_basename} ${dirname} ${stepid} ${stepname} ${fullpath} ${basename}",
-			expected: changeRequestPath + " " + base + " " + base + " " + dir + " " + stepID + " " + stepName + " " + fullpath + " " + base,
-		},
-		{
-			name:     "No variables",
-			prompt:   "A prompt with no variables",
-			expected: "A prompt with no variables",
-		},
-		{
-			name:     "Unknown variable",
-			prompt:   "This ${unknown_var} should remain unchanged",
-			expected: "This ${unknown_var} should remain unchanged",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := InterpolatePrompt(tc.prompt, vars)
-			if result != tc.expected {
-				t.Errorf("InterpolatePrompt() = %v, want %v", result, tc.expected)
-			}
-		})
-	}
-}
-
-func TestInterpolatePromptWithMissingVars(t *testing.T) {
-	// Test handling of missing variables
-	prompt := "Process ${nonexistent_var} and ${change_request_file_path} and ${another_missing_var}"
-	vars := PromptVariables{
-		ChangeRequestFilePath: "/path/to/file",
-	}
-
-	expectedResult := "Process ${nonexistent_var} and /path/to/file and ${another_missing_var}"
-	expectedMissingVars := []string{"nonexistent_var", "another_missing_var"}
-
-	result, missingVars := InterpolatePromptWithMissingVars(prompt, vars)
-
-	if result != expectedResult {
-		t.Errorf("Expected result '%s', got '%s'", expectedResult, result)
-	}
-
-	if len(missingVars) != len(expectedMissingVars) {
-		t.Errorf("Expected %d missing variables, got %d", len(expectedMissingVars), len(missingVars))
-	}
-
-	// Check that all expected missing variables are in the result
-	for _, expected := range expectedMissingVars {
-		found := false
-		for _, actual := range missingVars {
-			if actual == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Expected missing variable '%s' not found in result", expected)
-		}
-	}
-}
-
-func TestInterpolatePromptWithMap(t *testing.T) {
-	// Test with extended variables structure using a map
-	prompt := "Process ${change_request_file_path} with ${new_variable}"
-
-	// Create variable map
-	varMap := map[string]string{
-		"change_request_file_path": "/path",
-		"new_variable":             "test",
-	}
-
-	expected := "Process /path with test"
-	result := interpolatePromptWithMap(prompt, varMap)
-
-	if result != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, result)
-	}
-
-	// Test with nested map containing complex variables
-	complexVarMap := map[string]string{
-		"change_request_file_path": "/path",
-		"user_name":                "john",
-		"project_id":               "123",
-	}
-
-	complexPrompt := "User ${user_name} is working on project ${project_id} using ${change_request_file_path}"
-	complexExpected := "User john is working on project 123 using /path"
-	complexResult := interpolatePromptWithMap(complexPrompt, complexVarMap)
-
-	if complexResult != complexExpected {
-		t.Errorf("Expected '%s', got '%s'", complexExpected, complexResult)
-	}
-}
-
-func TestInterpolatePromptWithError(t *testing.T) {
-	// Test cases for InterpolatePromptWithError
-	tests := []struct {
-		name        string
-		prompt      string
-		vars        PromptVariables
-		shouldError bool
-	}{
-		{
-			name:   "Valid interpolation",
-			prompt: "The file is ${change_request_file_path}",
-			vars: PromptVariables{
-				ChangeRequestFilePath: "/path/to/file.md",
-			},
-			shouldError: false,
-		},
-		{
-			name:   "Missing variable",
-			prompt: "The file is ${change_request_basename}",
-			vars: PromptVariables{
-				ChangeRequestFilePath: "/path/to/file.md",
-			},
-			shouldError: true,
-		},
-		{
-			name:   "Malformed variable",
-			prompt: "The file is ${change request file path}",
-			vars: PromptVariables{
-				ChangeRequestFilePath: "/path/to/file.md",
-			},
-			shouldError: true,
-		},
-		{
-			name:   "Unclosed variable",
-			prompt: "The file is ${unclosed",
-			vars: PromptVariables{
-				ChangeRequestFilePath: "/path/to/file.md",
-			},
-			shouldError: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := InterpolatePromptWithError(tc.prompt, tc.vars)
-			if (err != nil) != tc.shouldError {
-				t.Errorf("InterpolatePromptWithError() error = %v, shouldError %v", err, tc.shouldError)
-			}
-		})
-	}
-}
-
 func TestValidatePrompt(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -227,32 +32,50 @@ func TestValidatePrompt(t *testing.T) {
 		errorContains string
 	}{
 		{
-			name:          "Valid prompt",
-			prompt:        "This is a valid prompt with ${change_request_file_path}",
+			name:          "Valid Go template prompt",
+			prompt:        "This is a valid prompt with {{.ChangeRequestFilePath}}",
 			shouldBeValid: true,
 			errorContains: "",
 		},
 		{
 			name:          "Valid prompt with multiple variables",
-			prompt:        "The change request is ${change_request_file_path}. The basename is ${change_request_basename}.",
+			prompt:        "The change request is {{.ChangeRequestFilePath}}. The basename is {{.ChangeRequestBasename}}.",
 			shouldBeValid: true,
 			errorContains: "",
 		},
 		{
-			name:          "Invalid prompt with malformed variable",
-			prompt:        "This prompt has an ${invalid variable} with spaces",
-			shouldBeValid: false,
-			errorContains: "prompt contains malformed variables",
+			name:          "Valid prompt with conditionals",
+			prompt:        "{{if .ChangeRequestFilePath}}File: {{.ChangeRequestFilePath}}{{end}}",
+			shouldBeValid: true,
+			errorContains: "",
 		},
 		{
-			name:          "Invalid prompt with unclosed variable",
-			prompt:        "This prompt has an ${unclosed variable",
+			name:          "Valid prompt with default function",
+			prompt:        "Project: {{.ProjectName | default \"USM\"}}",
+			shouldBeValid: true,
+			errorContains: "",
+		},
+		{
+			name:          "Invalid template syntax - unclosed tag",
+			prompt:        "This prompt has an {{.Variable unclosed tag",
 			shouldBeValid: false,
-			errorContains: "unclosed variable",
+			errorContains: "template syntax error",
+		},
+		{
+			name:          "Invalid template syntax - malformed",
+			prompt:        "This prompt has {{.Variable with.invalid.syntax}}",
+			shouldBeValid: false,
+			errorContains: "template syntax error",
 		},
 		{
 			name:          "Empty prompt",
 			prompt:        "",
+			shouldBeValid: true,
+			errorContains: "",
+		},
+		{
+			name:          "Valid prompt with range and conditionals",
+			prompt:        "{{range .Items}}{{if .Name}}Item: {{.Name}}{{end}}{{end}}",
 			shouldBeValid: true,
 			errorContains: "",
 		},
@@ -287,17 +110,17 @@ func TestGenerateStepPrompt(t *testing.T) {
 	tests := []struct {
 		name     string
 		step     WorkflowStep
-		expected string
+		contains []string // Strings that should be in the output
 		wantErr  bool
 	}{
 		{
-			name: "Standard prompt",
+			name: "Go template prompt",
 			step: WorkflowStep{
 				ID:          "01-test",
 				Description: "Test step",
-				Prompt:      "This is a test prompt with ${change_request_file_path}",
+				Prompt:      "This is a test prompt with {{.ChangeRequestFilePath}}",
 			},
-			expected: "This is a test prompt with " + changeRequestPath,
+			contains: []string{changeRequestPath},
 			wantErr:  false,
 		},
 		{
@@ -305,56 +128,73 @@ func TestGenerateStepPrompt(t *testing.T) {
 			step: WorkflowStep{
 				ID:          "02-test",
 				Description: "Test step with multiple variables",
-				Prompt:      "Processing ${change_request_file_path} with step ${stepid}",
+				Prompt:      "Processing {{.ChangeRequestFilePath}} with step {{.StepID}}",
 			},
-			expected: "Processing " + changeRequestPath + " with step 02-test",
+			contains: []string{changeRequestPath, "02-test"},
 			wantErr:  false,
 		},
 		{
-			name: "Invalid prompt",
+			name: "Prompt with conditionals",
 			step: WorkflowStep{
 				ID:          "03-test",
-				Description: "Test step with invalid prompt",
-				Prompt:      "This has an ${invalid variable}",
+				Description: "Test step with conditionals",
+				Prompt:      "{{if .ChangeRequestFilePath}}Working on: {{.ChangeRequestFilePath}}{{end}}",
 			},
-			expected: "",
-			wantErr:  true,
+			contains: []string{"Working on:", changeRequestPath},
+			wantErr:  false,
+		},
+		{
+			name: "Prompt with custom variables",
+			step: WorkflowStep{
+				ID:          "04-test",
+				Description: "Test step with custom variables",
+				Prompt:      "Project {{.ProjectName}} feature {{.FeatureName}}",
+				Variables: map[string]string{
+					"ProjectName": "USM",
+					"FeatureName": "Templates",
+				},
+			},
+			contains: []string{"Project USM", "feature Templates"},
+			wantErr:  false,
+		},
+		{
+			name: "Prompt with default function",
+			step: WorkflowStep{
+				ID:          "05-test",
+				Description: "Test step with default function",
+				Prompt:      "Priority: {{.Priority | default \"medium\"}}",
+			},
+			contains: []string{"Priority: medium"},
+			wantErr:  false,
 		},
 		{
 			name: "Empty prompt",
 			step: WorkflowStep{
-				ID:          "04-test",
+				ID:          "06-test",
 				Description: "Test step with empty prompt",
 				Prompt:      "",
 			},
-			expected: "",
+			contains: []string{"Test step with empty prompt"}, // Should use default prompt
 			wantErr:  false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Test function
-			if tc.wantErr {
-				// For error cases, check ValidatePrompt returns an error
-				err := ValidatePrompt(tc.step.Prompt)
-				if err == nil {
-					t.Errorf("Expected ValidatePrompt to return an error for invalid prompt")
-				}
-			} else {
-				result := generateStepPrompt(tc.step, changeRequestPath)
+			result := generateStepPrompt(tc.step, changeRequestPath)
 
-				// For non-error cases with explicit expected values
-				if tc.expected != "" && result != tc.expected {
-					t.Errorf("generateStepPrompt() = %v, want %v", result, tc.expected)
+			// Check if all expected strings are contained in the result
+			for _, expected := range tc.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("generateStepPrompt() result does not contain expected string '%s'\nResult: %s", expected, result)
 				}
+			}
 
-				// For empty prompt case, check default prompt is generated
-				if tc.step.Prompt == "" {
-					expectedDefault := generateDefaultPrompt(tc.step)
-					if result != expectedDefault {
-						t.Errorf("generateStepPrompt() with empty prompt = %v, want %v", result, expectedDefault)
-					}
+			// For empty prompt case, check default prompt is generated
+			if tc.step.Prompt == "" {
+				expectedDefault := generateDefaultPrompt(tc.step)
+				if result != expectedDefault {
+					t.Errorf("generateStepPrompt() with empty prompt = %v, want %v", result, expectedDefault)
 				}
 			}
 		})
@@ -424,53 +264,105 @@ func TestInterpolationErrorString(t *testing.T) {
 	}
 }
 
-func BenchmarkInterpolation(b *testing.B) {
-	// Generate a large prompt with many variable references
-	var prompt strings.Builder
-	for i := 0; i < 1000; i++ {
-		prompt.WriteString(fmt.Sprintf("This is sentence %d with ${change_request_file_path} variable reference.\n", i))
+// Test the integration between template system and step processing
+func TestTemplateSystemIntegration(t *testing.T) {
+	changeRequestPath := "/project/docs/changes-request/feature.blueprint.md"
+	
+	step := WorkflowStep{
+		ID:          "01-analyze",
+		Description: "Analyze the feature",
+		Prompt:      "Analyzing {{.ChangeRequestBasename}} from {{.ChangeRequestDirname}}",
+		Variables: map[string]string{
+			"ProjectName": "TestProject",
+		},
 	}
 
-	largePath := "/very/long/path/to/a/file/with/a/lot/of/segments/that/might/slow/down/string/operations/in/a/large/text.md"
-	vars := PromptVariables{
-		ChangeRequestFilePath: largePath,
+	result := generateStepPrompt(step, changeRequestPath)
+	
+	// Should contain interpolated variables
+	expectedBasename := "feature"
+	expectedDirname := "/project/docs/changes-request"
+	
+	if !strings.Contains(result, expectedBasename) {
+		t.Errorf("Result should contain basename '%s', got: %s", expectedBasename, result)
+	}
+	
+	if !strings.Contains(result, expectedDirname) {
+		t.Errorf("Result should contain dirname '%s', got: %s", expectedDirname, result)
+	}
+}
+
+// Test template error handling
+func TestPromptTemplateErrorHandling(t *testing.T) {
+	changeRequestPath := "/path/to/test.blueprint.md"
+	
+	step := WorkflowStep{
+		ID:          "01-test",
+		Description: "Test error handling",
+		Prompt:      "{{.UndefinedVariable}}", // This will cause a template error
 	}
 
-	b.ResetTimer()
-
-	// Benchmark InterpolatePrompt
-	b.Run("InterpolatePrompt", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			InterpolatePrompt(prompt.String(), vars)
-		}
-	})
-
-	// Benchmark InterpolatePromptWithMissingVars
-	b.Run("InterpolatePromptWithMissingVars", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			InterpolatePromptWithMissingVars(prompt.String(), vars)
-		}
-	})
-
-	// Benchmark InterpolatePromptWithError
-	b.Run("InterpolatePromptWithError", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, _ = InterpolatePromptWithError(prompt.String(), vars)
-		}
-	})
-
-	// Create a large map of variables
-	varMap := map[string]string{
-		"change_request_file_path": largePath,
+	// Should gracefully degrade to returning the original prompt
+	result := generateStepPrompt(step, changeRequestPath)
+	
+	// Should return the original prompt when template processing fails
+	if result != step.Prompt {
+		t.Errorf("Expected graceful degradation to original prompt, got: %s", result)
 	}
-	for i := 0; i < 50; i++ {
-		varMap[fmt.Sprintf("var_%d", i)] = fmt.Sprintf("value_%d", i)
+}
+
+// Test advanced template features
+func TestAdvancedTemplateFeatures(t *testing.T) {
+	changeRequestPath := "/project/feature.blueprint.md"
+	
+	tests := []struct {
+		name     string
+		prompt   string
+		vars     map[string]string
+		contains []string
+	}{
+		{
+			name:     "Conditional with variable",
+			prompt:   "{{if .HasTests}}Testing: {{.TestFramework}}{{else}}No tests specified{{end}}",
+			vars:     map[string]string{"HasTests": "true", "TestFramework": "Jest"},
+			contains: []string{"Testing: Jest"},
+		},
+		{
+			name:     "Conditional without variable",
+			prompt:   "{{if .HasTests}}Testing: {{.TestFramework}}{{else}}No tests specified{{end}}",
+			vars:     map[string]string{},
+			contains: []string{"No tests specified"},
+		},
+		{
+			name:     "Default values",
+			prompt:   "Framework: {{.Framework | default \"Go\"}}",
+			vars:     map[string]string{},
+			contains: []string{"Framework: Go"},
+		},
+		{
+			name:     "Multiple conditionals",
+			prompt:   "{{if .Database}}DB: {{.Database}}{{end}}{{if .Cache}} Cache: {{.Cache}}{{end}}",
+			vars:     map[string]string{"Database": "PostgreSQL", "Cache": "Redis"},
+			contains: []string{"DB: PostgreSQL", "Cache: Redis"},
+		},
 	}
 
-	// Benchmark interpolatePromptWithMap
-	b.Run("interpolatePromptWithMap", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			interpolatePromptWithMap(prompt.String(), varMap)
-		}
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			step := WorkflowStep{
+				ID:          "01-advanced",
+				Description: "Advanced template test",
+				Prompt:      tc.prompt,
+				Variables:   tc.vars,
+			}
+
+			result := generateStepPrompt(step, changeRequestPath)
+
+			for _, expected := range tc.contains {
+				if !strings.Contains(result, expected) {
+					t.Errorf("Result should contain '%s', got: %s", expected, result)
+				}
+			}
+		})
+	}
 }
