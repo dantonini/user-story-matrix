@@ -313,10 +313,9 @@ Example:
 		terminal.PrintSuccess(fmt.Sprintf("Change request created: %s", filePath))
 
 		// Show next steps
-		promptInstruction := models.GetPromptInstruction(filePath, len(selected))
+		nextStepsInstruction := models.GetNextStepsInstruction(filePath)
 		terminal.Print("\nNext steps:")
-		terminal.Print("The change request file has been created. You can now edit it with the following prompt:")
-		terminal.Print("\n" + promptInstruction + "\n")
+		terminal.PrintProgress(nextStepsInstruction)
 	},
 }
 

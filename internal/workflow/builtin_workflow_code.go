@@ -15,6 +15,57 @@ const UsmCodeStandardWorkflowName = "usm-code"
 // Direct usage will be removed in a future version.
 var UsmCodeStandardWorkflowSteps = []WorkflowStep{
 	{
+		ID:          "00-read-prompt-instruction",
+		Description: "Read the detailed prompt instruction for the change request",
+		Prompt:      `Your task is to produce a blueprint file for the change request.
+
+A blueprint is a technical design document that outlines proposed codebase changes without actual implementation. It helps:
+- Understand the proposed changes before coding
+- Create a clear roadmap for upcoming development tasks
+
+General Guidelines:
+- The blueprint has a metadata section referencing a set of user stories. Each user story has a title and a filename. Read all the user stories at once using the command:
+	./usm cat {{.ChangeRequestFilePath}}
+- The document is not for writing code but for transmitting ideas, concepts, and plans.
+- Follow a top-down (or break-down) approach: start with a high-level overview and progressively drill down into specifics.
+
+# Overview
+**Purpose:**  
+Provide a brief summary that captures the essence of all user stories.  
+- Highlight common themes and relationships among the user stories.
+- Summarize overall objectives without detailing individual acceptance criteria.
+
+## Foudamentals
+**Purpose:**  
+Outline the key technical concepts necessary to address the user stories:
+- **Data Structures:** Define any high-level data structures, including their purposes.
+- **Algorithms:** Describe key algorithms using pseudo-code, outlining their intended functionality.
+- **Refactoring Strategy:** Summarize any broad refactoring plans for the existing codebase.
+
+# How to verify – Detailed User Story Breakdown
+**Purpose:**  
+For each user story, detail how the changes will be verified:
+- **Acceptance Criteria:** Break down each user story into its individual acceptance criteria.
+- **Testing Scenarios:** For each criterion, provide clear, concise testing scenarios that are tangible and automatable.
+- **Bottom-Up Detailing:** Start with basic criteria and work toward more complex conditions.
+
+# What is the Plan – Detailed Action Items
+**Purpose:**  
+For each user story, outline a detailed plan for what needs to be done. Take into account the user story verification process described earlier so to make the verification process easy to implement.
+- **Task Breakdown:** Describe each implementation step without writing actual code.
+- **Specific Data Structures:** List any data structures that need to be defined or modified, along with their purposes.
+- **Specific Algorithms:** Provide pseudo-code for any specific algorithms, explaining their function.
+- **Targeted Refactoring:** Detail any precise refactoring steps required for the existing codebase.
+- **Validation:** Ensure the plan is validated against the current codebase, ensuring feasibility and completeness.
+
+**Note:**  
+Remember, the blueprint should be a planning and communication tool. Do not include any actual code – only high-level pseudo-code and detailed action items that make the subsequent verification and development process straightforward.
+
+validate them against the codebase, and define a detailed plan for the change. Don't do any implementation, just describe what needs to be done. You can describe data structures, algorithm in pseudo code, refactoring steps, etc. 
+Store the plan in the change request file {{.ChangeRequestFilePath}} in markdown format in a section called \"Blueprint\". Ensure to include the steps required to satisfy the acceptance criteria of all mentioned user stories.
+		`,
+	},
+	{
 		ID:          "01-laying-the-foundation",
 		Description: "Laying the foundation - Setting up the architecture and structure",
 		Prompt: `You are a senior software engineer about to begin a new iteration of software development based on a set of user stories described in a blueprint document. 
@@ -63,8 +114,8 @@ Deliverables:
 - Regression tests to ensure no existing functionality breaks
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
 		`,
 	}, {
 		ID:          "01-laying-the-foundation-accomplished",
@@ -77,7 +128,7 @@ The whole iteration was composed by 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_file_path}.01-foundation.accomplished.md
+Your task is to document what has been accomplished so far in the file {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
 
 The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
@@ -93,8 +144,8 @@ Goal:
 - Describe how the subsequent phases should be executed relying on the current state of the codebase.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
 `,
 	}, {
 		ID:          "01-laying-the-foundation-test",
@@ -111,8 +162,8 @@ Some structural changes has been made to the codebase, now your task is:
 - Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
 `,
 	},
 	{
@@ -126,7 +177,7 @@ Now, let's start the work:
 	}, {
 		ID:          "01-make-coverage-report",
 		Description: "Make coverage report - Update the accomplishment report",
-		Prompt:      "Update the accomplishment report ${change_request_file_path}.01-foundation.accomplished.md with the new coverage percentage.",
+		Prompt:      "Update the accomplishment report {{.ChangeRequestFilePath}}.01-foundation.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "02-mvi",
@@ -177,9 +228,9 @@ Your task is to build the **simplest working implementation** for each user stor
 - Defer enhancements and broader handling to future iterations.
 
 Now build the MVI for each user story:
-- Read a set of user stories using the command: ./usm cat ${change_request_file_path}
-- Read the implementation plan using the command: cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read a set of user stories using the command: ./usm cat {{.ChangeRequestFilePath}}
+- Read the implementation plan using the command: cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
 `,
 	},
 	{
@@ -193,7 +244,7 @@ The whole iteration was composed by 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_file_path}.02-mvi.accomplished.md
+Your task is to document what has been accomplished so far in the file {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
 
 The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
@@ -209,9 +260,9 @@ Goal:
 - Describe how the subsequent phases should be executed relying on the current state of the codebase.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
 `,
 	}, {
 		ID:          "02-mvi-test",
@@ -228,9 +279,9 @@ The MVI has been built, now your task is:
 - Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
 `,
 	},
 	{
@@ -244,7 +295,7 @@ Now, let's start the work:
 	}, {
 		ID:          "02-mvi-coverage-report",
 		Description: "MVI coverage report - Update the accomplishment report",
-		Prompt:      "Update the accomplishment report ${change_request_file_path}.02-mvi.accomplished.md with the new coverage percentage.",
+		Prompt:      "Update the accomplishment report {{.ChangeRequestFilePath}}.02-mvi.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "03-extend-functionalities",
@@ -285,10 +336,10 @@ Your task now is to proceed to **expand the implementation** to cover additional
    - Ensure the verification logic (e.g., test assertions) remains aligned and meaningful for the user story.
 
 Let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
 `,
 	},
 	{
@@ -302,7 +353,7 @@ The whole iteration is divided into 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_file_path}.03-extend-functionalities.accomplished.md
+Your task is to document what has been accomplished so far in the file {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md
 
 The accomplishment report is not a summary, is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, 
@@ -315,10 +366,10 @@ Use always short code references (no code at all,
  - Include a dedicated section for potentially still not yet well covered acceptance criteria.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
 `,
 	},
 	{
@@ -331,10 +382,10 @@ The extended functionalities have been built, now your task is:
 - If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
 `,
 	},
 	{
@@ -350,7 +401,7 @@ Now, let's start the work:
 	{
 		ID:          "03-extend-functionalities-coverage-report",
 		Description: "Extending functionalities coverage report - Update the accomplishment report",
-		Prompt:      "Update the accomplishment report ${change_request_file_path}.03-extend-functionalities.accomplished.md with the new coverage percentage.",
+		Prompt:      "Update the accomplishment report {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md with the new coverage percentage.",
 	},
 	{
 		ID:          "04-final-iteration",
@@ -415,11 +466,11 @@ Now, it's time to execute the last phase of the iteration: **Refinement & Stabil
 Do not introduce new features at this stage. Focus only on refining and stabilizing the existing work to make it reliable and production-ready.
 
 Let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
-- Read the "Extending functionalities" accomplished summary using the command: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
+- Read the "Extending functionalities" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md
 `,
 	},
 	{
@@ -433,7 +484,7 @@ The whole iteration is divided into 4 phases:
 - Extend the implementation to support more scenarios and edge cases [done]
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_file_path}.04-refinement.accomplished.md
+Your task is to document what has been accomplished so far in the file {{.ChangeRequestFilePath}}.04-refinement.accomplished.md
 
 The accomplishment report is not a summary, it is a "compass" to the changes you made, hence avoid general statements/claim, be precise:
 Use always short code references (no code at all, just a compact/understable reference to lookup for, do not use line numbers) as foundation of your statements
@@ -461,12 +512,12 @@ The final iteration has been completed, now your task is:
 - Increase the coverage percentage. Averall coverage should be > 65%.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat ${change_request_file_path}
-- Read the blueprint using cat ${change_request_file_path}
-- Read the "laying the foundation" accomplished summary using the command: cat ${change_request_file_path}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat ${change_request_file_path}.02-mvi.accomplished.md
-- Read the "Extending functionalities" accomplished summary using the command: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md
-- Read the "Final iteration" accomplished summary using the command: cat ${change_request_file_path}.04-refinement.accomplished.md
+- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
+- Read the "Extending functionalities" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md
+- Read the "Final iteration" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.04-refinement.accomplished.md
 `,
 	},
 	{
@@ -477,14 +528,14 @@ Now, let's start the work:
 	{
 		ID:          "04-final-iteration-coverage",
 		Description: "Final iteration coverage - Final verification and validation",
-		Prompt: `Read the final iteration accomplished summary using the command: cat ${change_request_file_path}.04-refinement.accomplished.md
+		Prompt: `Read the final iteration accomplished summary using the command: cat {{.ChangeRequestFilePath}}.04-refinement.accomplished.md
 Execute the command 'make test' to run the test suite with coverage
 then use ./coverage -file <path-to-file> to identify the most uncovered parts.
 Don't give up until the overall coverage percentage is enough to satisfy the .github/workflows/coverage.yml file.`,
 	}, {
 		ID:          "04-final-iteration-coverage-report",
 		Description: "Final iteration coverage report - Update the accomplishment report",
-		Prompt:      "Update the accomplishment report ${change_request_file_path}.04-refinement.accomplished.md with the new coverage percentage.",
+		Prompt:      "Update the accomplishment report {{.ChangeRequestFilePath}}.04-refinement.accomplished.md with the new coverage percentage.",
 	}, {
 		ID:          "implementation",
 		Description: "The implementation report of the change request",
@@ -496,18 +547,18 @@ The whole iteration was composed by 4 phases:
 - Extend the implementation to support more scenarios and edge cases
 - Refine and stabilize the codebase for clarity, maintainability, and performance
 
-Your task is to document what has been accomplished so far in the file ${change_request_dirname}/${change_request_basename}.implementation.md
+Your task is to document what has been accomplished so far in the file {{.ChangeRequestDirname}}/{{.ChangeRequestBasename}}.implementation.md
 
 Keep into consideration that this technical document will be archived as Architecture Decision Record. Use reference to the implemented code to look up for (do not use line numbers, they change too frequently)
 Describe data structures and their purposes (if any)
 Describe relevant algorithms and their purporses (if any)
  
-The original blueprint: ./usm ${change_request_file_path}
+The original blueprint: ./usm {{.ChangeRequestFilePath}}
 the accomplished reports:
-- foundations: cat ${change_request_file_path}.01-foundation.accomplished.md
-- mvi: cat ${change_request_file_path}.02-mvi.accomplished.md
-- extend: cat ${change_request_file_path}.03-extend-functionalities.accomplished.md 
-- refine: cat ${change_request_file_path}.04-refinement.accomplished.md   
+- foundations: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- mvi: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
+- extend: cat {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md 
+- refine: cat {{.ChangeRequestFilePath}}.04-refinement.accomplished.md   
 `,
 	},
 } 

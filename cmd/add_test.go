@@ -131,11 +131,13 @@ func TestAddChangeRequestComponents(t *testing.T) {
 		assert.Contains(t, template, "docs/user-stories/01-test-story-1.md")
 	})
 
-	// Test prompt instruction generation
-	t.Run("prompt instruction generation", func(t *testing.T) {
+
+	// Test next steps instruction generation
+	t.Run("next steps instruction generation", func(t *testing.T) {
 		filePath := filepath.Join("docs/changes-request", "test-change-request.md")
-		promptInstruction := models.GetPromptInstruction(filePath, 1)
-		assert.Contains(t, promptInstruction, filePath)
+		nextStepsInstruction := models.GetNextStepsInstruction(filePath)
+		assert.Contains(t, nextStepsInstruction, "To continue, run: ./usm code")
+		assert.Contains(t, nextStepsInstruction, filePath)
 	})
 }
 

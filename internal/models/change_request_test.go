@@ -274,55 +274,38 @@ Content here...`,
 	}
 }
 
-func TestGetPromptInstruction(t *testing.T) {
+func TestGetNextStepsInstruction(t *testing.T) {
 	tests := []struct {
 		name             string
 		changeRequestPath string
-		userStoryCount   int
-		requiredContent  []string
+		expectedContents []string
 	}{
 		{
-			name:             "Basic prompt",
-			changeRequestPath: "docs/change-requests/test.md",
-			userStoryCount:   1,
-			requiredContent: []string{
-				"docs/change-requests/test.md", // Path should be included twice
-				"Blueprint",
-				"user stories",
-				"usm cat",
-				"Acceptance Criteria",
-				"Testing Scenarios",
+			name:             "Basic next steps instruction",
+			changeRequestPath: "docs/change-requests/test.blueprint.md",
+			expectedContents: []string{
+				"To continue, run: ./usm code",
+				"docs/change-requests/test.blueprint.md",
 			},
 		},
 		{
-			name:             "Multiple stories",
-			changeRequestPath: "docs/change-requests/multiple.md",
-			userStoryCount:   5,
-			requiredContent: []string{
-				"docs/change-requests/multiple.md",
-				"Data Structures",
-				"Algorithms",
-				"Refactoring Strategy",
-				"How to verify",
-				"What is the Plan",
+			name:             "Different path",
+			changeRequestPath: "docs/change-requests/my-feature.blueprint.md",
+			expectedContents: []string{
+				"To continue, run: ./usm code",
+				"docs/change-requests/my-feature.blueprint.md",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetPromptInstruction(tt.changeRequestPath, tt.userStoryCount)
+			result := GetNextStepsInstruction(tt.changeRequestPath)
 			
-			for _, content := range tt.requiredContent {
+			for _, content := range tt.expectedContents {
 				if !strings.Contains(result, content) {
-					t.Errorf("GetPromptInstruction() does not contain expected content: %q", content)
+					t.Errorf("GetNextStepsInstruction() does not contain expected content: %q", content)
 				}
-			}
-			
-			occurrences := strings.Count(result, tt.changeRequestPath)
-			if occurrences < 2 {
-				t.Errorf("GetPromptInstruction() should contain path %q at least twice, got %d occurrences", 
-					tt.changeRequestPath, occurrences)
 			}
 		})
 	}
