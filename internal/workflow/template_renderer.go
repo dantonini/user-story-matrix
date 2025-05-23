@@ -283,6 +283,47 @@ func (r *TemplateRenderer) ValidateTemplate(promptPath string) error {
 		return fmt.Errorf("invalid template syntax in %s: %w", promptPath, err)
 	}
 	
+	// Validate that all referenced templates exist
+	err = r.validateTemplateReferences(string(promptData), resolvedPath)
+	if err != nil {
+		return fmt.Errorf("template reference error in %s: %w", promptPath, err)
+	}
+	
+	return nil
+}
+
+// validateTemplateReferences checks that all templates referenced via {{ template "name" . }} exist
+func (r *TemplateRenderer) validateTemplateReferences(content string, currentTemplatePath string) error {
+	// Find all template references
+	templateRefs := findTemplateReferences(content)
+	
+	for _, templateRef := range templateRefs {
+		// Try to find the referenced template file
+		nestedTemplatePath := ""
+		if strings.HasPrefix(templateRef, "shared/") {
+			// For shared references, look in the shared directory relative to the current template
+			nestedTemplatePath = filepath.Join(filepath.Dir(currentTemplatePath), templateRef)
+		} else {
+			// For other references, try to resolve using the standard mechanism
+			nestedTemplatePath = r.resolvePromptPath(templateRef)
+		}
+		
+		if nestedTemplatePath == "" || !r.fs.Exists(nestedTemplatePath) {
+			return fmt.Errorf("referenced template not found: %s", templateRef)
+		}
+		
+		// Recursively validate the referenced template to catch nested missing references
+		nestedData, err := r.fs.ReadFile(nestedTemplatePath)
+		if err != nil {
+			return fmt.Errorf("failed to read referenced template %s: %w", templateRef, err)
+		}
+		
+		err = r.validateTemplateReferences(string(nestedData), nestedTemplatePath)
+		if err != nil {
+			return fmt.Errorf("in referenced template %s: %w", templateRef, err)
+		}
+	}
+	
 	return nil
 }
 

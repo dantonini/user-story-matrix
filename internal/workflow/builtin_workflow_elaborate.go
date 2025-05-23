@@ -278,7 +278,28 @@ For each user story, create a new file in the directory ` + "`docs/user-stories`
 Write the user story in the file, using the following format:
 
 ` + "```" + `
-{{template "shared/user-story-format.md"}}
+# Title: A clear, concise title for the story
+
+[Description]
+
+As a [persona], 
+I want [what], 
+so that [why]
+
+# Priority: Must Have | Should Have | Could Have | Won't Have
+
+# Acceptance Criteria
+1. Given [initial context], 
+   When [action taken], 
+   Then [expected outcome]
+2. Given [initial context], 
+   When [action taken], 
+   Then [expected outcome]
+3. [Additional criteria as needed]
+4. ...
+5. ....
+
+# Notes: Any additional implementation details, considerations, or dependencies that should be taken into account when implementing this user story.
 ` + "```" + ``,
 	},
 }

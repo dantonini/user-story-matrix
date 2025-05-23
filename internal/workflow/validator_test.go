@@ -1203,4 +1203,157 @@ steps:
 		assert.NotContains(t, warning, "ChangeRequestFilePath", 
 			"Should not warn about ChangeRequestFilePath since it's wrapped in backticks")
 	}
+}
+
+func TestValidateWorkflowDetectsMissingTemplateReferences(t *testing.T) {
+	// Setup a mock file system
+	fs := io.NewMockFileSystem()
+	
+	// Create a test workflow directory
+	workflowDir := filepath.Join(".usm", "workflows", "test-missing-templates")
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(filepath.Join(workflowDir, "prompts"), 0755)
+	fs.MkdirAll(filepath.Join(workflowDir, "prompts", "shared"), 0755)
+	
+	// Create workflow.yaml
+	workflowYAML := `name: "test-missing-templates"
+description: "Test workflow to detect missing template references"
+
+steps:
+  - id: "01-step-with-template-ref"
+    description: "Step that references a missing template"
+    prompt: "prompts/01-step-with-template-ref.md"
+`
+	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+	fs.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0600)
+	
+	// Create prompt file that references a missing template
+	promptContent := `# Step 1: Foundation
+
+This step sets up the foundation.
+
+{{ template "shared/missing-template.md" . }}
+
+Continue with the rest of the work.
+`
+	
+	promptPath := filepath.Join(workflowDir, "prompts", "01-step-with-template-ref.md")
+	fs.WriteFile(promptPath, []byte(promptContent), 0644)
+	
+	// Note: We intentionally DON'T create the shared/missing-template.md file
+	
+	// Load the workflow
+	workflowDef, err := LoadWorkflowFromFile(fs, workflowYAMLPath)
+	assert.NoError(t, err)
+	
+	// Create a validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+	
+	// Validate the workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err)
+	
+	// The workflow should have errors due to missing template reference
+	assert.False(t, result.IsValid(), "Workflow should be invalid due to missing template reference")
+	
+	// Check that there's an error about the missing template
+	foundMissingTemplateError := false
+	for _, errorMsg := range result.Errors {
+		if strings.Contains(errorMsg, "missing-template.md") || strings.Contains(errorMsg, "template not found") {
+			foundMissingTemplateError = true
+			break
+		}
+	}
+	
+	assert.True(t, foundMissingTemplateError, "Validator should detect missing template reference")
+}
+
+func TestValidateWorkflowFromBuiltinElaborate(t *testing.T) {
+	// This test reproduces the specific issue with usm-elaborate workflow
+	fs := io.NewMockFileSystem()
+	
+	// Simulate creating a workflow from usm-elaborate builtin
+	workflowDir := filepath.Join(".usm", "workflows", "tttt")
+	fs.MkdirAll(workflowDir, 0755)
+	fs.MkdirAll(filepath.Join(workflowDir, "prompts"), 0755)
+	fs.MkdirAll(filepath.Join(workflowDir, "prompts", "shared"), 0755)
+	
+	// Create workflow.yaml similar to what would be created from usm-elaborate
+	workflowYAML := `name: tttt
+description: Custom workflow based on usm-elaborate
+steps:
+    - id: 01-analyze-description
+      description: Analyze the vague description and identify potential user stories
+      prompt: prompts/01-analyze-description.md
+    - id: 02-extract-personas
+      description: Extract user personas from the description
+      prompt: prompts/02-extract-personas.md
+    - id: 03-draft-user-stories
+      description: Draft initial user stories based on the analysis
+      prompt: prompts/03-draft-user-stories.md
+    - id: 04-refine-user-stories
+      description: Refine user stories to ensure they meet INVEST criteria
+      prompt: prompts/04-refine-user-stories.md
+    - id: 05-prioritize-user-stories
+      description: Prioritize the refined user stories
+      prompt: prompts/05-prioritize-user-stories.md
+    - id: 06-acceptance-criteria
+      description: Add acceptance criteria to each user story
+      prompt: prompts/06-acceptance-criteria.md
+    - id: 07-final-review
+      description: Final review and packaging of the user stories
+      prompt: prompts/07-final-review.md
+`
+	workflowYAMLPath := filepath.Join(workflowDir, "workflow.yaml")
+	fs.WriteFile(workflowYAMLPath, []byte(workflowYAML), 0600)
+	
+	// Create all prompt files except we'll create one that references a missing template
+	prompts := map[string]string{
+		"01-analyze-description.md": "# Step 1\nAnalyze the description...",
+		"02-extract-personas.md":    "# Step 2\nExtract personas...",
+		"03-draft-user-stories.md":  "# Step 3\nDraft user stories...",
+		"04-refine-user-stories.md": "# Step 4\nRefine user stories...",
+		"05-prioritize-user-stories.md": "# Step 5\nPrioritize user stories...",
+		"06-acceptance-criteria.md": "# Step 6\nAdd acceptance criteria...",
+		"07-final-review.md": `# Step 7: Final Review
+
+Review all the work.
+
+{{ template "shared/final-review-template.md" . }}
+
+Continue with packaging.`,
+	}
+	
+	for filename, content := range prompts {
+		promptPath := filepath.Join(workflowDir, "prompts", filename)
+		fs.WriteFile(promptPath, []byte(content), 0644)
+	}
+	
+	// Note: We intentionally DON'T create shared/final-review-template.md
+	
+	// Load the workflow
+	workflowDef, err := LoadWorkflowFromFile(fs, workflowYAMLPath)
+	assert.NoError(t, err)
+	
+	// Create a validator
+	validator := NewWorkflowValidator(fs, workflowDir)
+	
+	// Validate the workflow
+	result, err := validator.ValidateWorkflow(workflowDef)
+	assert.NoError(t, err)
+	
+	// The workflow should have errors due to missing template reference
+	assert.False(t, result.IsValid(), "Workflow should be invalid due to missing template reference in step 07")
+	
+	// Check that there's an error about the missing template
+	foundMissingTemplateError := false
+	for _, errorMsg := range result.Errors {
+		if strings.Contains(errorMsg, "final-review-template.md") || 
+		   (strings.Contains(errorMsg, "template") && strings.Contains(errorMsg, "not found")) {
+			foundMissingTemplateError = true
+			break
+		}
+	}
+	
+	assert.True(t, foundMissingTemplateError, "Validator should detect missing template reference in step 07")
 } 
