@@ -62,34 +62,29 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 	var processedPrompt string
 	var err error
 
-	// Handle the prompt based on its source
+	// Create base variables map with standard variables
+	variables := map[string]interface{}{
+		"ChangeRequestFilePath": changeRequestPath,
+		"ChangeRequestBasename": base,
+		"BlueprintBasename":     base,
+		"ChangeRequestDirname":  dir,
+		"StepID":                step.ID,
+		"StepName":              stepName,
+		"ChangeRequestFullpath": fullpath,
+		"Basename":              base, // Deprecated
+	}
+	
+	// Add custom variables from step definition
+	if step.Variables != nil {
+		for k, v := range step.Variables {
+			variables[k] = v
+		}
+	}
+	
+	// Determine the workflow directory
+	var workflowDir string
 	if step.source.sourceType == promptSourceFile {
-		// This is a template-based prompt loaded from a file
-		// Use the TemplateRenderer to process it with variables
-		
-		// Create base variables map with standard variables
-		variables := map[string]interface{}{
-			"ChangeRequestFilePath": changeRequestPath,
-			"ChangeRequestBasename": base,
-			"BlueprintBasename":     base,
-			"ChangeRequestDirname":  dir,
-			"StepID":                step.ID,
-			"StepName":              stepName,
-			"ChangeRequestFullpath": fullpath,
-			"Basename":              base, // Deprecated
-		}
-		
-		// Add custom variables from step definition
-		if step.Variables != nil {
-			for k, v := range step.Variables {
-				variables[k] = v
-			}
-		}
-		
-		// Get the workflow directory from the step source filePath
-		workflowDir := ""
-		
-		// Determine the workflow directory based on the structure of step.source.filePath
+		// For file-based prompts, extract workflow directory from file path
 		if step.source.filePath != "" {
 			// For custom workflows in a standard location like .usm/workflows/<workflow-name>
 			// The prompts are typically in .usm/workflows/<workflow-name>/prompts/
@@ -120,11 +115,16 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 				}
 			}
 		}
-		
-		// Create a template renderer
-		renderer := NewTemplateRenderer(e.fs, workflowDir)
-		
-		// Determine the prompt path to use
+	} else {
+		// For embedded prompts, use empty workflow directory (TemplateRenderer can handle this)
+		workflowDir = ""
+	}
+	
+	// Create a template renderer
+	renderer := NewTemplateRenderer(e.fs, workflowDir)
+	
+	if step.source.sourceType == promptSourceFile {
+		// File-based prompt: render from file
 		promptPath := step.source.filePath
 		
 		// If the path is absolute, we need to convert it to a path that the renderer can use
@@ -144,23 +144,22 @@ func (e *StepExecutor) ExecuteStep(changeRequestPath string, step WorkflowStep) 
 			return false, err
 		}
 	} else {
-		// This is an embedded prompt or old-style prompt
-		// Use the legacy interpolation method
-		var missingVars []string
-		processedPrompt, missingVars = InterpolatePromptWithMissingVars(step.Prompt, PromptVariables{
-			ChangeRequestFilePath: changeRequestPath,
-			ChangeRequestBasename: base,
-			BlueprintBasename:     base,
-			ChangeRequestDirname:  dir,
-			StepID:                step.ID,
-			StepName:              stepName,
-			ChangeRequestFullpath: fullpath,
-			Basename:              base, // Deprecated
-		})
+		// Embedded prompt: render the prompt text directly using TemplateRenderer
+		// We'll use the ApplyTemplateVariables function from the template package
+		// Convert variables map to string map for ApplyTemplateVariables
+		stringVars := make(map[string]string)
+		for k, v := range variables {
+			if str, ok := v.(string); ok {
+				stringVars[k] = str
+			} else {
+				stringVars[k] = fmt.Sprintf("%v", v)
+			}
+		}
 		
-		// Warn about missing variables
-		if len(missingVars) > 0 {
-			e.io.PrintWarning(fmt.Sprintf("Step %s contains undefined variables: %v", step.ID, missingVars))
+		processedPrompt, err = ApplyTemplateVariables(step.Prompt, stringVars)
+		if err != nil {
+			e.io.PrintWarning(fmt.Sprintf("Template warning for step %s: %v", step.ID, err))
+			// Continue with the processed prompt even if there are warnings
 		}
 	}
 

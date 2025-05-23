@@ -256,27 +256,39 @@ For more details, see the [Elaborate Command Documentation](docs/elaborate-comma
 
 ### Prompt interpolated variables
 
-USM supports flexible prompt interpolation:
+USM supports flexible prompt interpolation using Go template syntax:
 
 ```bash
 # Standard variables available in prompts:
-${change_request_basename}   # The basename of the change request file (without extension)
-${blueprint_basename}        # The basename of the blueprint file (without extension)
-${change_request_dirname}    # The directory containing the change request file
-${stepid}                    # The ID of the current workflow step
-${stepname}                  # The name part of the step ID (e.g., "laying-the-foundation" from "01-laying-the-foundation")
-${change_request_fullpath}   # The full path of the change request file (without extension)
-${change_request_file_path}  # Full path to the change request file (includes extension)
+{{.ChangeRequestBasename}}   # The basename of the change request file (without extension)
+{{.BlueprintBasename}}       # The basename of the blueprint file (without extension)
+{{.ChangeRequestDirname}}    # The directory containing the change request file
+{{.StepID}}                  # The ID of the current workflow step
+{{.StepName}}                # The name part of the step ID (e.g., "laying-the-foundation" from "01-laying-the-foundation")
+{{.ChangeRequestFullpath}}   # The full path of the change request file (without extension)
+{{.ChangeRequestFilePath}}   # Full path to the change request file (includes extension)
 ```
 
 These variables can also be used in workflow step prompts to create dynamic instructions for AI agents:
 
 ```
-You are reviewing implementation for change request ${change_request_basename}.
-Current step: ${stepname}
-The full change request is located at: ${change_request_file_path}
+You are reviewing implementation for change request {{.ChangeRequestBasename}}.
+Current step: {{.StepName}}
+The full change request is located at: {{.ChangeRequestFilePath}}
 
 Please focus on the following aspects...
+```
+
+The Go template system also supports advanced features like conditionals and default values:
+
+```
+{{if .ChangeRequestBasename}}
+Working on: {{.ChangeRequestBasename}}
+{{else}}
+No change request specified
+{{end}}
+
+Project: {{.ProjectName | default "USM Project"}}
 ```
 
 For more details, see [Variable Interpolation in USM](docs/changes-request/output-file-path-interpolation.md).

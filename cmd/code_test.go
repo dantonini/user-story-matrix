@@ -209,7 +209,7 @@ func TestExecuteStep(t *testing.T) {
 	testStep := workflow.WorkflowStep{
 		ID:          "test-step",
 		Description: "Test Step",
-		Prompt:      "Test prompt with ${change_request_file_path} variable",
+		Prompt:      "Test prompt with {{.ChangeRequestFilePath}} variable",
 	}
 	
 	// Setup mock to create output file

@@ -13,6 +13,10 @@ import (
 )
 
 // PromptVariables contains variables that can be interpolated into a prompt
+//
+// Deprecated: Use map[string]interface{} with Go template syntax {{.VariableName}} instead.
+// This struct is kept for backward compatibility with existing custom workflows
+// that might still use the ${variable_name} syntax.
 type PromptVariables struct {
 	ChangeRequestFilePath string
 	ChangeRequestBasename string
@@ -57,6 +61,10 @@ func NewInterpolationError(message string, malformedVars []string, missingVars [
 
 // InterpolatePrompt replaces variables in the format ${variable_name} with their values
 // This is a simple implementation that supports both path and prompt variables
+//
+// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
+// This function is kept for backward compatibility with existing custom workflows
+// that might still use the ${variable_name} syntax.
 func InterpolatePrompt(prompt string, variables PromptVariables) string {
 	result := prompt
 
@@ -85,6 +93,10 @@ func InterpolatePrompt(prompt string, variables PromptVariables) string {
 // InterpolatePromptWithError replaces variables and returns an error if any problems are encountered
 // It identifies both missing variables (not available in the variables struct) and
 // malformed variables (syntax issues like spaces in variable names or unclosed braces)
+//
+// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
+// This function is kept for backward compatibility with existing custom workflows
+// that might still use the ${variable_name} syntax.
 func InterpolatePromptWithError(prompt string, variables PromptVariables) (string, error) {
 	result, missingVars, malformedVars := interpolateWithDetails(prompt, variables)
 
@@ -163,6 +175,10 @@ func interpolateWithDetails(prompt string, variables PromptVariables) (string, [
 }
 
 // InterpolatePromptWithMissingVars replaces variables and returns a list of missing variables
+//
+// Deprecated: Use ApplyTemplateVariables with Go template syntax {{.VariableName}} instead.
+// This function is kept for backward compatibility with existing custom workflows
+// that might still use the ${variable_name} syntax.
 func InterpolatePromptWithMissingVars(prompt string, variables PromptVariables) (string, []string) {
 	result, missingVars, _ := interpolateWithDetails(prompt, variables)
 	return result, missingVars

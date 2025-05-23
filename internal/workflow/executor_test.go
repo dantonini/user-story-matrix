@@ -236,7 +236,7 @@ This is a test change request.`,
 			step: WorkflowStep{
 				ID:          "01-laying-the-foundation",
 				Description: "Laying the foundation",
-				Prompt:      "This is a test prompt with ${change_request_file_path} variable",
+				Prompt:      "This is a test prompt with {{.ChangeRequestFilePath}} variable",
 			},
 			wantSuccess:    true,
 			expectedOutput: "This is a test prompt with change-request.md variable",
@@ -362,15 +362,15 @@ func TestStepExecutor_ExecuteStep_PromptValidation(t *testing.T) {
 	}{
 		{
 			name:            "Valid prompt",
-			prompt:          "This is a valid prompt with ${change_request_file_path}",
+			prompt:          "This is a valid prompt with {{.ChangeRequestFilePath}}",
 			expectWarning:   false,
 			expectedWarning: "",
 		},
 		{
 			name:            "Prompt with undefined variable",
-			prompt:          "This prompt has an ${undefined_variable}",
+			prompt:          "This prompt has an {{.UndefinedVariable}}",
 			expectWarning:   true,
-			expectedWarning: "Step 01-test contains undefined variables: [undefined_variable]",
+			expectedWarning: "Template warning for step 01-test: undefined template variables: UndefinedVariable",
 		},
 	}
 
