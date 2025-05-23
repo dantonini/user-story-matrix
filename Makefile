@@ -2,7 +2,7 @@
 
 # Binary name
 BINARY_NAME=usm
-VERSION=0.1.6
+VERSION=0.1.7
 COVERAGE_TOOL=coverage
 
 # Detect golangci-lint version for compatibility
