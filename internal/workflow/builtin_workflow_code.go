@@ -154,16 +154,12 @@ Now, let's start the work:
 
 Some structural changes has been made to the codebase, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
-- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
-
-📘 Instructions
-- Clearly document each architectural or structural decision, especially where existing components were modified.
-- Leave TODOs or comments where further implementation will happen in later phases.
-- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
+- If major components are modified / introduced, consider adding or updating smoke/regression tests to validate the foundation work.
+- Keep the coverage percentage at least 80%
 
 Now, let's start the work:
-- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
-- Read the blueprint using cat {{.ChangeRequestFilePath}}
+- Read the all the user stories in one shot using the output of the command: ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint in one shot using the output of the command: cat {{.ChangeRequestFilePath}}
 `,
 	},
 	{
@@ -271,17 +267,13 @@ Now, let's start the work:
 
 The MVI has been built, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
-- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
-
-📘 Instructions
-- Clearly document each architectural or structural decision, especially where existing components were modified.
-- Leave TODOs or comments where further implementation will happen in later phases.
-- Do not implement any real logic, your functions should be stubs that will be implemented in the next phase.
+- If major components are modified / introduced, consider adding or updating smoke/regression tests to validate the foundation work.
+- Keep the coverage percentage at least 80%
 
 Now, let's start the work:
-- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
-- Read the blueprint using cat {{.ChangeRequestFilePath}}
-- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the all the user stories in one shot using the output of the command: ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint in one shot using the output of the command: cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
 `,
 	},
 	{
@@ -377,15 +369,16 @@ Now, let's start the work:
 		Description: "Extending functionalities testing - Verifying the additional features",
 		Prompt: `You are a senior software engineer that is working on a software iteration based on a set of user stories described in a blueprint document. 
 
-The extended functionalities have been built, now your task is:
+The extend functionalities phase has been completed, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
-- If major components are touched, consider adding or updating smoke/regression tests to validate the foundation work.
+- If major components are modified / introduced, consider adding or updating smoke/regression tests to validate the foundation work.
+- Keep the coverage percentage at least 80%
 
 Now, let's start the work:
-- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
-- Read the blueprint using cat {{.ChangeRequestFilePath}}
-- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
+- Read the all the user stories in one shot using the output of the command: ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint in one shot using the output of the command: cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
 `,
 	},
 	{
@@ -509,15 +502,15 @@ The whole iteration is divided into 4 phases:
 
 The final iteration has been completed, now your task is:
 - Run the full test suite to confirm no regressions have been introduced.
-- Increase the coverage percentage. Averall coverage should be > 65%.
+- Increase the coverage percentage, it should be > 80%.
 
 Now, let's start the work:
-- Read the user stories using ./usm cat {{.ChangeRequestFilePath}}
-- Read the blueprint using cat {{.ChangeRequestFilePath}}
-- Read the "laying the foundation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
-- Read the "Minimum Viable Implementation" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
-- Read the "Extending functionalities" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md
-- Read the "Final iteration" accomplished summary using the command: cat {{.ChangeRequestFilePath}}.04-refinement.accomplished.md
+- Read the user stories in one shot using the output of the command: ./usm cat {{.ChangeRequestFilePath}}
+- Read the blueprint in one shot using the output of the command: cat {{.ChangeRequestFilePath}}
+- Read the "laying the foundation" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.01-foundation.accomplished.md
+- Read the "Minimum Viable Implementation" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.02-mvi.accomplished.md
+- Read the "Extending functionalities" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.03-extend-functionalities.accomplished.md
+- Read the "Final iteration" accomplished summary in one shot using the command: cat {{.ChangeRequestFilePath}}.04-refinement.accomplished.md
 `,
 	},
 	{
