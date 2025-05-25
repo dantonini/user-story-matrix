@@ -168,16 +168,6 @@ The HTML reports will be saved to:
 - Full project: `output/reports/dupl-report.html`
 - Modified files only: `output/reports/dupl-modified-report.html`
 
-### Dead Code Detection
-
-```bash
-# Run dead code detection (dry run)
-make deadcode
-
-# Remove detected dead code
-make deadcode-remove
-```
-
 ### Code Linting
 
 ```bash
@@ -506,26 +496,3 @@ make deadcode
 # Generate coverage report
 make coverage-report
 ```
-
-### Dead Code Detection
-The project includes a tool for identifying and removing unused code:
-
-```bash
-# Show what would be removed (dry run)
-make deadcode
-
-# Actually remove dead code (creates backups first)
-make deadcode-remove
-
-# With more verbose output
-./scripts/deadcode.sh --verbose
-
-# Focus on a specific directory
-./scripts/deadcode.sh --path ./cmd/...
-```
-
-This AST-based tool analyzes the code using Abstract Syntax Trees to properly:
-- Remove entire functions, variables, and types
-- Preserve code structure and formatting
-- Create automatic backups of modified files
-- Maintain correct Go syntax
