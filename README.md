@@ -22,6 +22,32 @@ The name User Story Matrix reflects the idea of organizing and navigating multip
 
 # Installation
 
+## USM Wrapper (Recommended)
+
+The easiest way to get started is using the USM wrapper (similar to Maven wrapper or Gradle wrapper). The wrapper automatically downloads and manages USM versions for you.
+
+### Quick Start
+
+```bash
+# Unix/Linux/macOS
+curl -L -o usmw https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw
+chmod +x usmw
+./usmw --help
+
+# Windows
+curl -L -o usmw.ps1 https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw.ps1
+.\usmw.ps1 --help
+```
+
+The wrapper will:
+- Automatically detect your platform (Linux, macOS, Windows)
+- Download the latest USM binary to `~/.usm/bin/`
+- Keep USM up to date
+- Work offline once downloaded
+- Run completely transparent (use `--usmw-debug` for troubleshooting)
+
+For detailed wrapper documentation, see [WRAPPER_README.md](WRAPPER_README.md).
+
 ## Binary Releases
 
 Download the latest binary for your platform from the [Releases](https://github.com/dantonini/user-story-matrix/releases) page.

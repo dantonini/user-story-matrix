@@ -1,0 +1,347 @@
+#!/bin/bash
+
+# USM Wrapper (usmw) - A wrapper script for User Story Matrix CLI
+# Similar to Maven Wrapper (mvnw) and Gradle Wrapper (gradlew)
+# This script downloads and manages USM binary versions automatically
+
+set -e
+
+# Configuration
+USM_HOME="${USM_HOME:-$HOME/.usm}"
+USM_BIN_DIR="$USM_HOME/bin"
+USM_CACHE_DIR="$USM_HOME/cache"
+USM_VERSION_FILE="$USM_HOME/version"
+GITHUB_REPO="dantonini/user-story-matrix"
+GITHUB_API_URL="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+GITHUB_RELEASES_URL="https://github.com/$GITHUB_REPO/releases/download"
+
+# Debug mode flag
+USMW_DEBUG=false
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions - only show output in debug mode (except errors)
+log_info() {
+    if [ "$USMW_DEBUG" = true ]; then
+        echo -e "${BLUE}[INFO]${NC} $1" >&2
+    fi
+}
+
+log_success() {
+    if [ "$USMW_DEBUG" = true ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
+    fi
+}
+
+log_warn() {
+    if [ "$USMW_DEBUG" = true ]; then
+        echo -e "${YELLOW}[WARN]${NC} $1" >&2
+    fi
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+# Detect OS and architecture
+detect_platform() {
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    
+    case "$os" in
+        darwin)
+            OS="darwin"
+            ;;
+        linux)
+            OS="linux"
+            ;;
+        mingw*|msys*|cygwin*)
+            OS="windows"
+            ;;
+        *)
+            log_error "Unsupported operating system: $os"
+            exit 1
+            ;;
+    esac
+    
+    case "$arch" in
+        x86_64|amd64)
+            ARCH="amd64"
+            ;;
+        arm64|aarch64)
+            ARCH="arm64"
+            ;;
+        *)
+            log_error "Unsupported architecture: $arch"
+            exit 1
+            ;;
+    esac
+    
+    log_info "Detected platform: $OS/$ARCH"
+}
+
+# Get the latest version from GitHub API
+get_latest_version() {
+    log_info "Checking latest version from GitHub..."
+    
+    if command -v curl >/dev/null 2>&1; then
+        LATEST_VERSION=$(curl -s "$GITHUB_API_URL" | grep '"tag_name":' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
+    elif command -v wget >/dev/null 2>&1; then
+        LATEST_VERSION=$(wget -qO- "$GITHUB_API_URL" | grep '"tag_name":' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
+    else
+        log_error "Neither curl nor wget is available. Cannot download USM binary."
+        exit 1
+    fi
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        log_error "Failed to get latest version from GitHub API"
+        exit 1
+    fi
+    
+    # Remove 'v' prefix if present
+    LATEST_VERSION=${LATEST_VERSION#v}
+    log_info "Latest version: $LATEST_VERSION"
+}
+
+# Get the currently installed version
+get_current_version() {
+    if [ -f "$USM_VERSION_FILE" ]; then
+        CURRENT_VERSION=$(cat "$USM_VERSION_FILE")
+        log_info "Current version: $CURRENT_VERSION"
+    else
+        CURRENT_VERSION=""
+        log_info "No current version found"
+    fi
+}
+
+# Check if USM binary exists and is executable
+check_binary_exists() {
+    local binary_path="$USM_BIN_DIR/usm"
+    if [ "$OS" = "windows" ]; then
+        binary_path="$USM_BIN_DIR/usm.exe"
+    fi
+    
+    if [ -f "$binary_path" ] && [ -x "$binary_path" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Download USM binary
+download_usm() {
+    local version="$1"
+    local binary_name="usm"
+    local file_extension=""
+    
+    if [ "$OS" = "windows" ]; then
+        file_extension=".exe"
+    fi
+    
+    # Construct the download URL based on the release format
+    local download_name="usm-${OS}-${ARCH}-${version}${file_extension}"
+    local download_url="$GITHUB_RELEASES_URL/v${version}/${download_name}"
+    local temp_file="$USM_CACHE_DIR/${download_name}"
+    local final_path="$USM_BIN_DIR/usm${file_extension}"
+    
+    log_info "Downloading USM v$version for $OS/$ARCH..."
+    log_info "Download URL: $download_url"
+    
+    # Create directories
+    mkdir -p "$USM_BIN_DIR" "$USM_CACHE_DIR"
+    
+    # Download the binary (suppress curl/wget output unless debug mode)
+    if command -v curl >/dev/null 2>&1; then
+        if [ "$USMW_DEBUG" = true ]; then
+            if ! curl -L -f -o "$temp_file" "$download_url"; then
+                log_error "Failed to download USM binary from $download_url"
+                exit 1
+            fi
+        else
+            if ! curl -L -f -s -o "$temp_file" "$download_url"; then
+                log_error "Failed to download USM binary from $download_url"
+                exit 1
+            fi
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        if [ "$USMW_DEBUG" = true ]; then
+            if ! wget -O "$temp_file" "$download_url"; then
+                log_error "Failed to download USM binary from $download_url"
+                exit 1
+            fi
+        else
+            if ! wget -q -O "$temp_file" "$download_url"; then
+                log_error "Failed to download USM binary from $download_url"
+                exit 1
+            fi
+        fi
+    else
+        log_error "Neither curl nor wget is available. Cannot download USM binary."
+        exit 1
+    fi
+    
+    # Move to final location and make executable
+    mv "$temp_file" "$final_path"
+    chmod +x "$final_path"
+    
+    # Update version file
+    echo "$version" > "$USM_VERSION_FILE"
+    
+    log_success "USM v$version installed successfully to $final_path"
+}
+
+# Check if update is needed
+check_and_update() {
+    detect_platform
+    get_latest_version
+    get_current_version
+    
+    local needs_download=false
+    
+    # Check if binary exists
+    if ! check_binary_exists; then
+        log_warn "USM binary not found, downloading..."
+        needs_download=true
+    # Check if version is outdated
+    elif [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
+        log_warn "USM version $CURRENT_VERSION is outdated. Latest is $LATEST_VERSION"
+        needs_download=true
+    else
+        log_success "USM v$CURRENT_VERSION is up to date"
+    fi
+    
+    if [ "$needs_download" = true ]; then
+        download_usm "$LATEST_VERSION"
+    fi
+}
+
+# Show version information
+show_version() {
+    detect_platform
+    get_latest_version
+    get_current_version
+    
+    echo "USM Wrapper (usmw) Information:"
+    echo "  Platform: $OS/$ARCH"
+    echo "  Latest version: $LATEST_VERSION"
+    echo "  Current version: ${CURRENT_VERSION:-"Not installed"}"
+    echo "  USM Home: $USM_HOME"
+    echo "  Binary location: $USM_BIN_DIR"
+    
+    if check_binary_exists; then
+        echo "  Binary status: Installed ✓"
+    else
+        echo "  Binary status: Not installed ✗"
+    fi
+}
+
+# Show help information
+show_help() {
+    cat << EOF
+USM Wrapper (usmw) - User Story Matrix CLI Wrapper
+
+Usage: usmw [wrapper-options] [usm-commands]
+
+Wrapper Options:
+  --usmw-version    Show wrapper and USM version information
+  --usmw-help       Show this help message
+  --usmw-update     Force update to the latest version
+  --usmw-clean      Clean downloaded cache files
+  --usmw-debug      Enable debug output (shows download progress)
+
+Any other arguments are passed directly to the USM binary.
+
+Examples:
+  usmw --help               # Show USM help (transparent)
+  usmw --version           # Show USM version
+  usmw add "new story"     # Add a new story
+  usmw --usmw-version      # Show wrapper version info
+  usmw --usmw-update       # Force update USM
+  usmw --usmw-debug --help # Show USM help with wrapper debug info
+
+The wrapper automatically downloads and updates USM when needed.
+USM binary is stored in: $USM_HOME/bin/
+EOF
+}
+
+# Clean cache
+clean_cache() {
+    log_info "Cleaning USM cache..."
+    rm -rf "$USM_CACHE_DIR"
+    log_success "Cache cleaned"
+}
+
+# Main execution
+main() {
+    # Check for debug flag first (can be anywhere in arguments)
+    for arg in "$@"; do
+        if [ "$arg" = "--usmw-debug" ]; then
+            USMW_DEBUG=true
+            break
+        fi
+    done
+    
+    # Handle wrapper-specific options
+    case "${1:-}" in
+        --usmw-version)
+            show_version
+            exit 0
+            ;;
+        --usmw-help)
+            show_help
+            exit 0
+            ;;
+        --usmw-update)
+            detect_platform
+            get_latest_version
+            download_usm "$LATEST_VERSION"
+            exit 0
+            ;;
+        --usmw-clean)
+            clean_cache
+            exit 0
+            ;;
+        --usmw-debug)
+            # If --usmw-debug is the only argument, show help
+            if [ $# -eq 1 ]; then
+                show_help
+                exit 0
+            fi
+            # Otherwise, remove --usmw-debug from arguments and continue
+            shift
+            ;;
+    esac
+    
+    # Ensure USM is available and up to date
+    check_and_update
+    
+    # Execute USM with all arguments (filter out --usmw-debug)
+    local usm_binary="$USM_BIN_DIR/usm"
+    if [ "$OS" = "windows" ]; then
+        usm_binary="$USM_BIN_DIR/usm.exe"
+    fi
+    
+    if [ ! -f "$usm_binary" ]; then
+        log_error "USM binary not found at $usm_binary"
+        exit 1
+    fi
+    
+    # Filter out --usmw-debug from arguments when passing to USM
+    filtered_args=()
+    for arg in "$@"; do
+        if [ "$arg" != "--usmw-debug" ]; then
+            filtered_args+=("$arg")
+        fi
+    done
+    
+    # Execute USM with filtered arguments
+    exec "$usm_binary" "${filtered_args[@]}"
+}
+
+# Run main function with all arguments
+main "$@" 
