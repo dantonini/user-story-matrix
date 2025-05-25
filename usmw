@@ -160,11 +160,15 @@ download_usm() {
         if [ "$USMW_DEBUG" = true ]; then
             if ! curl -L -f -o "$temp_file" "$download_url"; then
                 log_error "Failed to download USM binary from $download_url"
+                log_error "This may indicate that your platform ($OS/$ARCH) is not supported in this release."
+                log_error "Please check https://github.com/$GITHUB_REPO/releases/latest for available binaries."
                 exit 1
             fi
         else
             if ! curl -L -f -s -o "$temp_file" "$download_url"; then
                 log_error "Failed to download USM binary from $download_url"
+                log_error "This may indicate that your platform ($OS/$ARCH) is not supported in this release."
+                log_error "Use --usmw-debug for more details or check https://github.com/$GITHUB_REPO/releases/latest"
                 exit 1
             fi
         fi
@@ -172,11 +176,15 @@ download_usm() {
         if [ "$USMW_DEBUG" = true ]; then
             if ! wget -O "$temp_file" "$download_url"; then
                 log_error "Failed to download USM binary from $download_url"
+                log_error "This may indicate that your platform ($OS/$ARCH) is not supported in this release."
+                log_error "Please check https://github.com/$GITHUB_REPO/releases/latest for available binaries."
                 exit 1
             fi
         else
             if ! wget -q -O "$temp_file" "$download_url"; then
                 log_error "Failed to download USM binary from $download_url"
+                log_error "This may indicate that your platform ($OS/$ARCH) is not supported in this release."
+                log_error "Use --usmw-debug for more details or check https://github.com/$GITHUB_REPO/releases/latest"
                 exit 1
             fi
         fi

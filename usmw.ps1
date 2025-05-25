@@ -137,6 +137,12 @@ function Get-UsmBinary {
     }
     catch {
         Write-Error "Failed to download USM binary from $downloadUrl`: $_"
+        Write-Error "This may indicate that your platform ($Global:OS/$Global:ARCH) is not supported in this release."
+        if ($Global:USMW_DEBUG) {
+            Write-Error "Please check https://github.com/$GITHUB_REPO/releases/latest for available binaries."
+        } else {
+            Write-Error "Use --usmw-debug for more details or check https://github.com/$GITHUB_REPO/releases/latest"
+        }
         exit 1
     }
     

@@ -29,14 +29,18 @@ The easiest way to get started is using the USM wrapper (similar to Maven wrappe
 ### Quick Start
 
 ```bash
-# Unix/Linux/macOS
-curl -L -o usmw https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw
+# Unix/Linux/macOS - from latest release
+curl -L -o usmw https://github.com/dantonini/user-story-matrix/releases/latest/download/usmw
 chmod +x usmw
 ./usmw --help
 
-# Windows
-curl -L -o usmw.ps1 https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw.ps1
+# Windows - from latest release
+curl -L -o usmw.ps1 https://github.com/dantonini/user-story-matrix/releases/latest/download/usmw.ps1
 .\usmw.ps1 --help
+
+# Alternative: from main branch (latest development)
+curl -L -o usmw https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw
+curl -L -o usmw.ps1 https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw.ps1
 ```
 
 The wrapper will:

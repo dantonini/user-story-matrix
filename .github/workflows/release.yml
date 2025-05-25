@@ -40,6 +40,7 @@ jobs:
           
           # Build for Linux
           GOOS=linux GOARCH=amd64 go build -o usm-linux-amd64-${VERSION} -v
+          GOOS=linux GOARCH=arm64 go build -o usm-linux-arm64-${VERSION} -v
           
           # Build for macOS
           GOOS=darwin GOARCH=amd64 go build -o usm-darwin-amd64-${VERSION} -v
@@ -58,6 +59,9 @@ jobs:
           generate_release_notes: true
           files: |
             usm-linux-amd64-*
+            usm-linux-arm64-*
             usm-darwin-amd64-*
             usm-darwin-arm64-*
-            usm-windows-amd64-*.exe 
+            usm-windows-amd64-*.exe
+            usmw
+            usmw.ps1

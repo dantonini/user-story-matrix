@@ -17,11 +17,15 @@ A wrapper script for User Story Matrix CLI, similar to Maven Wrapper (`mvnw`) an
 Copy the wrapper scripts to your project root:
 
 ```bash
-# For Unix/Linux/macOS
-curl -L -o usmw https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw
+# For Unix/Linux/macOS - from latest release (recommended)
+curl -L -o usmw https://github.com/dantonini/user-story-matrix/releases/latest/download/usmw
 chmod +x usmw
 
-# For Windows
+# For Windows - from latest release (recommended)
+curl -L -o usmw.ps1 https://github.com/dantonini/user-story-matrix/releases/latest/download/usmw.ps1
+
+# Alternative: from main branch (latest development)
+curl -L -o usmw https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw
 curl -L -o usmw.ps1 https://raw.githubusercontent.com/dantonini/user-story-matrix/main/usmw.ps1
 ```
 
@@ -122,7 +126,7 @@ The wrapper automatically:
 | Linux | AMD64 | `usm-linux-amd64-{version}` | ✅ Supported |
 | Linux | ARM64 | `usm-linux-arm64-{version}` | ✅ Supported |
 | macOS | AMD64 | `usm-darwin-amd64-{version}` | ✅ Supported |
-| macOS | ARM64 | `usm-darwin-arm64-{version}` | ✅ Supported |
+| macOS | ARM64 (Apple Silicon) | `usm-darwin-arm64-{version}` | ✅ Supported |
 | Windows | AMD64 | `usm-windows-amd64-{version}.exe` | ✅ Supported |
 
 ## Troubleshooting
