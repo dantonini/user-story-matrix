@@ -135,8 +135,32 @@ usm completion powershell > usm.ps1
 # Show help
 usm --help
 
+# Add a new user story
+usm add user-story
+
+# Create a change request from existing user stories
+usm add change-request
+
+# View content of user stories in a change request
+usm cat docs/changes-request/my-change-request.blueprint.md
+
 # Execute the next step in a structured implementation workflow
 usm code docs/changes-request/my-change-request.blueprint.md
+
+# Transform vague ideas into well-defined user stories
+usm elaborate docs/vague/my-feature-idea.md
+
+# Manage custom workflows
+usm workflow list
+
+# Update metadata in user story files
+usm update-metadata
+
+# Submit feature requests
+usm ask feature
+
+# Manage API keys and settings
+usm settings api-key openai YOUR_API_KEY
 ```
 
 ## Development Tools
@@ -188,16 +212,13 @@ usm add user-story
 
 # Add a user story to a specific directory
 usm add user-story --into docs/user-stories/my-feature
-
-# Add a user story without LLM processing
-usm add user-story --no-llm
 ```
 
-When adding a user story, USM now features intelligent processing of pasted text. You can simply paste unstructured text (like requirements, emails, or notes) into the form, and USM will use OpenAI to automatically parse and structure the content into the appropriate form fields.
+When adding a user story, USM features intelligent processing of pasted text. You can simply paste unstructured text (like requirements, emails, or notes) into the form, and USM will automatically parse and structure the content into the appropriate form fields.
 
-### Using the LLM Paste Processor
+### Using API Keys for LLM Processing
 
-To use the LLM paste processor, you need to configure your OpenAI API key:
+To use LLM features, you need to configure your API keys:
 
 ```bash
 # Set your OpenAI API key
@@ -209,28 +230,41 @@ usm settings api-key openai
 
 Once configured, any text you paste into the user story form will be automatically processed, saving you time and ensuring more consistent user stories.
 
-**Note:** The LLM processing is enabled by default. Use the `--no-llm` flag to disable it if needed.
-
-### Listing User Stories
-
-```bash
-# List all user stories in the default directory
-usm list user-stories
-
-# List user stories from a specific directory
-usm list user-stories --from docs/user-stories/my-feature
-```
-
 ## Managing Change Requests
 
 ### Creating a Change Request
 
 ```bash
 # Create a change request (interactively select user stories)
-usm create change-request
+usm add change-request
 
 # Create a change request from user stories in a specific directory
-usm create change-request --from docs/user-stories/my-feature
+usm add change-request --from docs/user-stories/my-feature
+
+# Show all user stories, including implemented ones
+usm add change-request --show-all
+```
+
+### Viewing Change Request Content
+
+```bash
+# Display the content of all user stories in a change request
+usm cat docs/changes-request/my-change-request.blueprint.md
+
+# Use colorized output
+usm cat docs/changes-request/my-change-request.blueprint.md --color
+
+# Show compact format (title and user story format only)
+usm cat docs/changes-request/my-change-request.blueprint.md --compact
+
+# Filter stories by pattern
+usm cat docs/changes-request/my-change-request.blueprint.md --filter "auth|login"
+
+# Exclude stories matching patterns
+usm cat docs/changes-request/my-change-request.blueprint.md --exclude "auth,registration"
+
+# Show content hash
+usm cat docs/changes-request/my-change-request.blueprint.md --show-content-hash
 ```
 
 ### Implementing a Change Request
@@ -239,15 +273,26 @@ usm create change-request --from docs/user-stories/my-feature
 # Navigate through a structured implementation process for a change request
 usm code docs/changes-request/my-change-request.blueprint.md
 
+# Use a custom workflow by name
+usm code --workflow=my-custom-workflow docs/changes-request/my-change-request.blueprint.md
+
+# Use a custom workflow by path
+usm code --workflow-path=path/to/my-workflow docs/changes-request/my-change-request.blueprint.md
+
 # Reset the implementation workflow and start from the beginning
 usm code --reset docs/changes-request/my-change-request.blueprint.md
 ```
 
-> **Note:** The `code` command is currently a proof-of-concept and will be extended with more advanced AI integration capabilities in upcoming releases. It provides a structured workflow with 4 predefined steps:
-    - laying the foundation
-    - minimal viable implementation
-    - extend functionalities
-    - final iteration
+The `code` command provides a structured approach to implementing change requests. It breaks down the implementation process into predefined steps and keeps track of your progress. The standard workflow consists of 8 numbered steps:
+
+1. Laying the foundation
+2. Laying the foundation testing
+3. Minimum Viable Implementation (MVI)
+4. MVI testing
+5. Extending functionalities
+6. Extending functionalities testing
+7. Final iteration
+8. Final iteration testing
 
 ### Elaborating User Stories from Vague Descriptions
 
@@ -258,21 +303,78 @@ usm elaborate
 # Use an existing vague description file
 usm elaborate docs/vague/my-feature.md
 
+# Use a custom workflow by name
+usm elaborate --workflow=my-custom-workflow docs/vague/my-feature.md
+
+# Use a custom workflow by path
+usm elaborate --workflow-path=path/to/my-workflow docs/vague/my-feature.md
+
 # Reset the workflow and start from the beginning
 usm elaborate --reset docs/vague/my-feature.md
 ```
 
-The `elaborate` command transforms vague feature descriptions into well-defined user stories following a structured 7-step workflow:
+The `elaborate` command helps refine vague feature ideas into well-defined user stories. It processes a high-level feature description and breaks it down into multiple INVEST user stories using a structured workflow. This command works similar to the 'code' command but is focused on refining user stories rather than implementing code.
 
-1. Analyze the description
-2. Extract user personas
-3. Draft initial user stories
-4. Refine stories to meet INVEST criteria
-5. Prioritize user stories
-6. Add acceptance criteria
-7. Final review and packaging
+## Managing Workflows
 
-For more details, see the [Elaborate Command Documentation](docs/elaborate-command.md).
+USM supports custom workflows for both code implementation and story elaboration processes.
+
+### Listing Available Workflows
+
+```bash
+# List all available workflows
+usm workflow list
+```
+
+### Creating a New Workflow
+
+```bash
+# Initialize a new workflow from a template
+usm workflow init my-workflow
+```
+
+### Validating and Viewing Workflows
+
+```bash
+# Validate a workflow definition
+usm workflow validate path/to/workflow
+
+# Show workflow details
+usm workflow show my-workflow
+```
+
+Workflows are defined using a directory structure containing:
+- `workflow.yaml`: Configuration file with workflow metadata and step definitions
+- `prompts/`: Directory containing individual prompt files
+- `shared/` (optional): Directory for reusable prompt templates
+
+## Updating Metadata
+
+USM can automatically update metadata in user story markdown files:
+
+```bash
+# Update metadata in all user story files
+usm update-metadata
+
+# Enable debug mode for detailed logging
+usm update-metadata --debug
+
+# Skip updating references in change request files
+usm update-metadata --skip-references
+```
+
+This command recursively scans for Markdown files in the `docs/user-stories` directory and ensures each has up-to-date metadata including file path, creation date, last edited date, and content hash.
+
+## Feature Requests
+
+You can submit feature requests directly through the CLI:
+
+```bash
+# Submit a feature request as a user story
+usm ask feature
+```
+
+This will guide you in writing a feature request as a user story and send it to the developers.
 
 ### Prompt interpolated variables
 
@@ -454,7 +556,7 @@ make build-all
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-# Feature request
+# Feature Requests
 
 Have an idea, suggestion or found something confusing?
 
@@ -464,7 +566,7 @@ You can contribute feedback the same way you interact with the tool: by submitti
 usm ask feature
 ```
 
-This will guide you in writing a feature request as a user story and send it to me directly.
+This will guide you in writing a feature request as a user story and send it to the developers directly.
 
 Alternatively, feel free to open an issue or start a discussion here on GitHub.
 
