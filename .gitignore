@@ -42,8 +42,7 @@ coverage.html
 *.step
 docs/brainstorming/
 
-# USM wrapper downloads (exclude downloaded binaries, but keep wrapper scripts)
-.usm
-
 # Development and test files
 test_wrapper.sh
+
+.usm/config/llm_config.json

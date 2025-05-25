@@ -1,0 +1,6 @@
+name: "update-readme"
+description: "Update README.md consistently with the codebase"
+steps:
+  - id: "01-step-one"
+    description: "subcommands"
+    prompt: "prompts/step1.md"
